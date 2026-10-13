@@ -1662,8 +1662,28 @@
   var gerandoAssuntos = false;
   function statusAssuntos(txt) { var el = document.getElementById("topic-status"); if (el) el.textContent = txt; }
   // pede 6 assuntos inéditos pra IA (botão "Gerar novas sugestões"; automático só 1x/24h)
+  // economia de IA: o banco de assuntos é renovado 1x por dia em lote (função banco-sugestoes, metade do preço).
+  // "Gerar novas sugestões" mostra primeiro assuntos que este navegador ainda não viu; só chama a IA ao vivo se acabarem.
+  function assuntosVistos() { try { return JSON.parse(localStorage.getItem("vitrine_assuntos_vistos") || "[]"); } catch (e) { return []; } }
+  function marcarVistos(lista) {
+    var v = assuntosVistos().concat(lista.map(function (t) { return t.id; }));
+    try { localStorage.setItem("vitrine_assuntos_vistos", JSON.stringify(v.slice(-400))); } catch (e) { }
+  }
+  function ineditosDoBanco(n) {
+    var vistos = {}; assuntosVistos().forEach(function (id) { vistos[id] = 1; });
+    var novos = state.topicos.filter(function (t) { return !vistos[t.id]; })
+      .sort(function (a, b) { return String(b.created_at || "").localeCompare(String(a.created_at || "")); });
+    return sortear(novos.slice(0, Math.max(n * 3, 18)), n);
+  }
   function gerarNovosAssuntos(manual) {
     if (gerandoAssuntos) return;
+    var doBanco = ineditosDoBanco(6);
+    if (doBanco.length >= 6) {
+      topicosDaVez = doBanco; topicosIA = true; marcarVistos(doBanco);
+      statusAssuntos("✨ Assuntos novos criados pela IA hoje");
+      if (wizard.subjectMode === "topic") renderTopicGrid();
+      return;
+    }
     gerandoAssuntos = true;
     var btn = document.getElementById("topic-novas");
     if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spin"></div> Gerando…'; }
@@ -1672,7 +1692,7 @@
       var novos = (r && r.topicos) || [];
       if (!novos.length) throw new Error("A IA não trouxe sugestões agora.");
       state.topicos = state.topicos.concat(novos);
-      topicosDaVez = novos.slice(0, 6); topicosIA = true;
+      topicosDaVez = novos.slice(0, 6); topicosIA = true; marcarVistos(topicosDaVez);
       statusAssuntos("✨ Assuntos novos criados pela IA agora");
       if (wizard.subjectMode === "topic") renderTopicGrid();
     }).catch(function (e) {
@@ -1693,16 +1713,10 @@
     topicosDaVez = sortear(state.topicos, 6); topicosIA = false;
     var btn = document.getElementById("topic-novas");
     if (btn && !btn.dataset.ok) { btn.dataset.ok = "1"; btn.addEventListener("click", function () { gerarNovosAssuntos(true); }); }
-    // economia de IA: gera sozinho no máximo 1x a cada 24h por navegador; no resto do tempo mostra os mais recentes do banco
-    var ultimo = 0;
-    try { ultimo = +localStorage.getItem("vitrine_assuntos_auto") || 0; } catch (e) {}
-    if (Date.now() - ultimo > 24 * 3600 * 1000 || state.topicos.length < 6) {
-      try { localStorage.setItem("vitrine_assuntos_auto", String(Date.now())); } catch (e) {}
-      gerarNovosAssuntos(false);
-    } else {
-      var recentes = state.topicos.slice().sort(function (a, b) { return String(b.created_at || "").localeCompare(String(a.created_at || "")); });
-      topicosDaVez = sortear(recentes.slice(0, 18), 6);
-    }
+    // ao abrir: mostra os mais novos do banco que este navegador ainda não viu (sem chamar a IA)
+    var ini = ineditosDoBanco(6);
+    if (ini.length >= 6) { topicosDaVez = ini; marcarVistos(ini); }
+    else if (state.topicos.length < 6) gerarNovosAssuntos(false);
   }
 
   function renderTopicGrid() {

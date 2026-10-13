@@ -1,0 +1,257 @@
+{
+ "name": "Vitrine — avisos automáticos",
+ "nodes": [
+  {
+   "parameters": {
+    "httpMethod": "POST",
+    "path": "vitrine-570f8da3-d6fa-4cd6-b690-2420cfa19e0e",
+    "responseMode": "onReceived",
+    "options": {}
+   },
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2,
+   "position": [
+    0,
+    300
+   ],
+   "name": "Eventos da Vitrine (Supabase)",
+   "webhookId": "99165ade-9d93-4bb4-bf83-0e172c1ddfc5"
+  },
+  {
+   "parameters": {
+    "rules": {
+     "values": [
+      {
+       "conditions": {
+        "options": {
+         "caseSensitive": true,
+         "leftValue": "",
+         "typeValidation": "strict",
+         "version": 2
+        },
+        "conditions": [
+         {
+          "id": "novo_corretor",
+          "leftValue": "={{ $json.body.evento }}",
+          "rightValue": "novo_corretor",
+          "operator": {
+           "type": "string",
+           "operation": "equals"
+          }
+         }
+        ],
+        "combinator": "and"
+       },
+       "renameOutput": true,
+       "outputKey": "novo_corretor"
+      },
+      {
+       "conditions": {
+        "options": {
+         "caseSensitive": true,
+         "leftValue": "",
+         "typeValidation": "strict",
+         "version": 2
+        },
+        "conditions": [
+         {
+          "id": "publicado",
+          "leftValue": "={{ $json.body.evento }}",
+          "rightValue": "publicado",
+          "operator": {
+           "type": "string",
+           "operation": "equals"
+          }
+         }
+        ],
+        "combinator": "and"
+       },
+       "renameOutput": true,
+       "outputKey": "publicado"
+      },
+      {
+       "conditions": {
+        "options": {
+         "caseSensitive": true,
+         "leftValue": "",
+         "typeValidation": "strict",
+         "version": 2
+        },
+        "conditions": [
+         {
+          "id": "erro_publicacao",
+          "leftValue": "={{ $json.body.evento }}",
+          "rightValue": "erro_publicacao",
+          "operator": {
+           "type": "string",
+           "operation": "equals"
+          }
+         }
+        ],
+        "combinator": "and"
+       },
+       "renameOutput": true,
+       "outputKey": "erro_publicacao"
+      },
+      {
+       "conditions": {
+        "options": {
+         "caseSensitive": true,
+         "leftValue": "",
+         "typeValidation": "strict",
+         "version": 2
+        },
+        "conditions": [
+         {
+          "id": "teste_esgotado",
+          "leftValue": "={{ $json.body.evento }}",
+          "rightValue": "teste_esgotado",
+          "operator": {
+           "type": "string",
+           "operation": "equals"
+          }
+         }
+        ],
+        "combinator": "and"
+       },
+       "renameOutput": true,
+       "outputKey": "teste_esgotado"
+      }
+     ]
+    },
+    "options": {}
+   },
+   "type": "n8n-nodes-base.switch",
+   "typeVersion": 3.2,
+   "position": [
+    260,
+    300
+   ],
+   "name": "Qual evento?"
+  },
+  {
+   "parameters": {
+    "sendTo": "={{ $json.body.email }}",
+    "subject": "=Bem-vindo à Vitrine, {{ $json.body.nome || 'corretor' }}! Seu 1º carrossel em 2 minutos",
+    "emailType": "html",
+    "message": "=<div style=\"font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#1a1a2e\"><p>Olá, {{ $json.body.nome || \"corretor\" }}!</p><p>Que bom ter você na <b>Vitrine</b>. Seu primeiro carrossel sai em 2 minutos:</p><ol><li>Entre em <a href=\"https://vitrinecorretores.github.io/\">vitrinecorretores.github.io</a>;</li><li>Na caixa <b>“Sobre o que você quer postar hoje?”</b>, escreva sua ideia (ou escolha uma sugestão);</li><li>Confira a prévia, escolha fonte e cor, e toque em <b>📲 Postar no Instagram</b> ou <b>📅 Agendar</b>.</li></ol><p>Seu teste grátis inclui 3 carrosséis. Qualquer dúvida, é só responder este e-mail.</p><p>Bons posts!<br>Equipe Vitrine</p></div>",
+    "options": {
+     "appendAttribution": false,
+     "senderName": "Vitrine"
+    }
+   },
+   "type": "n8n-nodes-base.gmail",
+   "typeVersion": 2.1,
+   "position": [
+    560,
+    60
+   ],
+   "name": "Boas-vindas ao corretor"
+  },
+  {
+   "parameters": {
+    "sendTo": "evandrotorresrj@gmail.com",
+    "subject": "=✅ Post publicado — {{ $json.body.titulo }}",
+    "emailType": "html",
+    "message": "=<div style=\"font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#1a1a2e\"><p>Um carrossel acabou de ser publicado no Instagram.</p><p><b>Corretor:</b> {{ $json.body.nome }} ({{ $json.body.email }})<br><b>Carrossel:</b> {{ $json.body.titulo }}<br><b>Link:</b> {{ $json.body.permalink || \"—\" }}</p></div>",
+    "options": {
+     "appendAttribution": false,
+     "senderName": "Vitrine"
+    }
+   },
+   "type": "n8n-nodes-base.gmail",
+   "typeVersion": 2.1,
+   "position": [
+    560,
+    240
+   ],
+   "name": "Avisar: post publicado"
+  },
+  {
+   "parameters": {
+    "sendTo": "evandrotorresrj@gmail.com",
+    "subject": "=⚠️ Falha ao publicar — {{ $json.body.titulo }}",
+    "emailType": "html",
+    "message": "=<div style=\"font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#1a1a2e\"><p>Um carrossel agendado <b>não foi publicado</b>.</p><p><b>Corretor:</b> {{ $json.body.nome }} ({{ $json.body.email }})<br><b>Carrossel:</b> {{ $json.body.titulo }}<br><b>Erro:</b> {{ $json.body.erro }}</p><p>Abra o painel Admin da Vitrine para ver a conta.</p></div>",
+    "options": {
+     "appendAttribution": false,
+     "senderName": "Vitrine"
+    }
+   },
+   "type": "n8n-nodes-base.gmail",
+   "typeVersion": 2.1,
+   "position": [
+    560,
+    420
+   ],
+   "name": "Avisar: falha na publicação"
+  },
+  {
+   "parameters": {
+    "sendTo": "={{ $json.body.email }}",
+    "subject": "Seus 3 carrosséis grátis acabaram — continue postando",
+    "emailType": "html",
+    "message": "=<div style=\"font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#1a1a2e\"><p>Olá, {{ $json.body.nome || \"corretor\" }}!</p><p>Você já usou os <b>3 carrosséis do teste grátis</b> da Vitrine. 👏</p><p>Pra continuar criando carrosséis e agendando posts no Instagram, escolha um plano na aba <b>Plano</b>: <a href=\"https://vitrinecorretores.github.io/\">vitrinecorretores.github.io</a></p><p>Ficou com alguma dúvida? Responda este e-mail.</p><p>Equipe Vitrine</p></div>",
+    "options": {
+     "appendAttribution": false,
+     "senderName": "Vitrine"
+    }
+   },
+   "type": "n8n-nodes-base.gmail",
+   "typeVersion": 2.1,
+   "position": [
+    560,
+    600
+   ],
+   "name": "Lembrete: teste grátis acabou"
+  }
+ ],
+ "connections": {
+  "Eventos da Vitrine (Supabase)": {
+   "main": [
+    [
+     {
+      "node": "Qual evento?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Qual evento?": {
+   "main": [
+    [
+     {
+      "node": "Boas-vindas ao corretor",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Avisar: post publicado",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Avisar: falha na publicação",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Lembrete: teste grátis acabou",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1"
+ }
+}

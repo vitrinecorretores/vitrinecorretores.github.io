@@ -579,8 +579,8 @@
     }
     ctx.globalAlpha = 1; ctx.textAlign = "left";
 
-    // teste grátis: faixa com o link da plataforma embaixo de cada página do carrossel
-    if (emTeste()) {
+    // teste grátis e conta admin (divulgação da própria Vitrine): faixa com o link da plataforma em cada página
+    if (comLinkVitrine()) {
       var faixaH = 64, faixaY = SLIDE_H - (alto ? 250 : 0) - faixaH;
       ctx.fillStyle = "rgba(5,6,13,0.78)"; ctx.fillRect(0, faixaY, SLIDE_W, faixaH);
       ctx.fillStyle = "#ffffff"; ctx.textAlign = "center"; ctx.font = "600 26px Manrope, Arial, sans-serif";
@@ -663,7 +663,7 @@
       var cta = sl.length > 1 ? semMarcas(sl[sl.length - 1].corpo || sl[sl.length - 1].titulo) : "";
       leg = [capa ? capa + " 👇" : "", cta, "📌 Salva pra não perder e manda pra quem precisa ver isso.", HASHTAGS].filter(Boolean).join("\n\n");
     }
-    return emTeste() ? leg + "\n\n✨ Criado com a Vitrine — " + LINK_VITRINE : leg;
+    return comLinkVitrine() ? leg + "\n\n✨ Criado com a Vitrine — " + LINK_VITRINE : leg;
   }
 
   var FORMATOS = {
@@ -1128,6 +1128,7 @@
 
   // teste grátis: posts levam a marca da Vitrine e o limite de publicações é o mesmo dos carrosséis grátis
   var LINK_VITRINE = "vitrinecorretores.github.io";
+  function comLinkVitrine() { return emTeste() || ehAdmin(); }
   function emTeste() { return !state.assinatura || state.assinatura.status === "trial"; }
   function publicadosNoInstagram() { return state.carrosseis.filter(function (c) { return c.status === "publicado" && c.instagram_media_id; }).length; }
   function limitePublicacoesTeste() { return (state.profile && state.profile.trial_limite) || 3; }

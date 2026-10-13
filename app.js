@@ -393,13 +393,43 @@
     futurista: { nome: "Futurista", titulo: '"Unbounded", sans-serif', tPeso: 700, corpo: '"Manrope", sans-serif' },
     classica: { nome: "Clássica", titulo: '"Bricolage Grotesque", sans-serif', tPeso: 800, corpo: '"Plus Jakarta Sans", sans-serif' }
   };
-  function fonteDe(id) { return FONTES[id] ? id : "moderna"; }
+  // a coluna carrosseis.fonte guarda "fonte|cor" (ex.: "impacto|limao"); sem "|cor" = amarelo (padrão antigo)
+  function fonteDe(id) { id = String(id || "").split("|")[0]; return FONTES[id] ? id : "moderna"; }
+
+  /* ---------------- paleta de cores do título ----------------
+     Combinações de alto contraste sobre foto escurecida — o padrão dos carrosséis que mais retêm no feed:
+     título claro + 1 palavra-chave numa cor saturada que "salta" (amarelo, verde-limão, laranja, rosa, ciano...).
+     Dourado/creme pra imóveis de alto padrão; "invertido" pra variar o feed sem perder contraste. */
+  var CORES = {
+    amarelo:   { nome: "Amarelo",      titulo: "#FFFFFF", destaque: "#FFD60A" },
+    limao:     { nome: "Verde-limão",  titulo: "#FFFFFF", destaque: "#C6FF00" },
+    laranja:   { nome: "Laranja",      titulo: "#FFFFFF", destaque: "#FF9F1C" },
+    rosa:      { nome: "Rosa choque",  titulo: "#FFFFFF", destaque: "#FF4D9D" },
+    ciano:     { nome: "Ciano",        titulo: "#FFFFFF", destaque: "#00E5FF" },
+    vermelho:  { nome: "Vermelho",     titulo: "#FFFFFF", destaque: "#FF4538" },
+    menta:     { nome: "Menta",        titulo: "#FFFFFF", destaque: "#3DFFB0" },
+    coral:     { nome: "Coral",        titulo: "#FFFFFF", destaque: "#FF7A66" },
+    lilas:     { nome: "Lilás",        titulo: "#FFFFFF", destaque: "#C29BFF" },
+    dourado:   { nome: "Dourado",      titulo: "#FFF6E5", destaque: "#E9C46A" },
+    creme:     { nome: "Creme + laranja", titulo: "#FFF1D6", destaque: "#FF8A3D" },
+    invertido: { nome: "Amarelo invertido", titulo: "#FFD60A", destaque: "#FFFFFF" }
+  };
+  function corDe(f) { var k = String(f || "").split("|")[1]; return CORES[k] ? k : "amarelo"; }
+  function comCor(f, cor) { return fonteDe(f) + (cor && cor !== "amarelo" && CORES[cor] ? "|" + cor : ""); }
+  function corPickerHtml(atual) {
+    var on = corDe(atual);
+    return '<div class="fonts-titulo">Cor do título</div><div class="cor-grid">' + Object.keys(CORES).map(function (k) {
+      var c = CORES[k];
+      return '<button type="button" class="cor-opt' + (k === on ? " on" : "") + '" data-cor="' + k + '" title="' + c.nome + '">' +
+        '<span class="cor-amostra"><b style="color:' + c.titulo + '">Aa</b><b style="color:' + c.destaque + '">Aa</b></span><span class="nm">' + c.nome + '</span></button>';
+    }).join("") + '</div>';
+  }
   function fontPickerHtml(atual) {
     return '<div class="fonts-titulo">Fonte do carrossel</div><div class="font-grid">' + Object.keys(FONTES).map(function (k) {
       var f = FONTES[k];
       return '<button type="button" class="font-opt' + (k === fonteDe(atual) ? " on" : "") + '" data-fonte="' + k + '">' +
         '<span class="aa" style="font-family:' + f.titulo.replace(/"/g, "&quot;") + ';font-weight:' + f.tPeso + '">Aa</span><span class="nm">' + f.nome + '</span></button>';
-    }).join("") + '</div>';
+    }).join("") + '</div>' + corPickerHtml(atual);
   }
   async function carregarFonte(id) {
     var f = FONTES[fonteDe(id)];
@@ -411,9 +441,10 @@
     // imagem relacionada sempre por baixo do texto (fundo do slide inteiro), com o SVG/cor do template como fallback
     var foto = mini ? null : slideImageUrl(slide);
     var artHtml = foto ? '<div class="tile-bg">' + imgWithFallback(foto, "") + '</div>' : "";
-    return '<div class="slide-tile fnt-' + fonteDe(fonte) + ' ' + (mini ? "mini " : "") + (foto ? "has-bg " : "") + 'tpl-' + (tplSlug || "minimalista") + '">' + artHtml +
+    var cor = CORES[corDe(fonte)];
+    return '<div class="slide-tile fnt-' + fonteDe(fonte) + ' ' + (mini ? "mini " : "") + (foto ? "has-bg " : "") + 'tpl-' + (tplSlug || "minimalista") + '" style="--hl:' + cor.destaque + '">' + artHtml +
       '<div class="stag">' + escapeHtml(slide.tag || "") + '</div>' +
-      '<div class="stitle">' + tituloHtml(slide.titulo) + '</div>' +
+      '<div class="stitle" style="color:' + cor.titulo + '">' + tituloHtml(slide.titulo) + '</div>' +
       '<div class="sbody">' + escapeHtml(slide.corpo) + '</div>' +
       (mini ? "" : '<div class="sindex">' + index + "/" + total + "</div>") +
       "</div>";
@@ -507,6 +538,7 @@
     }
 
     var F = FONTES[fonteDe(fonte)];
+    var COR = CORES[corDe(fonte)];
     var family = F.corpo, display = F.titulo, tPeso = F.tPeso;
     ctx.textBaseline = "top";
     if (slide.tag) {
@@ -524,7 +556,7 @@
     title.lines.forEach(function (l, k) {
       var x = pad, y = top + k * title.size * 1.08;
       l.split(" ").forEach(function (w) {
-        ctx.fillStyle = hl[normPalavra(w)] ? COR_DESTAQUE : ink;
+        ctx.fillStyle = hl[normPalavra(w)] ? COR.destaque : COR.titulo;
         ctx.fillText(w, x, y);
         x += ctx.measureText(w).width + espaco;
       });
@@ -533,13 +565,13 @@
 
     var bodyMaxH = avail - title.height - 48;
     var body = fitText(ctx, slide.corpo, { size: 44, min: 26, weight: 500, family: family, maxW: SLIDE_W - pad * 2, maxH: bodyMaxH, lh: 1.38 });
-    ctx.globalAlpha = 0.92; ctx.font = "500 " + body.size + "px " + family;
+    ctx.globalAlpha = 0.92; ctx.fillStyle = ink; ctx.font = "500 " + body.size + "px " + family;
     var by = bottomLimit - body.height;           // corpo alinhado embaixo, como no preview
     body.lines.forEach(function (l, k) { ctx.fillText(l, pad, by + k * body.size * 1.38); });
     ctx.textAlign = "right";
     if (i === 0 && total > 1) {
       // capa: chamada visual pra arrastar (aumenta o "swipe rate", sinal forte pro algoritmo)
-      ctx.globalAlpha = 1; ctx.fillStyle = COR_DESTAQUE; ctx.font = "800 34px " + family;
+      ctx.globalAlpha = 1; ctx.fillStyle = COR.destaque; ctx.font = "800 34px " + family;
       ctx.fillText("ARRASTA  →", SLIDE_W - pad, bottomLimit + 26);
     } else {
       ctx.globalAlpha = 0.7; ctx.font = "500 30px \"JetBrains Mono\", monospace";
@@ -1183,6 +1215,8 @@
           '<div class="meta">' + when + '</div>' +
           (c.erro_publicacao ? '<div class="meta erro-pub" title="' + escapeHtml(c.erro_publicacao) + '">⚠ ' + escapeHtml(c.erro_publicacao) + '</div>' : '') +
           '<div class="actions">' +
+          (c.status === "rascunho" ? '<button class="btn btn-primary btn-sm btn-agendar" data-agendar="' + c.id + '" title="Agendar publicação">📅 Agendar</button>' : "") +
+          (c.status === "agendado" ? '<button class="btn btn-ghost btn-sm" data-agendar="' + c.id + '" title="Mudar data e horário">📅</button>' : "") +
           '<button class="btn btn-ghost btn-sm" data-view="' + c.id + '">' + ICONS.eye + '</button>' +
           '<button class="btn btn-ghost btn-sm" data-del="' + c.id + '">' + ICONS.trash + '</button>' +
           '</div>' +
@@ -1192,6 +1226,7 @@
     }).join("");
 
     qsa("[data-view]").forEach(function (b) { b.addEventListener("click", function () { openCarouselModal(b.dataset.view); }); });
+    qsa("[data-agendar]").forEach(function (b) { b.addEventListener("click", function () { abrirAgendarRascunho(b.dataset.agendar); }); });
     qsa("[data-del]").forEach(function (b) {
       b.addEventListener("click", async function () {
         var id = b.dataset.del;
@@ -1215,6 +1250,7 @@
       ? (igLink(c.instagram_permalink) ? '<a class="btn btn-ghost btn-sm" href="' + escapeHtml(igLink(c.instagram_permalink)) + '" target="_blank" rel="noopener noreferrer">' + ICONS.ig + ' Ver no Instagram</a>' : "")
       : '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">' +
         '<button class="btn btn-ghost btn-sm" id="preview-ig">' + ICONS.eye + ' Ver como fica</button>' +
+        '<button class="btn btn-ghost btn-sm" id="agendar-modal">📅 ' + (c.status === "agendado" ? "Reagendar" : "Agendar") + '</button>' +
         (c.status === "agendado" ? '<button class="btn btn-ghost btn-sm" id="mark-published">' + ICONS.check + ' Marcar como publicado</button>' : "") +
         '<button class="btn btn-primary btn-sm" id="publish-ig">📲 Postar no Instagram</button></div>';
     document.getElementById("modal-body").innerHTML =
@@ -1229,9 +1265,16 @@
       '<span style="font-size:12px;color:var(--ink-faint);">' + escapeHtml(meta.sub) + '</span>' + extra + '</div>';
     document.getElementById("overlay").hidden = false;
     document.getElementById("modal-close").addEventListener("click", closeModal);
+    qsa("#modal-fontes [data-cor]").forEach(function (b) {
+      b.onclick = async function () {
+        c.fonte = comCor(c.fonte, b.dataset.cor);
+        try { await DB.update("carrosseis", "id=eq." + c.id, { fonte: c.fonte }); } catch (e) { toast("Erro ao salvar a cor: " + e.message); }
+        openCarouselModal(c.id); renderPainel();
+      };
+    });
     qsa("#modal-fontes [data-fonte]").forEach(function (b) {
       b.onclick = async function () {
-        c.fonte = b.dataset.fonte;
+        c.fonte = comCor(b.dataset.fonte, corDe(c.fonte));
         try { await DB.update("carrosseis", "id=eq." + c.id, { fonte: c.fonte }); } catch (e) { toast("Erro ao salvar a fonte: " + e.message); }
         openCarouselModal(c.id); renderPainel();
       };
@@ -1248,6 +1291,8 @@
     if (pv) pv.addEventListener("click", async function () { await previewCarousel(c); openCarouselModal(c.id); });
     var pi = document.getElementById("publish-ig");
     if (pi) pi.addEventListener("click", function () { postarComMusica(c); });
+    var am = document.getElementById("agendar-modal");
+    if (am) am.addEventListener("click", function () { abrirAgendarRascunho(c.id); });
     var mp = document.getElementById("mark-published");
     if (mp) mp.addEventListener("click", async function () {
       try {
@@ -1259,6 +1304,60 @@
     });
   }
   function closeModal() { document.getElementById("overlay").hidden = true; }
+
+  // agendar (ou reagendar) um carrossel já salvo, direto do Painel
+  function abrirAgendarRascunho(id) {
+    var c = state.carrosseis.find(function (x) { return x.id === id; });
+    if (!c) return;
+    var meta = getSubjectMeta(c);
+    var ini = c.status === "agendado" && c.data_agendada ? new Date(c.data_agendada) : null;
+    var dIni = ini ? ymd(ini) : ymd(addDays(1));
+    var tIni = ini ? pad2(ini.getHours()) + ":" + pad2(ini.getMinutes()) : "18:00";
+    var igOn = state.igConta && state.igConta.status === "ativo";
+    document.getElementById("modal-body").innerHTML =
+      '<div class="modal-head"><div><h3 style="font-size:19px;">📅 ' + (c.status === "agendado" ? "Reagendar" : "Agendar") + ' publicação</h3>' +
+      '<div style="font-size:13px;color:var(--ink-muted);margin-top:4px;">' + escapeHtml(meta.titulo) + '</div></div>' +
+      '<button class="modal-close" id="modal-close">' + ICONS.close + '</button></div>' +
+      '<div class="agendar-rapido">' +
+      '<label>Dia<input type="date" id="ag-data" value="' + dIni + '" min="' + ymd(new Date()) + '" max="' + ymd(addDays(90)) + '"></label>' +
+      '<label>Horário<input type="time" id="ag-hora" value="' + tIni + '" step="300"></label></div>' +
+      '<div class="ag-chips">' + HORARIOS_TOP.map(function (t) { return '<button type="button" class="cal-slot top" data-ag-hora="' + t + '">' + t + '</button>'; }).join("") +
+      '<span class="ag-dica">horários de mais engajamento</span></div>' +
+      (igOn ? '<p class="ag-info">Na hora marcada, a Vitrine publica sozinha no seu Instagram — mesmo com o app fechado.</p>'
+            : '<p class="ag-info ag-warn">⚠ Seu Instagram ainda não está conectado. Conecte na aba Instagram até o horário, senão o post não sai sozinho.</p>') +
+      '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">' +
+      '<button class="btn btn-ghost btn-sm" id="ag-cancelar">Cancelar</button>' +
+      '<button class="btn btn-primary btn-sm" id="ag-confirmar">📅 Confirmar agendamento</button></div>';
+    document.getElementById("overlay").hidden = false;
+    document.getElementById("modal-close").onclick = closeModal;
+    document.getElementById("ag-cancelar").onclick = closeModal;
+    qsa("[data-ag-hora]").forEach(function (b) { b.onclick = function () { document.getElementById("ag-hora").value = b.dataset.agHora; }; });
+    document.getElementById("ag-confirmar").onclick = async function () {
+      var btn = this;
+      var d = document.getElementById("ag-data").value, t = document.getElementById("ag-hora").value || "18:00";
+      if (!d) { toast("Escolha o dia da publicação."); return; }
+      var quando = new Date(d + "T" + t);
+      if (quando <= new Date(Date.now() + 5 * 60000)) { toast("Esse horário já passou (ou está em menos de 5 minutos) — escolha outro."); return; }
+      if (quando > addDays(90)) { toast("Dá pra agendar até 90 dias à frente."); return; }
+      if (!c.slides || c.slides.length < 2 || c.slides.length > 10) { toast("Pra publicar no feed o carrossel precisa ter de 2 a 10 slides."); return; }
+      if (c.status !== "agendado" && testeSemPublicacoes()) { closeModal(); avisoFimDoTeste(); return; }
+      btn.disabled = true; var orig = btn.textContent; btn.textContent = "Agendando…";
+      var eraRascunho = c.status !== "agendado";
+      try {
+        var iso = quando.toISOString();
+        await DB.update("carrosseis", "id=eq." + c.id, { status: "agendado", data_agendada: iso, erro_publicacao: null });
+        c.status = "agendado"; c.data_agendada = iso; c.erro_publicacao = null;
+        // imagens do feed prontas no Storage pro servidor publicar na hora marcada
+        // rascunho pode ter sido editado (fonte/fotos) depois de algum render antigo: renderiza de novo
+        if (eraRascunho || c.slides.some(function (s) { return !s.render_url; })) {
+          try { await prepararAgendado(c, function (n, tot) { btn.textContent = "Preparando imagens " + n + "/" + tot + "…"; }); }
+          catch (e) { toast("Agendado, mas as imagens não foram preparadas (" + e.message + "). Abra o app antes do horário que eu tento de novo."); }
+        }
+        closeModal(); renderPainel(); renderInstagram();
+        toast("Agendado para " + fmtDateTime(iso) + (igOn ? " — vai ser publicado sozinho no Instagram." : ". Conecte o Instagram (aba Instagram) até lá pra publicar sozinho."));
+      } catch (err) { toast("Erro ao agendar: " + err.message); btn.disabled = false; btn.textContent = orig; }
+    };
+  }
 
   /* ============================================================
      IMÓVEIS
@@ -1799,7 +1898,8 @@
     var fbox = document.getElementById("wiz-fontes");
     if (!fbox) { fbox = document.createElement("div"); fbox.id = "wiz-fontes"; strip.insertAdjacentElement("beforebegin", fbox); }
     fbox.innerHTML = fontPickerHtml(wizard.fonte);
-    qsa("[data-fonte]", fbox).forEach(function (b) { b.onclick = function () { wizard.fonte = b.dataset.fonte; renderTplStep(); }; });
+    qsa("[data-fonte]", fbox).forEach(function (b) { b.onclick = function () { wizard.fonte = comCor(b.dataset.fonte, corDe(wizard.fonte)); renderTplStep(); }; });
+    qsa("[data-cor]", fbox).forEach(function (b) { b.onclick = function () { wizard.fonte = comCor(wizard.fonte, b.dataset.cor); renderTplStep(); }; });
     var box = document.getElementById("wiz-fotos");
     if (!box) { box = document.createElement("div"); box.id = "wiz-fotos"; strip.insertAdjacentElement("afterend", box); }
     if (wizard.slides && wizard.slides.length) {
@@ -1910,7 +2010,7 @@
     var origem = wizard.subjectMode === "property" ? "imovel" : wizard.subjectMode === "topic" ? "topico" : "custom";
     var tpl = findTemplateBySlug(wizard.templateSlug);
     var temp = {
-      _temp: true, origem: origem, template_id: tpl ? tpl.id : null, fonte: fonteDe(wizard.fonte),
+      _temp: true, origem: origem, template_id: tpl ? tpl.id : null, fonte: comCor(wizard.fonte, corDe(wizard.fonte)),
       propriedade_id: wizard.propertyId, topico_id: wizard.topicId,
       assunto_custom: wizard.customTopic, categoria: wizard.customCategoria,
       slides: wizard.slides
@@ -1926,7 +2026,7 @@
       corretor_id: state.profile.id,
       origem: origem,
       template_id: tpl ? tpl.id : null,
-      fonte: fonteDe(wizard.fonte),
+      fonte: comCor(wizard.fonte, corDe(wizard.fonte)),
       direcionamento: wizard.customPrompt || null,
       status: wizard.dest,
       propriedade_id: origem === "imovel" ? wizard.propertyId : null,

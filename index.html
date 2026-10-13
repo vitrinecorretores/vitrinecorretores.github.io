@@ -489,7 +489,8 @@ body .auth-card{padding:22px;}
   .fmt-tab.on{border-color:var(--accent); background:var(--accent-soft);}
   .navitem.navitem-criar{background:linear-gradient(135deg,#8B5CFF,#5B8CFF); color:#fff; margin-bottom:6px; box-shadow:0 4px 14px rgba(139,92,255,.28);}
   .navitem.navitem-criar:hover,.navitem.navitem-criar.active{background:linear-gradient(135deg,#7a48f5,#4a7cf5); color:#fff;}
-  .slide-tile .stitle .hl, .dica-destaque .hl{color:#FFD60A;}
+  .slide-tile .stitle .hl{color:var(--hl,#FFD60A);}
+  .dica-destaque .hl{color:#FFD60A;}
   .dica-destaque{font-size:12px; color:var(--ink-muted); margin:0 0 10px;}
   .tema-livre{background:linear-gradient(135deg, rgba(139,92,255,0.16), rgba(0,224,255,0.08)); border:1px solid rgba(139,92,255,0.45); border-radius:16px; padding:18px; margin-bottom:18px;}
   .tema-livre-titulo{display:block; font-family:"Space Grotesk",sans-serif; font-size:20px; font-weight:700; margin-bottom:10px;}
@@ -622,6 +623,20 @@ body .auth-card{padding:22px;}
 .alertas-sistema .alerta-item b{color:#ffd1da;font-size:14.5px;}
 .alertas-sistema .alerta-item .sub{color:#ffb3c1;font-size:12.5px;margin-top:3px;}
 .alertas-sistema button{align-self:flex-start;}
+.btn-agendar{font-size:12px;padding:6px 10px;}
+.agendar-rapido{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px;}
+.agendar-rapido label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--ink-muted);font-weight:600;}
+.agendar-rapido input{background:#05060D;color:#F3F4FF;border:1px solid #252A50;border-radius:10px;padding:10px 12px;font-size:15px;color-scheme:dark;}
+.ag-chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px;}
+.ag-chips .ag-dica{font-size:11.5px;color:var(--ink-faint);}
+.ag-info{font-size:12.5px;color:var(--ink-muted);margin:14px 0 0;}
+.ag-info.ag-warn{color:#ffcf6e;}
+.cor-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:14px;}
+.cor-opt{display:flex;flex-direction:column;align-items:center;gap:4px;background:#0A0C1A;border:1px solid #252A50;border-radius:10px;padding:8px 4px;cursor:pointer;color:var(--ink-muted);}
+.cor-opt.on{border-color:#8B5CFF;box-shadow:0 0 0 2px rgba(139,92,255,.35);color:#F3F4FF;}
+.cor-opt .cor-amostra{display:flex;gap:2px;font-family:"Anton",sans-serif;font-size:18px;line-height:1;background:#1b1e30;border-radius:6px;padding:5px 7px;}
+.cor-opt .nm{font-size:10.5px;text-align:center;line-height:1.2;}
+@media (max-width:560px){.agendar-rapido{grid-template-columns:1fr;}.cor-grid{grid-template-columns:repeat(4,1fr);}}
 </style>
 </head>
 <body>
@@ -960,6 +975,6 @@ body .auth-card{padding:22px;}
   <div id="toast"></div>
 </div>
 
-<script src="app.js?v=20261009-alerta"></script>
+<script src="app.js?v=20261013-cores"></script>
 </body>
 </html>

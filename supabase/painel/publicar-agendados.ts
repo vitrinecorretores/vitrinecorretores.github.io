@@ -72,8 +72,9 @@ async function publicarUm(db: SupabaseClient, car: any) {
   if (imagens.length < 2 || imagens.length > 10) throw new Error("O carrossel do feed precisa ter de 2 a 10 slides.");
   // deno-lint-ignore no-explicit-any
   const LINK_TESTE = "\n\n✨ Criado com a Vitrine — vitrinecorretores.github.io";
-  let caption = slides.map((s: any) => s.titulo).filter(Boolean).join(" · ");
-  if (emTeste) caption = caption.slice(0, 2200 - LINK_TESTE.length) + LINK_TESTE;
+  // legenda escrita no agendamento (coluna carrosseis.legenda); sem ela, junta os títulos dos slides
+  let caption = (typeof car.legenda === "string" && car.legenda.trim()) ? car.legenda.trim() : slides.map((s: any) => s.titulo).filter(Boolean).join(" · ");
+  if (emTeste && !caption.includes("vitrinecorretores.github.io")) caption = caption.slice(0, 2200 - LINK_TESTE.length) + LINK_TESTE;
   caption = caption.slice(0, 2200);
   const igId = conta.instagram_business_id as string;
 

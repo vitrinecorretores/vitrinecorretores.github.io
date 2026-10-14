@@ -2189,7 +2189,14 @@
       :
       ('<div class="l"><div class="ig-icon">' + ICONS.ig + '</div><div><div style="font-weight:700;">Nenhuma conta conectada</div>' +
         '<div style="font-size:12px;color:var(--ink-muted);">Conecte sua conta Profissional do Instagram para os posts agendados saírem sozinhos na hora marcada</div></div></div>' +
-        '<button class="btn btn-primary btn-sm" id="ig-toggle">Conectar Instagram</button>');
+        '<button class="btn btn-primary btn-sm" id="ig-toggle">Conectar Instagram</button>' +
+        // lembrete: dá pra usar a Vitrine sem conectar, postando pelo próprio Instagram
+        '<div class="ig-sem-conectar">' +
+          '<div><b>Não quer conectar agora?</b> Você também pode postar direto pelo Instagram: abra o carrossel no Painel e toque em <b>Postar no Instagram</b>. ' +
+          'A Vitrine prepara as imagens e copia a legenda, aí é só abrir o Instagram e publicar. ' +
+          '<span class="sub">Sem conectar, os posts agendados não saem sozinhos na hora marcada.</span></div>' +
+          '<a class="btn btn-ghost btn-sm" href="https://www.instagram.com/" target="_blank" rel="noopener">Abrir o Instagram ↗</a>' +
+        '</div>');
     document.getElementById("ig-toggle").addEventListener("click", async function () {
       try {
         if (connected) {

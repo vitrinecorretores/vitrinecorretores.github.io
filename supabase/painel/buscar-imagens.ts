@@ -123,6 +123,47 @@ Responda SÓ com um array JSON de strings, na mesma ordem dos slides.`,
 
 const base = (u: string) => (u || "").split("?")[0];
 
+// ---- banco próprio de fotos (tabela banco_fotos, abastecida pelo abastecer-fotos) ----
+// a busca do slide vira uma categoria do banco; sem categoria clara, usa a API ao vivo
+const CATEGORIA_POR_PALAVRA: [RegExp, string][] = [
+  [/fortaleza|cear[aá]|iracema|meireles|mucuripe|aldeota|cumbuco/i, "fortaleza"],
+  [/kitchen|cozinha/i, "cozinha"],
+  [/bedroom|quarto/i, "quarto"],
+  [/bathroom|banheiro/i, "banheiro"],
+  [/living|sofa|sala/i, "sala"],
+  [/balcon|terrace|varanda/i, "varanda"],
+  [/pool|piscina/i, "piscina"],
+  [/beach|ocean|\bsea\b|praia|mar\b/i, "praia"],
+  [/key|chave/i, "chaves"],
+  [/contract|\bsign|document|paper|handshake|contrato|pen\b/i, "contrato"],
+  [/calculat|coin|money|mortgage|piggy|financ|budget|bank|savings/i, "financas"],
+  [/chart|graph|stock|growth|data|economy|gr[aá]fico/i, "graficos"],
+  [/moving|boxes|unpack|mudan/i, "mudanca"],
+  [/construct|crane|blueprint|architect|obra|building site/i, "obra"],
+  [/phone|smartphone|social|instagram|celular/i, "celular"],
+  [/agent|meeting|office|laptop|desk|work|broker|corretor/i, "trabalho"],
+  [/gated|condomin|community|suburb/i, "condominio"],
+  [/skyline|aerial|drone|city|cidade/i, "cidade"],
+  [/tower|high.?rise|apartment building|residential building|pr[eé]dio/i, "predios"],
+  [/facade|exterior|house|home|villa|casa/i, "fachada"],
+  [/decor|interior|dining|design/i, "decoracao"],
+];
+function categoriaDe(q: string): string | null {
+  for (const [re, cat] of CATEGORIA_POR_PALAVRA) if (re.test(q)) return cat;
+  return null;
+}
+async function doBanco(db: SupabaseClient, uid: string, categoria: string | null, usados: Set<string>): Promise<Foto | null> {
+  if (!categoria) return null;
+  const { data, error } = await db.rpc("banco_fotos_sortear", { p_categoria: categoria, p_corretor: uid, p_excluir: [...usados], p_qtd: 5 });
+  if (error) { console.error("banco_fotos:", error.message); return null; }
+  // deno-lint-ignore no-explicit-any
+  const foto = (data ?? []).find((f: any) => !usados.has(f.id) && !usados.has(base(f.url)));
+  if (!foto) return null;
+  usados.add(foto.id);
+  if (foto.download_location && UNSPLASH) fetch(foto.download_location, { headers: { Authorization: "Client-ID " + UNSPLASH } }).catch(() => {});
+  return { id: foto.id, url: foto.url, credito: foto.credito, link: foto.link };
+}
+
 async function buscarUnsplash(q: string, usados: Set<string>, pagina = paginaAleatoria()): Promise<Foto | null> {
   const u = new URL("https://api.unsplash.com/search/photos");
   u.searchParams.set("page", String(pagina));
@@ -208,9 +249,13 @@ Deno.serve(handle(async (req) => {
   const imagens = [];
   const escolhidas: string[] = [];
   for (const q of termos) {
-    let foto = await buscarFoto(q, usados);
+    // 1º o banco próprio (rápido e sem limite de API); se não tiver foto da categoria, a busca ao vivo de sempre
+    const cat = categoriaDe(q);
+    let foto = await doBanco(db, uid, cat, usados);
+    if (!foto) foto = await buscarFoto(q, usados);
     if (!foto && ehFortaleza(q)) foto = await buscarFoto("Fortaleza Brazil", usados);           // Fortaleza genérica
     if (!foto) foto = await buscarFoto(q.split(" ").slice(0, 2).join(" ") || "real estate", usados); // busca mais ampla
+    if (!foto) foto = await doBanco(db, uid, cat === "fachada" ? "sala" : "fachada", usados);       // último recurso: foto de imóvel do banco
     if (foto) escolhidas.push(foto.id);
     imagens.push(foto ? { url: foto.url, credito: foto.credito, link: foto.link, termo: q } : null);
   }

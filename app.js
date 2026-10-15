@@ -509,7 +509,9 @@
     for (; size >= opts.min; size -= 2) {
       ctx.font = opts.weight + " " + size + "px " + opts.family;
       lines = wrapLines(ctx, text, opts.maxW);
-      if (lines.length * size * opts.lh <= opts.maxH) break;
+      // cabe na altura E nenhuma palavra longa estoura a largura (ex.: "FINANCIAMENTO" em fonte grande)
+      var larga = lines.some(function (l) { return ctx.measureText(l).width > opts.maxW; });
+      if (!larga && lines.length * size * opts.lh <= opts.maxH) break;
     }
     return { size: size, lines: lines, height: lines.length * size * opts.lh };
   }
@@ -548,7 +550,8 @@
     }
     var bottomLimit = SLIDE_H - (alto ? 340 : pad) - 60;   // reserva espaço do contador (e da UI do stories/reels)
     var avail = bottomLimit - top;
-    var title = fitText(ctx, semMarcas(slide.titulo), { size: i === 0 ? 108 : 84, min: 44, weight: tPeso, family: display, maxW: SLIDE_W - pad * 2, maxH: avail * 0.58, lh: 1.08 });
+    // título em destaque: fonte maior e até 2/3 da área útil, pra chamar atenção já na miniatura do feed
+    var title = fitText(ctx, semMarcas(slide.titulo), { size: i === 0 ? 140 : 116, min: 52, weight: tPeso, family: display, maxW: SLIDE_W - pad * 2, maxH: avail * 0.66, lh: 1.08 });
     ctx.font = tPeso + " " + title.size + "px " + display;
     var hl = palavrasDestaque(slide.titulo), espaco = ctx.measureText(" ").width;
     // sombra leve: o título "salta" da foto, como nos carrosséis que viralizam
@@ -564,7 +567,7 @@
     ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
 
     var bodyMaxH = avail - title.height - 48;
-    var body = fitText(ctx, slide.corpo, { size: 44, min: 26, weight: 500, family: family, maxW: SLIDE_W - pad * 2, maxH: bodyMaxH, lh: 1.38 });
+    var body = fitText(ctx, slide.corpo, { size: 40, min: 26, weight: 500, family: family, maxW: SLIDE_W - pad * 2, maxH: bodyMaxH, lh: 1.38 });
     ctx.globalAlpha = 0.92; ctx.fillStyle = ink; ctx.font = "500 " + body.size + "px " + family;
     var by = bottomLimit - body.height;           // corpo alinhado embaixo, como no preview
     body.lines.forEach(function (l, k) { ctx.fillText(l, pad, by + k * body.size * 1.38); });

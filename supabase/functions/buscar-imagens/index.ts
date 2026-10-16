@@ -14,21 +14,59 @@ const BUSCAS_POR_HORA = 60;
 
 type Slide = { titulo?: string; corpo?: string };
 
-// fotos reais de Fortaleza-CE pra variar os carrosséis (o corretor atua lá)
+// consultas locais continuam úteis, mas agora priorizamos imóveis, fachadas e interiores
+// em vez de pontos turísticos genéricos que deixam o carrossel menos imobiliário.
 const LUGARES_FORTALEZA = [
-  "Fortaleza Beira Mar", "Fortaleza skyline", "Praia de Iracema Fortaleza", "Meireles Fortaleza",
-  "Ponte dos Ingleses Fortaleza", "Praia do Futuro Fortaleza", "Fortaleza Ceara buildings", "Fortaleza sunset beach",
+  "Fortaleza apartment building facade",
+  "Fortaleza condo exterior",
+  "Fortaleza apartment balcony view",
+  "Meireles apartment living room",
+  "Aldeota apartment exterior",
+  "Mucuripe condo facade",
+  "Praia do Futuro apartment balcony",
+  "Fortaleza real estate street view",
 ];
 const ehFortaleza = (q: string) => /fortaleza|cear[aá]|iracema|meireles|mucuripe|aldeota/i.test(q);
 // escolhe uma foto aleatória entre as boas (não sempre a 1ª) pra não repetir as mesmas imagens
 // deno-lint-ignore no-explicit-any
 function sortear<T>(lista: T[]): T | undefined { return lista.length ? lista[Math.floor(Math.random() * Math.min(lista.length, 6))] : undefined; }
 
+function textoSlide(s: Slide) {
+  return `${s.titulo ?? ""} ${s.corpo ?? ""}`.trim().toLowerCase();
+}
+
+function temLocalizacao(txt: string) {
+  return /fortaleza|cear[aá]|bairro|regi[aã]o|meireles|aldeota|mucuripe|praia do futuro|iracema|localiza[cç][aã]o|vista|orla/.test(txt);
+}
+
+function buscaFallbackPorSlide(contexto: string, slide: Slide, i: number): string {
+  const txt = textoSlide(slide);
+  const ctx = String(contexto || "").toLowerCase();
+  const local = temLocalizacao(txt) || temLocalizacao(ctx);
+  if (/foto|fotos|fachada|an[uú]ncio|primeira impress[aã]o|visita|tour|apresenta[cç][aã]o/.test(txt)) {
+    return local ? "Fortaleza apartment building facade" : "modern apartment building facade brazil";
+  }
+  if (/financ|juros|parcela|fgts|banco|cr[eé]dito|entrada|contrato|documenta[cç][aã]o|an[aá]lise/.test(txt)) {
+    return local ? "Fortaleza real estate contract signing" : "couple signing home purchase contract brazil";
+  }
+  if (/comprador|comprar|compra|cliente|atendimento|corretor|venda|vender|propriet[aá]rio|capta[cç][aã]o/.test(txt)) {
+    return local ? "Fortaleza real estate agent showing apartment" : "real estate agent showing apartment brazil";
+  }
+  if (/alto padr[aã]o|luxo|sofistic|premium/.test(txt)) {
+    return local ? "Fortaleza luxury apartment interior" : "luxury apartment interior brazil";
+  }
+  if (/invest|aluguel|loca[cç][aã]o|renda/.test(txt)) {
+    return local ? "Fortaleza apartment for rent exterior" : "apartment for rent exterior brazil";
+  }
+  if (local) {
+    return LUGARES_FORTALEZA[(i + Math.floor(Math.random() * LUGARES_FORTALEZA.length)) % LUGARES_FORTALEZA.length];
+  }
+  return i % 2 === 0 ? "modern apartment living room brazil" : "real estate agent with house keys brazil";
+}
+
 // pede ao Claude 1 busca curta em inglês por slide (fotos de banco de imagem respondem melhor em inglês)
 async function termosDeBusca(contexto: string, slides: Slide[]): Promise<string[]> {
-  const fallback = slides.map((s, i) => i % 2 === 1
-    ? LUGARES_FORTALEZA[(i + Math.floor(Math.random() * LUGARES_FORTALEZA.length)) % LUGARES_FORTALEZA.length]
-    : (`${contexto} ${s.titulo ?? ""}`.trim().slice(0, 80) || "modern apartment brazil"));
+  const fallback = slides.map((s, i) => buscaFallbackPorSlide(contexto, s, i));
   if (!ANTHROPIC) return fallback;
   try {
     const lista = slides.map((s, i) => `${i + 1}. ${s.titulo ?? ""} — ${(s.corpo ?? "").slice(0, 160)}`).join("\n");
@@ -46,11 +84,15 @@ Slides:
 ${lista}
 
 Para cada slide, escreva UMA busca curta (2 a 5 palavras) que traga uma foto real, bonita e relacionada ao assunto do slide.
-O corretor atua em FORTALEZA, CEARÁ. Diversifique: em cerca de METADE dos slides (alternando, nunca dois seguidos iguais), use fotos reais de Fortaleza,
-sempre com a palavra "Fortaleza" na busca e variando o lugar — ex.: "Fortaleza Beira Mar", "Fortaleza skyline", "Praia de Iracema Fortaleza",
-"Meireles Fortaleza", "Fortaleza Ceara buildings", "Ponte dos Ingleses Fortaleza", "Praia do Futuro Fortaleza", "Dragao do Mar Fortaleza", "Fortaleza sunset beach".
-Nos outros slides use buscas em INGLÊS ligadas ao assunto (ex.: "modern apartment living room", "house keys handover", "couple signing contract", "beach view balcony").
-Não repita a mesma busca em dois slides. Evite pessoas olhando pra câmera e evite qualquer coisa com texto.
+Priorize fotos diretamente ligadas a imóveis e ao trabalho do corretor: fachada de prédio, sala, cozinha, varanda, quarto, condomínio,
+corretor mostrando imóvel, visita, entrega de chaves, assinatura de contrato, casal comprando imóvel, detalhes de casa/apartamento.
+Use Fortaleza só quando o slide falar de bairro, localização, vista, região, mercado local ou quando uma foto local realmente ajudar.
+Evite transformar metade do carrossel em paisagem da cidade. Fortaleza deve aparecer mais como contexto imobiliário
+(ex.: "Fortaleza apartment building facade", "Meireles apartment balcony", "Fortaleza real estate street view")
+do que como ponto turístico genérico.
+As buscas devem ser em INGLÊS e curtas, sempre ligadas ao assunto do slide (ex.: "modern apartment living room", "real estate agent showing apartment",
+"couple signing home contract", "apartment building facade", "house keys handover").
+Não repita a mesma busca em dois slides. Evite pessoas olhando pra câmera, skyline genérico, praia sem relação com imóvel e qualquer coisa com texto.
 Responda SÓ com um array JSON de strings, na mesma ordem dos slides.`,
         }],
       }),
@@ -135,8 +177,9 @@ Deno.serve(handle(async (req) => {
   const imagens = [];
   for (const q of termos) {
     let foto = await buscarFoto(q, usados);
-    if (!foto && ehFortaleza(q)) foto = await buscarFoto("Fortaleza Brazil", usados);           // Fortaleza genérica
-    if (!foto) foto = await buscarFoto(q.split(" ").slice(0, 2).join(" ") || "real estate", usados); // busca mais ampla
+    if (!foto && ehFortaleza(q)) foto = await buscarFoto("Fortaleza apartment building", usados);
+    if (!foto) foto = await buscarFoto(q.split(" ").slice(0, 3).join(" ") || "real estate property", usados);
+    if (!foto) foto = await buscarFoto("real estate apartment interior", usados);
     imagens.push(foto ? { ...foto, termo: q } : null);
   }
   return json({ imagens });

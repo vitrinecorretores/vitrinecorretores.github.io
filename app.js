@@ -327,9 +327,16 @@
 
   function getSubjectMeta(c) {
     var meta;
+    var slide0 = (c.slides && c.slides[0]) || null;
+    var tituloSalvo = slide0 && slide0.titulo ? String(slide0.titulo).trim() : "";
+    var corpoSalvo = slide0 && slide0.corpo ? String(slide0.corpo).trim() : "";
     if (c.origem === "topico") {
       var t = findTopic(c.topico_id);
-      meta = { titulo: t ? t.gancho : "Assunto do mercado", sub: t ? t.categoria + " · sugestão da Vitrine" : "Sugestão da Vitrine", art: topicCoverSvg(t ? t.categoria : "Dicas") };
+      meta = {
+        titulo: t ? t.gancho : (tituloSalvo || c.assunto_custom || "Assunto do mercado"),
+        sub: t ? t.categoria + " · sugestão da Vitrine" : (corpoSalvo || "Sugestão da Vitrine"),
+        art: topicCoverSvg(t ? t.categoria : (c.categoria || "Dicas"))
+      };
     } else if (c.origem === "custom") {
       meta = { titulo: c.assunto_custom || "Assunto personalizado", sub: (c.categoria || "Mercado") + " · assunto próprio", art: customCoverSvg() };
     } else {
@@ -339,8 +346,7 @@
     // se o carrossel já foi salvo com uma imagem de capa real (Pollinations.ai), usa ela — com o SVG acima como fallback.
     // imagem_url passa por escapeHtml() porque é um valor gravado no banco (RLS permite o dono escrever nos próprios
     // slides) e vai direto num atributo HTML — sem isso, um valor malicioso ali quebraria o atributo (XSS).
-    var capa = c.slides && c.slides[0];
-    if (capa && isFotoReal(capa.imagem_url)) meta.art = imgWithFallback(capa.imagem_url, meta.art);
+    if (slide0 && isFotoReal(slide0.imagem_url)) meta.art = imgWithFallback(slide0.imagem_url, meta.art);
     return meta;
   }
 
@@ -2525,4 +2531,3 @@
 
   bootApp();
 })();
-

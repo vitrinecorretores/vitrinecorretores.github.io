@@ -2449,6 +2449,43 @@
   // visitante sem login vê a página de captação; os botões abrem o cadastro (teste grátis) ou o login
   var landingWired = false;
   var landingPlanPeriod = "monthly";
+  var LANDING_INTENT_KEY = "vitrine_landing_checkout_intent";
+  function saveLandingIntent(mode, planName) {
+    try {
+      sessionStorage.setItem(LANDING_INTENT_KEY, JSON.stringify({
+        mode: mode === "login" ? "login" : "signup",
+        period: landingPlanPeriod === "yearly" ? "anual" : "mensal",
+        planName: planName || ""
+      }));
+    } catch (e) {}
+  }
+  function readLandingIntent() {
+    try {
+      var raw = sessionStorage.getItem(LANDING_INTENT_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  function clearLandingIntent() {
+    try { sessionStorage.removeItem(LANDING_INTENT_KEY); } catch (e) {}
+  }
+  function matchPlanoPorNome(nome) {
+    var key = String(nome || "").toLowerCase().replace(/\s+/g, " ").trim();
+    return state.planos.find(function (p) {
+      return String(p.nome || "").toLowerCase().replace(/\s+/g, " ").trim() === key;
+    }) || null;
+  }
+  function applyLandingIntent() {
+    var intent = readLandingIntent();
+    if (!intent) return false;
+    clearLandingIntent();
+    planPeriod = intent.period === "anual" ? "anual" : "mensal";
+    if (state.assinatura && state.assinatura.status === "ativa") return false;
+    planPending = null;
+    var plano = matchPlanoPorNome(intent.planName);
+    if (plano) planPending = plano.id;
+    showScreen("plano");
+    return true;
+  }
   function renderLandingPlanPeriod() {
     qsa("#landing-view [data-plan-price]").forEach(function (el) {
       var html = el.dataset[landingPlanPeriod];
@@ -2486,7 +2523,11 @@
     document.getElementById("landing-view").hidden = false;
     if (!landingWired) {
       landingWired = true;
-      qsa("#landing-view [data-cta]").forEach(function (b) { b.addEventListener("click", function () { openAuth(b.dataset.cta); }); });
+      qsa("#landing-view [data-cta]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          openAuth(b.dataset.cta, { planName: b.dataset.planName || "" });
+        });
+      });
       qsa("#landing-view [data-plan-period]").forEach(function (b) {
         b.addEventListener("click", function () {
           landingPlanPeriod = b.dataset.planPeriod === "yearly" ? "yearly" : "monthly";
@@ -2497,7 +2538,9 @@
     renderLandingPlanPeriod();
     window.scrollTo(0, 0); document.body.scrollTop = 0; document.documentElement.scrollTop = 0;
   }
-  function openAuth(mode) {
+  function openAuth(mode, opts) {
+    opts = opts || {};
+    if (opts.planName) saveLandingIntent(mode, opts.planName);
     authMode = mode === "login" ? "login" : "signup";
     document.getElementById("landing-view").hidden = true;
     document.getElementById("auth-view").hidden = false;
@@ -2559,8 +2602,11 @@
       if (!navWired) { wireNav(); navWired = true; }
       updateNavPlanBadge();
       resetWizard();
-      // página inicial depois do login: criar carrossel (se o teste acabou, vai pro Plano)
-      if (trialBlocked()) showScreen("painel"); else showScreen("novo");
+      // se o usuário veio da landing escolhendo um plano/período, abre a contratação já no contexto correto
+      if (!applyLandingIntent()) {
+        // página inicial depois do login: criar carrossel (se o teste acabou, vai pro Plano)
+        if (trialBlocked()) showScreen("painel"); else showScreen("novo");
+      }
       prepararAssuntos();
       handleReturnParams().catch(function (e) { console.error(e); });
     } catch (err) {

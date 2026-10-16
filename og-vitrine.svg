@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title">
+  <title>Vitrine</title>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#05060D" />
+      <stop offset="55%" stop-color="#0B0D1D" />
+      <stop offset="100%" stop-color="#10142F" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8B5CFF" />
+      <stop offset="55%" stop-color="#4F7BFF" />
+      <stop offset="100%" stop-color="#00E0FF" />
+    </linearGradient>
+    <linearGradient id="cardGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="rgba(139,92,255,0.30)" />
+      <stop offset="100%" stop-color="rgba(0,224,255,0.14)" />
+    </linearGradient>
+    <filter id="blur-xl" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="56" />
+    </filter>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="22" stdDeviation="30" flood-color="#02030A" flood-opacity="0.55" />
+    </filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#8B5CFF" flood-opacity="0.18" />
+    </filter>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)" />
+
+  <circle cx="248" cy="178" r="150" fill="#8B5CFF" opacity="0.24" filter="url(#blur-xl)" />
+  <circle cx="957" cy="151" r="124" fill="#00E0FF" opacity="0.20" filter="url(#blur-xl)" />
+  <circle cx="911" cy="516" r="162" fill="#4F7BFF" opacity="0.17" filter="url(#blur-xl)" />
+
+  <g opacity="0.42">
+    <path d="M0 495C149 448 271 421 405 417C544 413 647 444 750 463C858 484 967 487 1200 410V630H0Z" fill="#0C1024" />
+    <path d="M0 552C201 492 357 484 492 506C640 531 751 585 898 583C1018 581 1102 546 1200 511V630H0Z" fill="#0F1532" />
+  </g>
+
+  <g transform="translate(88 104)">
+    <rect x="0" y="0" width="96" height="96" rx="28" fill="#0E1022" stroke="url(#accent)" stroke-width="2" filter="url(#soft)" />
+    <rect x="9" y="9" width="78" height="78" rx="22" fill="url(#accent)" opacity="0.12" />
+    <path d="M48 26L68 42V68H52V54H44V68H28V42L48 26Z" fill="none" stroke="url(#accent)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M63 29L72 21" fill="none" stroke="#F3F4FF" stroke-width="4" stroke-linecap="round" />
+    <path d="M74 14L77 20L83 23L77 26L74 32L71 26L65 23L71 20Z" fill="#F3F4FF" />
+  </g>
+
+  <g transform="translate(96 245)">
+    <text x="0" y="0" fill="#F3F4FF" font-family="Space Grotesk, Manrope, Arial, sans-serif" font-size="112" font-weight="700" letter-spacing="-3">Vitrine</text>
+    <rect x="2" y="34" width="364" height="5" rx="2.5" fill="url(#accent)" opacity="0.9" />
+  </g>
+
+  <g transform="translate(720 85)" filter="url(#shadow)">
+    <rect x="0" y="0" width="360" height="460" rx="34" fill="#0E1022" stroke="rgba(255,255,255,0.10)" />
+    <rect x="22" y="22" width="316" height="416" rx="26" fill="#0A0D1A" stroke="rgba(255,255,255,0.06)" />
+
+    <rect x="44" y="48" width="272" height="144" rx="22" fill="url(#accent)" opacity="0.18" />
+    <rect x="44" y="48" width="272" height="144" rx="22" fill="none" stroke="rgba(255,255,255,0.12)" />
+    <path d="M72 154L121 111L159 139L215 85L289 154Z" fill="rgba(255,255,255,0.18)" />
+    <circle cx="272" cy="84" r="18" fill="rgba(255,255,255,0.26)" />
+    <rect x="66" y="67" width="88" height="26" rx="13" fill="rgba(5,6,13,0.42)" stroke="rgba(255,255,255,0.10)" />
+
+    <g transform="translate(44 224)">
+      <rect x="0" y="0" width="272" height="72" rx="22" fill="#11162E" stroke="rgba(255,255,255,0.08)" />
+      <rect x="18" y="18" width="68" height="36" rx="14" fill="#1A2246" />
+      <circle cx="110" cy="26" r="6" fill="#8B5CFF" />
+      <rect x="126" y="21" width="94" height="10" rx="5" fill="rgba(243,244,255,0.86)" />
+      <rect x="110" y="40" width="130" height="8" rx="4" fill="rgba(180,185,219,0.48)" />
+      <rect x="110" y="56" width="86" height="8" rx="4" fill="rgba(180,185,219,0.22)" />
+    </g>
+
+    <g transform="translate(44 312)">
+      <rect x="0" y="0" width="128" height="104" rx="22" fill="#11162E" stroke="rgba(255,255,255,0.08)" />
+      <rect x="16" y="16" width="96" height="50" rx="16" fill="rgba(0,224,255,0.14)" />
+      <path d="M28 58L48 41L61 51L79 31L102 58Z" fill="rgba(255,255,255,0.18)" />
+      <circle cx="93" cy="31" r="8" fill="rgba(255,255,255,0.24)" />
+      <rect x="16" y="78" width="72" height="8" rx="4" fill="rgba(243,244,255,0.86)" />
+      <rect x="16" y="92" width="52" height="6" rx="3" fill="rgba(180,185,219,0.34)" />
+    </g>
+
+    <g transform="translate(188 312)">
+      <rect x="0" y="0" width="128" height="104" rx="22" fill="#11162E" stroke="rgba(255,255,255,0.08)" />
+      <circle cx="34" cy="32" r="16" fill="rgba(139,92,255,0.22)" />
+      <path d="M34 18L41 24V40H35V31H33V40H27V24L34 18Z" fill="none" stroke="#F3F4FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+      <rect x="16" y="62" width="96" height="8" rx="4" fill="rgba(243,244,255,0.86)" />
+      <rect x="16" y="78" width="82" height="8" rx="4" fill="rgba(180,185,219,0.38)" />
+      <rect x="16" y="92" width="54" height="6" rx="3" fill="rgba(180,185,219,0.22)" />
+    </g>
+  </g>
+
+  <rect x="0.5" y="0.5" width="1199" height="629" rx="0" fill="none" stroke="rgba(255,255,255,0.08)" />
+</svg>

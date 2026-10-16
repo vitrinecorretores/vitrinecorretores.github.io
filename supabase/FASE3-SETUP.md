@@ -60,6 +60,24 @@ Usa o **login do Instagram** (não precisa de Página do Facebook). A conta do c
 ## 4. Frontend
 Suba o `app.js` novo no GitHub (substitui o checkout simulado e a conexão simulada do Instagram).
 
+## 4.1 Suporte por e-mail (10 min)
+Se quiser que as mensagens enviadas para `vitrinecorretor@gmail.com` sejam respondidas automaticamente:
+
+1. Publique a Edge Function `email-autoreply`
+2. Rode a migration `20261016_email_autoreply.sql`
+3. Cadastre os secrets:
+   - `EMAIL_AUTOREPLY_WEBHOOK_SECRET`
+   - `SUPORTE_OWNER_EMAIL`
+4. No `n8n`, conecte o Gmail da Vitrine, capture os e-mails recebidos e envie o payload para:
+   - `https://qbfmozumntequvecttfs.supabase.co/functions/v1/email-autoreply`
+5. Use a resposta da função para:
+   - responder automaticamente ao remetente;
+   - enviar um e-mail-resumo para o dono responsável, confirmando para quem foi e o que foi respondido.
+
+Guia completo:
+
+- `supabase/EMAIL-AUTOREPLY-SETUP.md`
+
 ## Ainda falta (próxima etapa)
 - ~~Renderizar os slides como JPEG~~ ✅ feito: o app gera 1080×1350 no navegador, sobe no bucket `slides-render` e chama `instagram-publicar` (botão "Publicar no Instagram" no carrossel e opção "Publicar agora" no assistente).
 - Resposta automática aos comentários "QUERO" usando os eventos do webhook.

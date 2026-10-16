@@ -2448,13 +2448,53 @@
 
   // visitante sem login vê a página de captação; os botões abrem o cadastro (teste grátis) ou o login
   var landingWired = false;
+  var landingPlanPeriod = "monthly";
+  function renderLandingPlanPeriod() {
+    qsa("#landing-view [data-plan-price]").forEach(function (el) {
+      var html = el.dataset[landingPlanPeriod];
+      if (html) el.innerHTML = html;
+    });
+    qsa("#landing-view [data-plan-sub]").forEach(function (el) {
+      var txt = el.dataset[landingPlanPeriod];
+      if (txt) el.textContent = txt;
+    });
+    qsa("#landing-view [data-plan-promo]").forEach(function (el) {
+      var html = el.dataset[landingPlanPeriod];
+      if (!html) return;
+      el.innerHTML = html;
+    });
+    qsa("#landing-view [data-plan-note]").forEach(function (el) {
+      var txt = el.dataset[landingPlanPeriod];
+      if (txt) el.textContent = txt;
+    });
+    qsa("#landing-view [data-plan-note-secondary]").forEach(function (el) {
+      var txt = el.dataset[landingPlanPeriod];
+      if (txt) el.textContent = txt;
+    });
+    qsa("#landing-view [data-plan-team-note]").forEach(function (el) {
+      var txt = el.dataset[landingPlanPeriod];
+      if (txt) el.textContent = txt;
+    });
+    qsa("#landing-view [data-plan-period]").forEach(function (btn) {
+      var on = btn.dataset.planPeriod === landingPlanPeriod;
+      btn.classList.toggle("on", on);
+      btn.setAttribute("aria-selected", on ? "true" : "false");
+    });
+  }
   function showLanding() {
     document.getElementById("auth-view").hidden = true;
     document.getElementById("landing-view").hidden = false;
     if (!landingWired) {
       landingWired = true;
       qsa("#landing-view [data-cta]").forEach(function (b) { b.addEventListener("click", function () { openAuth(b.dataset.cta); }); });
+      qsa("#landing-view [data-plan-period]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          landingPlanPeriod = b.dataset.planPeriod === "yearly" ? "yearly" : "monthly";
+          renderLandingPlanPeriod();
+        });
+      });
     }
+    renderLandingPlanPeriod();
     window.scrollTo(0, 0); document.body.scrollTop = 0; document.documentElement.scrollTop = 0;
   }
   function openAuth(mode) {

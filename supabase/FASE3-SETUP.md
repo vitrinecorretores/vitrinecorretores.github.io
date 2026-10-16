@@ -6,6 +6,21 @@ Faça **primeiro em modo de teste** (Stripe "Test mode", app da Meta em "Desenvo
 ## 1. Banco (5 min)
 Supabase → SQL Editor → cole e rode `migrations/20261004_fase3_stripe_instagram.sql`.
 
+## 1.1 IA (2 min)
+Cadastre em **Supabase -> Edge Functions -> Secrets** pelo menos um destes secrets:
+
+- `ANTHROPIC_API_KEY`
+- `OPENAI_API_KEY`
+- `GEMINI_API_KEY`
+
+Ordem recomendada:
+
+1. `ANTHROPIC_API_KEY`
+2. `OPENAI_API_KEY`
+3. `GEMINI_API_KEY`
+
+A Vitrine tenta os provedores nesta ordem e, se nenhum responder, cai no fallback local de termos imobiliarios para continuar buscando fotos.
+
 ## 2. Stripe (15 min)
 1. Crie a conta em dashboard.stripe.com e deixe **Test mode** ligado.
 2. Developers → API keys → copie a **Secret key** (`sk_test_...`). A publishable key não é necessária (o checkout é hospedado pelo Stripe).

@@ -3,13 +3,16 @@
 // termos  = busca escolhida pelo corretor (pula a IA); excluir = URLs de fotos que ele já viu (pra "trocar foto")
 // Busca FOTOS REAIS em alta resolução em bancos de fotos profissionais com licença livre pra uso comercial:
 // Unsplash (principal) e Pexels (reserva, se houver chave). Guardamos o nome do fotógrafo como crédito.
-// A IA (Claude) só escolhe as palavras de busca de cada slide.
-// Secrets: UNSPLASH_ACCESS_KEY (grátis em unsplash.com/developers) e/ou PEXELS_API_KEY; ANTHROPIC_API_KEY (já existe)
+// A IA só escolhe as palavras de busca de cada slide.
+// Secrets: UNSPLASH_ACCESS_KEY (grátis em unsplash.com/developers) e/ou PEXELS_API_KEY;
+// ANTHROPIC_API_KEY e/ou OPENAI_API_KEY e/ou GEMINI_API_KEY
 import { admin, handle, HttpError, json, requireUser } from "../_shared/util.ts";
 
 const UNSPLASH = Deno.env.get("UNSPLASH_ACCESS_KEY");
 const PEXELS = Deno.env.get("PEXELS_API_KEY");
 const ANTHROPIC = Deno.env.get("ANTHROPIC_API_KEY");
+const OPENAI = Deno.env.get("OPENAI_API_KEY");
+const GEMINI = Deno.env.get("GEMINI_API_KEY");
 const BUSCAS_POR_HORA = 60;
 
 type Slide = { titulo?: string; corpo?: string };
@@ -64,21 +67,9 @@ function buscaFallbackPorSlide(contexto: string, slide: Slide, i: number): strin
   return i % 2 === 0 ? "modern apartment living room brazil" : "real estate agent with house keys brazil";
 }
 
-// pede ao Claude 1 busca curta em inglês por slide (fotos de banco de imagem respondem melhor em inglês)
-async function termosDeBusca(contexto: string, slides: Slide[]): Promise<string[]> {
-  const fallback = slides.map((s, i) => buscaFallbackPorSlide(contexto, s, i));
-  if (!ANTHROPIC) return fallback;
-  try {
-    const lista = slides.map((s, i) => `${i + 1}. ${s.titulo ?? ""} — ${(s.corpo ?? "").slice(0, 160)}`).join("\n");
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "x-api-key": ANTHROPIC, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 400,
-        messages: [{
-          role: "user",
-          content: `Você escolhe fotos REAIS de banco de imagens para um carrossel de Instagram de um corretor de imóveis no Brasil.
+function promptBuscaImagens(contexto: string, slides: Slide[]) {
+  const lista = slides.map((s, i) => `${i + 1}. ${s.titulo ?? ""} — ${(s.corpo ?? "").slice(0, 160)}`).join("\n");
+  return `Você escolhe fotos REAIS de banco de imagens para um carrossel de Instagram de um corretor de imóveis no Brasil.
 Contexto: ${contexto || "mercado imobiliário"}
 Slides:
 ${lista}
@@ -93,14 +84,86 @@ do que como ponto turístico genérico.
 As buscas devem ser em INGLÊS e curtas, sempre ligadas ao assunto do slide (ex.: "modern apartment living room", "real estate agent showing apartment",
 "couple signing home contract", "apartment building facade", "house keys handover").
 Não repita a mesma busca em dois slides. Evite pessoas olhando pra câmera, skyline genérico, praia sem relação com imóvel e qualquer coisa com texto.
-Responda SÓ com um array JSON de strings, na mesma ordem dos slides.`,
-        }],
-      }),
-    });
-    const d = await r.json();
-    const txt: string = d?.content?.[0]?.text ?? "";
-    const arr = JSON.parse(txt.slice(txt.indexOf("["), txt.lastIndexOf("]") + 1));
-    if (Array.isArray(arr) && arr.length === slides.length) return arr.map((q: unknown, i: number) => String(q || fallback[i]));
+Responda SÓ com um array JSON de strings, na mesma ordem dos slides.`;
+}
+
+function extrairTermos(txt: string, slides: Slide[], fallback: string[]) {
+  const inicio = txt.indexOf("[");
+  const fim = txt.lastIndexOf("]");
+  if (inicio < 0 || fim < inicio) return null;
+  const arr = JSON.parse(txt.slice(inicio, fim + 1));
+  if (!Array.isArray(arr) || arr.length !== slides.length) return null;
+  return arr.map((q: unknown, i: number) => String(q || fallback[i]));
+}
+
+async function termosAnthropic(prompt: string, slides: Slide[], fallback: string[]) {
+  if (!ANTHROPIC) return null;
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": ANTHROPIC, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-5",
+      max_tokens: 400,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  if (!r.ok) throw new Error("Anthropic " + r.status);
+  const d = await r.json() as { content?: Array<{ text?: string }> };
+  return extrairTermos(d?.content?.[0]?.text ?? "", slides, fallback);
+}
+
+async function termosOpenAI(prompt: string, slides: Slide[], fallback: string[]) {
+  if (!OPENAI) return null;
+  const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${OPENAI}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      model: "gpt-4.1-mini",
+      temperature: 0.4,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  if (!r.ok) throw new Error("OpenAI " + r.status);
+  const d = await r.json() as { choices?: Array<{ message?: { content?: string | Array<{ type?: string; text?: string }> } }> };
+  const content = d?.choices?.[0]?.message?.content;
+  const txt = typeof content === "string" ? content : (content ?? []).map((p) => p.text ?? "").join("\n");
+  return extrairTermos(txt, slides, fallback);
+}
+
+async function termosGemini(prompt: string, slides: Slide[], fallback: string[]) {
+  if (!GEMINI) return null;
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(GEMINI)}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.4 },
+    }),
+  });
+  if (!r.ok) throw new Error("Gemini " + r.status);
+  const d = await r.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+  const txt = d?.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("\n") ?? "";
+  return extrairTermos(txt, slides, fallback);
+}
+
+// pede à IA 1 busca curta em inglês por slide (fotos de banco de imagem respondem melhor em inglês)
+async function termosDeBusca(contexto: string, slides: Slide[]): Promise<string[]> {
+  const fallback = slides.map((s, i) => buscaFallbackPorSlide(contexto, s, i));
+  const prompt = promptBuscaImagens(contexto, slides);
+  const provedores = [
+    ["anthropic", termosAnthropic],
+    ["openai", termosOpenAI],
+    ["gemini", termosGemini],
+  ] as const;
+  try {
+    for (const [nome, fn] of provedores) {
+      try {
+        const termos = await fn(prompt, slides, fallback);
+        if (termos) return termos;
+      } catch (e) {
+        console.error("termos:" + nome, e);
+      }
+    }
   } catch (e) { console.error("termos:", e); }
   return fallback;
 }

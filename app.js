@@ -1057,7 +1057,10 @@
   /* ---------------- ADMIN ---------------- */
   var adminDados = null;
   // faixa vermelha só pro dono quando o servidor detecta problema (ex.: IA sem crédito na Anthropic)
-  var DICA_ALERTA = { ia_sem_credito: "Recarregue em console.anthropic.com → Plans & Billing (e ative a recarga automática).", ia_config: "Confira o secret ANTHROPIC_API_KEY em Supabase → Edge Functions → Secrets." };
+  var DICA_ALERTA = {
+    ia_sem_credito: "Recarregue ou revise o provedor de IA ativo (Anthropic, OpenAI ou Gemini) antes de gerar novos carrosseis.",
+    ia_config: "Confira os secrets ANTHROPIC_API_KEY, OPENAI_API_KEY ou GEMINI_API_KEY em Supabase → Edge Functions → Secrets."
+  };
   function mostrarAlertasSistema(lista) {
     var box = document.getElementById("alertas-sistema");
     if (!box) {

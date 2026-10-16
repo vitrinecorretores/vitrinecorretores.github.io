@@ -3,8 +3,9 @@
 // termos  = busca escolhida pelo corretor (pula a IA); excluir = URLs de fotos que ele já viu (pra "trocar foto")
 // Busca FOTOS REAIS em alta resolução em bancos de fotos profissionais com licença livre pra uso comercial:
 // Unsplash (principal) e Pexels (reserva, se houver chave). Guardamos o nome do fotógrafo como crédito.
-// A IA (Claude) só escolhe as palavras de busca de cada slide.
-// Secrets: UNSPLASH_ACCESS_KEY (grátis em unsplash.com/developers) e/ou PEXELS_API_KEY; ANTHROPIC_API_KEY (já existe)
+// A IA só escolhe as palavras de busca de cada slide.
+// Secrets: UNSPLASH_ACCESS_KEY (grátis em unsplash.com/developers) e/ou PEXELS_API_KEY;
+// ANTHROPIC_API_KEY e/ou OPENAI_API_KEY e/ou GEMINI_API_KEY
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 // ---- utilitários (copiados de _shared/util.ts) ----
@@ -57,16 +58,23 @@ function handle(fn: (req: Request) => Promise<Response>) {
 const UNSPLASH = Deno.env.get("UNSPLASH_ACCESS_KEY");
 const PEXELS = Deno.env.get("PEXELS_API_KEY");
 const ANTHROPIC = Deno.env.get("ANTHROPIC_API_KEY");
+const OPENAI = Deno.env.get("OPENAI_API_KEY");
+const GEMINI = Deno.env.get("GEMINI_API_KEY");
 const BUSCAS_POR_HORA = 60;
 
 type Slide = { titulo?: string; corpo?: string };
 
-// fotos reais de Fortaleza-CE pra variar os carrosséis (o corretor atua lá)
+// consultas locais continuam úteis, mas agora priorizamos imóveis, fachadas e interiores
+// em vez de pontos turísticos genéricos que deixam o carrossel menos imobiliário.
 const LUGARES_FORTALEZA = [
-  "Fortaleza Beira Mar", "Fortaleza skyline", "Praia de Iracema Fortaleza", "Meireles Fortaleza",
-  "Ponte dos Ingleses Fortaleza", "Praia do Futuro Fortaleza", "Fortaleza Ceara buildings", "Fortaleza sunset beach",
-  "Mucuripe Fortaleza", "Dragao do Mar Fortaleza", "Fortaleza aerial view", "Fortaleza Ceara coast",
-  "Cumbuco Ceara", "Porto das Dunas Ceara", "Fortaleza night city", "Ceara beach coconut trees",
+  "Fortaleza apartment building facade",
+  "Fortaleza condo exterior",
+  "Fortaleza apartment balcony view",
+  "Meireles apartment living room",
+  "Aldeota apartment exterior",
+  "Mucuripe condo facade",
+  "Praia do Futuro apartment balcony",
+  "Fortaleza real estate street view",
 ];
 // quantas fotos já usadas pelo corretor ficam "proibidas" (pra não repetir entre carrosséis diferentes)
 const MEMORIA_FOTOS = 400;
@@ -77,46 +85,136 @@ function sortear<T>(lista: T[]): T | undefined { return lista.length ? lista[Mat
 // página aleatória dos resultados (1 a 3): a mesma busca devolve fotos diferentes a cada vez
 const paginaAleatoria = () => 1 + Math.floor(Math.random() * 3);
 
-// pede ao Claude 1 busca curta em inglês por slide (fotos de banco de imagem respondem melhor em inglês)
-async function termosDeBusca(contexto: string, slides: Slide[]): Promise<string[]> {
-  const fallback = slides.map((s, i) => i % 2 === 1
-    ? LUGARES_FORTALEZA[(i + Math.floor(Math.random() * LUGARES_FORTALEZA.length)) % LUGARES_FORTALEZA.length]
-    : (`${contexto} ${s.titulo ?? ""}`.trim().slice(0, 80) || "modern apartment brazil"));
-  if (!ANTHROPIC) return fallback;
-  try {
-    const lista = slides.map((s, i) => `${i + 1}. ${s.titulo ?? ""} — ${(s.corpo ?? "").slice(0, 160)}`).join("\n");
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "x-api-key": ANTHROPIC, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5",   // escolher palavras de busca é tarefa simples: Haiku custa ~3x menos
-        max_tokens: 400,
-        messages: [{
-          role: "user",
-          content: `Você escolhe fotos REAIS de banco de imagens para um carrossel de Instagram de um corretor de imóveis no Brasil.
+function textoSlide(s: Slide) {
+  return `${s.titulo ?? ""} ${s.corpo ?? ""}`.trim().toLowerCase();
+}
+
+function temLocalizacao(txt: string) {
+  return /fortaleza|cear[aá]|bairro|regi[aã]o|meireles|aldeota|mucuripe|praia do futuro|iracema|localiza[cç][aã]o|vista|orla/.test(txt);
+}
+
+function buscaFallbackPorSlide(contexto: string, slide: Slide, i: number): string {
+  const txt = textoSlide(slide);
+  const ctx = String(contexto || "").toLowerCase();
+  const local = temLocalizacao(txt) || temLocalizacao(ctx);
+  if (/foto|fotos|fachada|an[uú]ncio|primeira impress[aã]o|visita|tour|apresenta[cç][aã]o/.test(txt)) {
+    return local ? "Fortaleza apartment building facade" : "modern apartment building facade brazil";
+  }
+  if (/financ|juros|parcela|fgts|banco|cr[eé]dito|entrada|contrato|documenta[cç][aã]o|an[aá]lise/.test(txt)) {
+    return local ? "Fortaleza real estate contract signing" : "couple signing home purchase contract brazil";
+  }
+  if (/comprador|comprar|compra|cliente|atendimento|corretor|venda|vender|propriet[aá]rio|capta[cç][aã]o/.test(txt)) {
+    return local ? "Fortaleza real estate agent showing apartment" : "real estate agent showing apartment brazil";
+  }
+  if (/alto padr[aã]o|luxo|sofistic|premium/.test(txt)) {
+    return local ? "Fortaleza luxury apartment interior" : "luxury apartment interior brazil";
+  }
+  if (/invest|aluguel|loca[cç][aã]o|renda/.test(txt)) {
+    return local ? "Fortaleza apartment for rent exterior" : "apartment for rent exterior brazil";
+  }
+  if (local) {
+    return LUGARES_FORTALEZA[(i + Math.floor(Math.random() * LUGARES_FORTALEZA.length)) % LUGARES_FORTALEZA.length];
+  }
+  return i % 2 === 0 ? "modern apartment living room brazil" : "real estate agent with house keys brazil";
+}
+
+function promptBuscaImagens(contexto: string, slides: Slide[]) {
+  const lista = slides.map((s, i) => `${i + 1}. ${s.titulo ?? ""} — ${(s.corpo ?? "").slice(0, 160)}`).join("\n");
+  return `Você escolhe fotos REAIS de banco de imagens para um carrossel de Instagram de um corretor de imóveis no Brasil.
 Contexto: ${contexto || "mercado imobiliário"}
 Slides:
 ${lista}
 
-Para cada slide, escreva UMA busca curta (2 a 5 palavras) que traga uma foto real, relacionada ao assunto do slide e com IMPACTO VISUAL de post viral:
-luz dramática ou golden hour, alto contraste, cores vivas, enquadramentos marcantes (vista aérea, drone, grande angular, detalhe de perto),
-imóveis de alto padrão, varandas com vista, piscinas, skyline, chaves e contratos em close. Nada de foto genérica de banco de imagem com cara de propaganda.
-Na CAPA (slide 1), escolha a imagem mais chamativa de todas — ela precisa parar o scroll.
-O corretor atua em FORTALEZA, CEARÁ. Diversifique: em cerca de METADE dos slides (alternando, nunca dois seguidos iguais), use fotos reais de Fortaleza,
-sempre com a palavra "Fortaleza" na busca e variando o lugar — ex.: "Fortaleza Beira Mar", "Fortaleza skyline", "Praia de Iracema Fortaleza",
-"Meireles Fortaleza", "Fortaleza Ceara buildings", "Ponte dos Ingleses Fortaleza", "Praia do Futuro Fortaleza", "Dragao do Mar Fortaleza", "Fortaleza sunset beach".
-Nos outros slides use buscas em INGLÊS ligadas ao assunto (ex.: "modern apartment living room", "house keys handover", "couple signing contract", "beach view balcony").
-Não repita a mesma busca em dois slides e fuja do óbvio: varie ângulo, ambiente, hora do dia e estilo (ex.: em vez de só "modern apartment",
-use "minimalist kitchen morning light", "cozy balcony plants sunset", "aerial view residential towers", "architect blueprint desk").
-Evite pessoas olhando pra câmera e evite qualquer coisa com texto. Código de variedade desta busca: ${Math.random().toString(36).slice(2, 7)}.
-Responda SÓ com um array JSON de strings, na mesma ordem dos slides.`,
-        }],
-      }),
-    });
-    const d = await r.json();
-    const txt: string = d?.content?.[0]?.text ?? "";
-    const arr = JSON.parse(txt.slice(txt.indexOf("["), txt.lastIndexOf("]") + 1));
-    if (Array.isArray(arr) && arr.length === slides.length) return arr.map((q: unknown, i: number) => String(q || fallback[i]));
+Para cada slide, escreva UMA busca curta (2 a 5 palavras) que traga uma foto real, bonita e relacionada ao assunto do slide.
+Priorize fotos diretamente ligadas a imóveis e ao trabalho do corretor: fachada de prédio, sala, cozinha, varanda, quarto, condomínio,
+corretor mostrando imóvel, visita, entrega de chaves, assinatura de contrato, casal comprando imóvel, detalhes de casa/apartamento.
+Use Fortaleza só quando o slide falar de bairro, localização, vista, região, mercado local ou quando uma foto local realmente ajudar.
+Evite transformar metade do carrossel em paisagem da cidade. Fortaleza deve aparecer mais como contexto imobiliário
+(ex.: "Fortaleza apartment building facade", "Meireles apartment balcony", "Fortaleza real estate street view")
+do que como ponto turístico genérico.
+As buscas devem ser em INGLÊS e curtas, sempre ligadas ao assunto do slide (ex.: "modern apartment living room", "real estate agent showing apartment",
+"couple signing home contract", "apartment building facade", "house keys handover").
+Não repita a mesma busca em dois slides. Evite pessoas olhando pra câmera, skyline genérico, praia sem relação com imóvel e qualquer coisa com texto.
+Responda SÓ com um array JSON de strings, na mesma ordem dos slides.`;
+}
+
+function extrairTermos(txt: string, slides: Slide[], fallback: string[]) {
+  const inicio = txt.indexOf("[");
+  const fim = txt.lastIndexOf("]");
+  if (inicio < 0 || fim < inicio) return null;
+  const arr = JSON.parse(txt.slice(inicio, fim + 1));
+  if (!Array.isArray(arr) || arr.length !== slides.length) return null;
+  return arr.map((q: unknown, i: number) => String(q || fallback[i]));
+}
+
+async function termosAnthropic(prompt: string, slides: Slide[], fallback: string[]) {
+  if (!ANTHROPIC) return null;
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": ANTHROPIC, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5",
+      max_tokens: 400,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  if (!r.ok) throw new Error("Anthropic " + r.status);
+  const d = await r.json() as { content?: Array<{ text?: string }> };
+  return extrairTermos(d?.content?.[0]?.text ?? "", slides, fallback);
+}
+
+async function termosOpenAI(prompt: string, slides: Slide[], fallback: string[]) {
+  if (!OPENAI) return null;
+  const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${OPENAI}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      model: "gpt-4.1-mini",
+      temperature: 0.4,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  if (!r.ok) throw new Error("OpenAI " + r.status);
+  const d = await r.json() as { choices?: Array<{ message?: { content?: string | Array<{ type?: string; text?: string }> } }> };
+  const content = d?.choices?.[0]?.message?.content;
+  const txt = typeof content === "string" ? content : (content ?? []).map((p) => p.text ?? "").join("\n");
+  return extrairTermos(txt, slides, fallback);
+}
+
+async function termosGemini(prompt: string, slides: Slide[], fallback: string[]) {
+  if (!GEMINI) return null;
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(GEMINI)}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.4 },
+    }),
+  });
+  if (!r.ok) throw new Error("Gemini " + r.status);
+  const d = await r.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+  const txt = d?.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("\n") ?? "";
+  return extrairTermos(txt, slides, fallback);
+}
+
+// pede à IA 1 busca curta em inglês por slide (fotos de banco de imagem respondem melhor em inglês)
+async function termosDeBusca(contexto: string, slides: Slide[]): Promise<string[]> {
+  const fallback = slides.map((s, i) => buscaFallbackPorSlide(contexto, s, i));
+  const prompt = promptBuscaImagens(contexto, slides);
+  const provedores = [
+    ["anthropic", termosAnthropic],
+    ["openai", termosOpenAI],
+    ["gemini", termosGemini],
+  ] as const;
+  try {
+    for (const [nome, fn] of provedores) {
+      try {
+        const termos = await fn(prompt, slides, fallback);
+        if (termos) return termos;
+      } catch (e) {
+        console.error("termos:" + nome, e);
+      }
+    }
   } catch (e) { console.error("termos:", e); }
   return fallback;
 }

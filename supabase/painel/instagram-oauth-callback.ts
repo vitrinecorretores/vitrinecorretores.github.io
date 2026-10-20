@@ -60,7 +60,9 @@ function handle(fn: (req: Request) => Promise<Response>) {
 const APP_ID = Deno.env.get("META_APP_ID")!;
 const APP_SECRET = Deno.env.get("META_APP_SECRET")!;
 const REDIRECT = `${Deno.env.get("SUPABASE_URL")}/functions/v1/instagram-oauth-callback`;
-const SCOPES = ["instagram_business_basic", "instagram_business_content_publish", "instagram_business_manage_comments"];
+// manage_comments e manage_messages (resposta por Direct ao comentário) só valem depois que o dono
+// habilitar essas permissões no app da Meta; até lá, a Meta pode recusar o login com elas.
+const SCOPES = ["instagram_business_basic", "instagram_business_content_publish", "instagram_business_manage_comments", "instagram_business_manage_messages"];
 const GRAPH = "https://graph.instagram.com/v21.0";
 
 /** Quantos Instagram o corretor pode conectar: Starter 1, Pro 3, plano de equipe 3, teste grátis 1. */

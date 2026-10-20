@@ -1,4 +1,4 @@
-/* Crescimento: preço do m² por bairro (slides locais), indique um colega e números reais da landing.
+/* Crescimento: preço do m² por bairro (com fonte citada), indique um colega e números reais da landing.
    Carrega depois do app.js e do vitrine-leads.js; usa window.Vitrine (state, DB, toast, escapeHtml). */
 (function () {
   "use strict";
@@ -128,11 +128,26 @@
     p.sel = p.sel || []; p.manual = p.manual || [];
     return p;
   }
+  function parseValor(v) { return parseFloat(String(v).replace(/\./g, "").replace(",", ".")); }
+  // Só entra valor que o corretor digitou, que veio de fonte citada da internet ou da média real dos anúncios da Vitrine.
   function entradas(p) {
     var l = [];
-    p.sel.forEach(function (b) { var r = (p.lista || []).filter(function (x) { return x.bairro === b && x.finalidade === p.finalidade; })[0]; if (r) l.push({ bairro: r.bairro, valor: Number(r.mediana_m2), qtd: r.qtd }); });
-    p.manual.forEach(function (m) { var v = parseFloat(String(m.valor).replace(/\./g, "").replace(",", ".")); if (m.bairro.trim() && v > 0) l.push({ bairro: m.bairro.trim(), valor: v, qtd: 0 }); });
+    p.sel.forEach(function (b) { var r = (p.lista || []).filter(function (x) { return x.bairro === b && x.finalidade === p.finalidade; })[0]; if (r) l.push({ bairro: r.bairro, valor: Number(r.mediana_m2), qtd: r.qtd, origem: "vitrine" }); });
+    p.manual.forEach(function (m) {
+      var v = parseValor(m.valor);
+      if (!(m.bairro.trim() && v > 0)) return;
+      var web = m.fonte && m.fonte.nome && String(m.valor) === String(m.webVal);
+      l.push({ bairro: m.bairro.trim(), valor: v, qtd: 0, origem: web ? "web" : "corretor", fonte: web ? m.fonte : null });
+    });
     return l.slice(0, MAX_BAIRROS);
+  }
+  function fonteHtml(m) {
+    if (m.naoAchou) return '<div class="calc-sub" style="margin:-2px 0 10px;">Não encontrei um valor publicado para esse bairro — preencha com o seu dado.</div>';
+    if (m.fonte && String(m.valor) === String(m.webVal)) {
+      var url = /^https:\/\//i.test(m.fonte.url) ? m.fonte.url : "";
+      return '<div class="calc-sub" style="margin:-2px 0 10px;">Fonte: ' + (url ? '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + esc(m.fonte.nome) + '</a>' : esc(m.fonte.nome)) + (m.fonte.ref ? " (" + esc(m.fonte.ref) + ")" : "") + '</div>';
+    }
+    return "";
   }
 
   function renderPrecos(box, wiz) {
@@ -140,7 +155,7 @@
     var linhas = (p.lista || []).filter(function (x) { return x.finalidade === p.finalidade; });
     var totalSel = entradas(p).length;
     box.innerHTML = '<div class="calc-form"><h4>📍 Preço do m² por bairro</h4>' +
-      '<p class="calc-sub">Escolha até ' + MAX_BAIRROS + ' bairros e a Vitrine monta o carrossel comparando o preço do m². Sem IA, só conta.</p>' +
+      '<p class="calc-sub">Escolha até ' + MAX_BAIRROS + ' bairros e a Vitrine monta o carrossel comparando o preço do m². Você digita o valor ou busca a média publicada na internet, sempre com a fonte.</p>' +
       '<div class="calc-grid"><label>Cidade<input type="text" id="pb-cidade" value="' + esc(p.cidade) + '"></label>' +
       '<label>Finalidade<select id="pb-fin"><option value="venda"' + (p.finalidade === "venda" ? " selected" : "") + '>Venda</option><option value="aluguel"' + (p.finalidade === "aluguel" ? " selected" : "") + '>Aluguel</option></select></label></div>' +
       '<button class="btn btn-ghost btn-sm" type="button" id="pb-buscar">Buscar bairros</button> <span class="calc-sub" id="pb-status"></span>' +
@@ -150,10 +165,10 @@
       }).join("") + '</div>' +
       (p.buscou && linhas.length < 2 ? '<p class="calc-sub">Ainda há poucos anúncios nessa cidade para mostrar bairros (só aparecem bairros com 3 ou mais imóveis). Digite os valores por bairro abaixo.</p>' : "") +
       '<div id="pb-manual">' + p.manual.map(function (m, i) {
-        return '<div class="cresc-row" style="margin-bottom:8px;"><input type="text" data-mb="' + i + '" placeholder="Bairro" value="' + esc(m.bairro) + '"><input type="text" inputmode="decimal" data-mv="' + i + '" placeholder="R$ por m²" value="' + esc(m.valor) + '"><button class="btn btn-ghost btn-sm" type="button" data-mx="' + i + '">Remover</button></div>';
+        return '<div class="cresc-row" style="margin-bottom:8px;"><input type="text" data-mb="' + i + '" placeholder="Bairro" value="' + esc(m.bairro) + '"><input type="text" inputmode="decimal" data-mv="' + i + '" placeholder="R$ por m²" value="' + esc(m.valor) + '"><button class="btn btn-ghost btn-sm" type="button" data-mw="' + i + '">🔎 Buscar média na internet</button><button class="btn btn-ghost btn-sm" type="button" data-mx="' + i + '">Remover</button></div><div data-mf="' + i + '">' + fonteHtml(m) + '</div>';
       }).join("") + '</div>' +
       '<button class="btn btn-ghost btn-sm" type="button" id="pb-add"' + (totalSel >= MAX_BAIRROS ? " disabled" : "") + '>+ Digitar valor de um bairro</button>' +
-      '<p class="calc-sub">' + totalSel + ' de ' + MAX_BAIRROS + ' bairros escolhidos (mínimo 2). Valores médios de anúncios da Vitrine, não são avaliação oficial.</p></div>';
+      '<p class="calc-sub">' + totalSel + ' de ' + MAX_BAIRROS + ' bairros escolhidos (mínimo 2). Cada valor vem do que você digitou, de uma fonte da internet citada ou da média dos anúncios da Vitrine. Não são avaliação oficial.</p></div>';
     var st = box.querySelector("#pb-status");
     box.querySelector("#pb-cidade").oninput = function (e) { p.cidade = e.target.value; };
     box.querySelector("#pb-fin").onchange = function (e) { p.finalidade = e.target.value; p.sel = []; renderPrecos(box, wiz); };
@@ -175,33 +190,59 @@
     });
     box.querySelector("#pb-add").onclick = function () { p.manual.push({ bairro: "", valor: "" }); renderPrecos(box, wiz); };
     Array.prototype.forEach.call(box.querySelectorAll("[data-mb]"), function (i) { i.oninput = function () { p.manual[+i.dataset.mb].bairro = i.value; }; });
-    Array.prototype.forEach.call(box.querySelectorAll("[data-mv]"), function (i) { i.oninput = function () { p.manual[+i.dataset.mv].valor = i.value; }; });
+    Array.prototype.forEach.call(box.querySelectorAll("[data-mv]"), function (i) {
+      i.oninput = function () {
+        var m = p.manual[+i.dataset.mv]; m.valor = i.value; m.naoAchou = false;
+        var f = box.querySelector('[data-mf="' + i.dataset.mv + '"]'); if (f) f.innerHTML = fonteHtml(m);   // editou: deixa de ser dado da internet
+      };
+    });
+    Array.prototype.forEach.call(box.querySelectorAll("[data-mw]"), function (btn) {
+      btn.onclick = async function () {
+        var m = p.manual[+btn.dataset.mw], c = (p.cidade || "").trim();
+        if (!m.bairro.trim() || !c) { aviso("Digite a cidade e o nome do bairro."); return; }
+        btn.disabled = true; btn.textContent = "Buscando…";
+        try {
+          var r = await V.callFunction("preco-bairro-web", { cidade: c, bairro: m.bairro.trim(), finalidade: p.finalidade });
+          if (r && r.encontrado && Number(r.valor_m2) > 0 && r.fonte_nome) {
+            m.valor = String(Math.round(Number(r.valor_m2) * 100) / 100).replace(".", ","); m.webVal = m.valor; m.naoAchou = false;
+            m.fonte = { nome: r.fonte_nome, url: r.fonte_url, ref: r.referencia || "" };
+          } else { m.fonte = null; m.webVal = null; m.naoAchou = true; if (r && r.erro) aviso(r.erro); }
+        } catch (e) { m.naoAchou = false; aviso(/Muitas buscas/.test(e.message) ? e.message : "Busca indisponível agora"); }
+        renderPrecos(box, wiz);
+      };
+    });
     Array.prototype.forEach.call(box.querySelectorAll("[data-mx]"), function (b) { b.onclick = function () { p.manual.splice(+b.dataset.mx, 1); renderPrecos(box, wiz); }; });
     if (!p.buscou && !p.lista) box.querySelector("#pb-buscar").click();   // primeira vez: já busca a cidade do perfil
   }
 
-  var AVISO = "Valores médios de anúncios, não é avaliação oficial.";
+  var AVISO = "Valores médios de referência, não são avaliação do imóvel.";
+  function rotuloFonte(b) {
+    if (b.origem === "web" && b.fonte) return "Fonte: " + b.fonte.nome + (b.fonte.ref ? ", " + b.fonte.ref : "");
+    if (b.origem === "vitrine") return "Média dos anúncios cadastrados na Vitrine (" + b.qtd + " imóveis)";
+    return "Dado do corretor";
+  }
   function slidesPrecos(lista, cidade, aluguel) {
     var un = aluguel ? "/m² por mês" : "/m²", ex = 80;
     var fmt = function (v) { return reais(v) + un; };
     var tot = function (v) { var t = v * ex; return aluguel ? reais(t) + " por mês" : reais(Math.round(t / 1e3) * 1e3); };
     var ord = lista.slice().sort(function (a, b) { return b.valor - a.valor; });
-    var s = [{ tag: "PREÇO DO M²", titulo: "Quanto custa o m² em *" + lista[0].bairro + "*?", corpo: "Comparei o preço do m² " + (aluguel ? "de aluguel " : "") + "em " + lista.length + " bairros de " + cidade + ". Arrasta e veja. " + AVISO }];
+    var s = [{ tag: "PREÇO DO M²", titulo: "Quanto custa o m² em *" + lista[0].bairro + "*?", corpo: "Comparei o preço do m² " + (aluguel ? "de aluguel " : "") + "em " + lista.length + " bairros de " + cidade + ". Arrasta e veja." }];
     lista.forEach(function (b) {
-      s.push({ tag: b.bairro.toUpperCase(), titulo: "*" + b.bairro + "*: " + fmt(b.valor), corpo: (b.qtd ? "Valor mediano de " + b.qtd + " anúncios" : "Valor de referência") + ". Um imóvel de " + ex + " m² sai por volta de " + tot(b.valor) + ". " + AVISO });
+      s.push({ tag: b.bairro.toUpperCase(), titulo: "*" + b.bairro + "*: " + fmt(b.valor), corpo: "Um imóvel de " + ex + " m² sai por volta de " + tot(b.valor) + ".\n" + rotuloFonte(b) });
     });
     var top = ord[0], bot = ord[ord.length - 1], dif = bot.valor > 0 ? Math.round((top.valor / bot.valor - 1) * 100) : 0;
     var rank = ord.map(function (b, i) { return (i + 1) + ". " + b.bairro + ": " + fmt(b.valor); }).join("\n");
-    var comp = { tag: "COMPARATIVO", titulo: "*" + top.bairro + "* é o mais caro", corpo: rank + "\n" + (ord.length > 1 ? top.bairro + " custa " + dif + "% a mais que " + bot.bairro + " por m². " : "") + AVISO };
-    s.push(comp);
-    if (lista.length <= 3) s.push({ tag: "RESUMO", titulo: "Resumo do *m²* em " + cidade, corpo: rank + "\nCada imóvel é único: padrão, andar e estado de conservação mudam o preço. " + AVISO });
+    s.push({ tag: "COMPARATIVO", titulo: "*" + top.bairro + "* é o mais caro", corpo: rank + "\n" + (ord.length > 1 ? top.bairro + " custa " + dif + "% a mais que " + bot.bairro + " por m².\n" : "") + AVISO });
+    if (lista.length <= 3) s.push({ tag: "RESUMO", titulo: "Resumo do *m²* em " + cidade, corpo: rank + "\nCada imóvel é único: padrão, andar e estado de conservação mudam o preço.\n" + AVISO });
     s.push({ tag: "PRÓXIMO PASSO", titulo: "Comenta *" + lista[0].bairro.toUpperCase() + "*", corpo: "Eu te mando um estudo de preços do bairro que você procura, sem compromisso. Salva este post pra consultar depois." });
     return s;
   }
 
   function gerarSlides(wiz) {
     var p = estado(wiz), lista = entradas(p);
-    if (lista.length < 2) { aviso("Escolha ou digite pelo menos 2 bairros."); return false; }
+    var sem = p.manual.filter(function (m) { return m.bairro.trim() && !(parseValor(m.valor) > 0); }).map(function (m) { return m.bairro.trim(); });
+    if (lista.length < 2) { aviso("Escolha ou digite pelo menos 2 bairros com valor." + (sem.length ? " Sem valor: " + sem.join(", ") + "." : "")); return false; }
+    if (sem.length) aviso("Sem valor, não entram no carrossel: " + sem.join(", ") + ".");
     var sig = "precos" + JSON.stringify([p.cidade, p.finalidade, lista]);
     if (wiz.slides && wiz.calcSig === sig) return true;   // nada mudou: mantém as edições feitas no texto
     var cidade = p.cidade.trim();

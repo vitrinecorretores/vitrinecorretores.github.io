@@ -111,6 +111,11 @@
     return { texto: partes[0] || "Foto", link: partes[1] || "" };
   }
 
+  // ✨ Melhorar fotos: auto-ajuste no canvas (fotos.js); guardado por carrossel (carrosseis.melhorar_fotos)
+  function melhorarToggleHtml(ligado) {
+    return '<label class="melhorar-toggle" title="Níveis automáticos, sombras mais claras, cores mais vivas e céu mais azul"><input type="checkbox" data-melhorar' + (ligado !== false ? " checked" : "") + '> <span>✨ Melhorar fotos</span> <em>ajuste automático de luz e cor</em></label>';
+  }
+
   // controles de foto por slide: trocar (outra foto do banco), buscar por termo, ou enviar a própria foto
   function fotoControlsHtml(slides) {
     return '<div class="fotos-ctl">' + slides.map(function (s, i) {
@@ -418,13 +423,22 @@
     lilas:     { nome: "Lilás",        titulo: "#FFFFFF", destaque: "#C29BFF" },
     dourado:   { nome: "Dourado",      titulo: "#FFF6E5", destaque: "#E9C46A" },
     creme:     { nome: "Creme + laranja", titulo: "#FFF1D6", destaque: "#FF8A3D" },
-    invertido: { nome: "Amarelo invertido", titulo: "#FFD60A", destaque: "#FFFFFF" }
+    invertido: { nome: "Amarelo invertido", titulo: "#FFD60A", destaque: "#FFFFFF" },
+    marca:     { nome: "Cor da marca", titulo: "#FFFFFF", destaque: "#FFD60A" }   // destaque vem de profiles.cor_marca (syncMarcaCor)
   };
-  function corDe(f) { var k = String(f || "").split("|")[1]; return CORES[k] ? k : "amarelo"; }
-  function comCor(f, cor) { return fonteDe(f) + (cor && cor !== "amarelo" && CORES[cor] ? "|" + cor : ""); }
+  // kit da marca: cor_marca vira a cor de destaque padrão quando o corretor não escolheu outra
+  function marcaCorAtiva() { var p = (typeof state !== "undefined" && state.profile) || {}; return p.marca_ativa !== false && /^#[0-9a-f]{6}$/i.test(p.cor_marca || ""); }
+  function syncMarcaCor() { var p = (typeof state !== "undefined" && state.profile) || {}; if (/^#[0-9a-f]{6}$/i.test(p.cor_marca || "")) CORES.marca.destaque = p.cor_marca; }
+  function corDe(f) {
+    var k = String(f || "").split("|")[1];
+    if (k === "marca") return marcaCorAtiva() ? "marca" : "amarelo";
+    if (CORES[k]) return k;
+    return marcaCorAtiva() ? "marca" : "amarelo";
+  }
+  function comCor(f, cor) { return fonteDe(f) + (cor && CORES[cor] && (cor !== "amarelo" || marcaCorAtiva()) ? "|" + cor : ""); }
   function corPickerHtml(atual) {
     var on = corDe(atual);
-    return '<div class="fonts-titulo">Cor do título</div><div class="cor-grid">' + Object.keys(CORES).map(function (k) {
+    return '<div class="fonts-titulo">Cor do título</div><div class="cor-grid">' + Object.keys(CORES).filter(function (k) { return k !== "marca" || marcaCorAtiva(); }).map(function (k) {
       var c = CORES[k];
       return '<button type="button" class="cor-opt' + (k === on ? " on" : "") + '" data-cor="' + k + '" title="' + c.nome + '">' +
         '<span class="cor-amostra"><b style="color:' + c.titulo + '">Aa</b><b style="color:' + c.destaque + '">Aa</b></span><span class="nm">' + c.nome + '</span></button>';
@@ -443,7 +457,7 @@
   }
 
   /* ---------------- slide tile renderer ---------------- */
-  function slideTile(slide, tplSlug, mini, index, total, art, fonte) {
+  function slideTile(slide, tplSlug, mini, index, total, art, fonte, melhorar) {
     var ev = ESTILOS_VIRAIS[tplSlug];
     var cor = CORES[corDe(fonte)];
     var foto = mini ? null : slideImageUrl(slide);
@@ -458,7 +472,7 @@
       extra = '<div class="ck-num">' + (index === 1 ? "✓" : (index - 1)) + '</div>';
     }
     var tit = ev ? ' style="color:' + ev.tit + '"' : ' style="color:' + cor.titulo + '"';
-    return '<div class="slide-tile fnt-' + fonteDe(fonte) + ' ' + (mini ? "mini " : "") + (foto && !fotoCard ? "has-bg " : "") + 'tpl-' + (tplSlug || "minimalista") + '" style="--hl:' + cor.destaque + '">' + artHtml + extra +
+    return '<div class="slide-tile fnt-' + fonteDe(fonte) + ' ' + (mini ? "mini " : "") + (foto && !fotoCard ? "has-bg " : "") + (melhorar !== false ? "melhor " : "") + 'tpl-' + (tplSlug || "minimalista") + '" style="--hl:' + cor.destaque + '">' + artHtml + extra +
       '<div class="stag">' + escapeHtml(slide.tag || (tplSlug === "manchete" ? (index === 1 ? "Urgente" : "Atenção") : "")) + '</div>' +
       '<div class="stitle"' + tit + '>' + tituloHtml(slide.titulo) + '</div>' +
       (fotoCard ? '<div class="ps-foto">' + imgWithFallback(foto, "") + '</div>' : "") +
@@ -466,8 +480,8 @@
       (mini ? "" : '<div class="sindex">' + index + "/" + total + "</div>") +
       "</div>";
   }
-  function slideStrip(slides, tplSlug, mini, art, fonte) {
-    return (slides || []).map(function (s, i) { return slideTile(s, tplSlug, mini, i + 1, slides.length, i === 0 ? art : null, fonte); }).join("");
+  function slideStrip(slides, tplSlug, mini, art, fonte, melhorar) {
+    return (slides || []).map(function (s, i) { return slideTile(s, tplSlug, mini, i + 1, slides.length, i === 0 ? art : null, fonte, melhorar); }).join("");
   }
 
 
@@ -481,13 +495,14 @@
     editorial: { bg: ["#080A10", "#0F1B33"], ink: "#EEF0F6", tag: "#00E0FF", border: "#00E0FF" }
   };
 
-  function loadImage(url) {
+  // melhorar=true: devolve um canvas com auto-ajuste (fotos.js), em cache por url
+  function loadImage(url, melhorar) {
     return new Promise(function (resolve) {
       if (!url) return resolve(null);
       var img = new Image();
       img.crossOrigin = "anonymous";            // sem isso o canvas fica "contaminado" e não exporta
       var t = setTimeout(function () { resolve(null); }, 20000);
-      img.onload = function () { clearTimeout(t); resolve(img); };
+      img.onload = function () { clearTimeout(t); resolve(melhorar && window.VitrineFotos ? window.VitrineFotos.melhorar(img, url) : img); };
       img.onerror = function () { clearTimeout(t); resolve(null); };
       img.src = url;
     });
@@ -597,6 +612,41 @@
     else { ctx.fillStyle = cor; ctx.globalAlpha = 0.75; ctx.font = '500 30px "JetBrains Mono", monospace'; ctx.fillText((i + 1) + "/" + total, W - pad, yBase + 2); ctx.globalAlpha = 1; }
     ctx.textAlign = "left";
   }
+  /* ---------- kit da marca: rodapé pequeno com logo + nome + CRECI (profiles.logo_url/nome/creci) ---------- */
+  var MARCA = null;   // { img, nome, creci } — preparado por prepararMarca() antes de desenhar
+  async function prepararMarca() {
+    var p = (typeof state !== "undefined" && state.profile) || {};
+    if (p.marca_ativa === false || !(p.nome || p.logo_url)) { MARCA = null; return; }
+    var img = p.logo_url ? await loadImage(p.logo_url, false) : null;
+    MARCA = { img: img, nome: String(p.nome || "").trim(), creci: String(p.creci || "").trim() };
+  }
+  // desenha o selo da marca à esquerda; yc = centro vertical; cor = cor do texto. Logo ≤ 56px de altura.
+  function rodapeMarca(ctx, x, yc, maxW, cor, family) {
+    if (!MARCA) return;
+    var lh = 0, lw = 0, gap = 14, pad = 6;
+    if (MARCA.img) {
+      var r = MARCA.img.width / MARCA.img.height;
+      lh = 44; lw = lh * r;
+      if (lw > 200) { lw = 200; lh = lw / r; }
+      ctx.fillStyle = "rgba(255,255,255,0.94)"; rrect(ctx, x, yc - (lh + pad * 2) / 2, lw + pad * 2, lh + pad * 2, 12); ctx.fill();   // fundo claro: logo escuro/transparente continua legível
+      ctx.drawImage(MARCA.img, x + pad, yc - lh / 2, lw, lh);
+      lw += pad * 2;
+    }
+    var tx = x + (lw ? lw + gap : 0), tw = maxW - (tx - x);
+    var l1 = MARCA.nome, l2 = MARCA.creci ? "CRECI " + MARCA.creci : "";
+    if (!l1 && !l2) return;
+    ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillStyle = cor;
+    function corta(t, fonte) { ctx.font = fonte; while (t.length > 3 && ctx.measureText(t).width > tw) t = t.slice(0, -2) + "…"; return t; }
+    ctx.shadowColor = "rgba(0,0,0,0.35)"; ctx.shadowBlur = cor === "#fff" || cor === "#FFFFFF" ? 6 : 0;
+    if (l1 && l2) {
+      ctx.globalAlpha = 0.95; ctx.fillText(corta(l1, "700 28px " + family), tx, yc - 15);
+      ctx.globalAlpha = 0.8; ctx.fillText(corta(l2, "500 23px " + family), tx, yc + 15);
+    } else { ctx.globalAlpha = 0.95; ctx.fillText(corta(l1 || l2, "700 28px " + family), tx, yc); }
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.shadowColor = "transparent"; ctx.textBaseline = "top";
+  }
+  // linha do rodapé: à esquerda do contador "1/7" (yBase = topo do contador)
+  function rodapeMarcaLinha(ctx, W, pad, yBase, cor, family) { rodapeMarca(ctx, pad, yBase + 17, W - pad * 2 - 300, cor, family); }
+
   function faixaLinkVitrine(ctx, W, H, alto) {
     if (!comLinkVitrine()) return;
     var faixaH = 64, faixaY = H - (alto ? 250 : 0) - faixaH;
@@ -631,6 +681,7 @@
       ctx.fillStyle = "#E10600"; var t = tituloViral(ctx, slide, { x: pad, y: tBottom, bottom: true, maxW: maxW, maxH: tBottom - (top + 84 + 70), size: i === 0 ? 150 : 124, weight: tp, family: disp, lh: 1.1, upper: true, cor: "#fff", pill: { bg: COR.destaque, fg: "#111" } });
       ctx.fillStyle = "#E10600"; ctx.fillRect(pad, t.y - 34, 190, 14);
       rodapeViral(ctx, i, total, W, pad, botLimit + 26, "#fff", COR.destaque, fam);
+      rodapeMarcaLinha(ctx, W, pad, botLimit + 26, "#fff", fam);
     }
 
     else if (slug === "post-social") {
@@ -659,6 +710,7 @@
       if (bgImg) { ctx.save(); rrect(ctx, x0, fotoY, w0, fotoH, 32); ctx.clip(); coverImg(ctx, bgImg, x0, fotoY, w0, fotoH); ctx.restore(); ctx.strokeStyle = "#CFD9DE"; ctx.lineWidth = 2; rrect(ctx, x0, fotoY, w0, fotoH, 32); ctx.stroke(); }
       ctx.fillStyle = "#536471"; ctx.font = "600 32px " + fam; ctx.fillText("♥ 18,2 mil     Salvar     Enviar", x0, acaoY + 14);
       rodapeViral(ctx, i, total, W, cx + 56, acaoY + 14, "#536471", "#0F1419", fam);
+      if (!comLinkVitrine()) rodapeMarca(ctx, cx + 20, cardB + 40, cw - 40, "#3B4650", fam);   // fora do cartão, embaixo
     }
 
     else if (slug === "checklist") {
@@ -682,6 +734,7 @@
       var yT = top + numH + 44;
       tituloViral(ctx, slide, { x: pad, y: yT, maxW: maxW, maxH: b3.y - 36 - yT, size: i === 0 ? 140 : 112, weight: tp, family: disp, lh: 1.08, cor: "#fff", hl: COR.destaque });
       rodapeViral(ctx, i, total, W, pad, botLimit + 26, "#fff", COR.destaque, fam);
+      rodapeMarcaLinha(ctx, W, pad, botLimit + 26, "#fff", fam);
     }
 
     else {   // bloco-cor
@@ -696,6 +749,7 @@
       var b4 = corpoViral(ctx, slide, { x: pad, maxW: maxW, size: 42, weight: 600, maxH: 230, bottom: botLimit, cor: "#111", family: fam });
       tituloViral(ctx, slide, { x: pad, y: yy, maxW: maxW, maxH: b4.y - 40 - yy, size: i === 0 ? 190 : 150, min: 60, weight: tp, family: disp, lh: 1.04, upper: true, cor: "#111", pill: { bg: "#111", fg: COR.destaque } });
       rodapeViral(ctx, i, total, W, pad, botLimit + 26, "#111", "#111", fam);
+      rodapeMarcaLinha(ctx, W, pad, botLimit + 26, "#111", fam);
     }
     faixaLinkVitrine(ctx, W, H, alto);
   }
@@ -771,6 +825,7 @@
       ctx.fillText((i + 1) + "/" + total, SLIDE_W - pad, bottomLimit + 30);
     }
     ctx.globalAlpha = 1; ctx.textAlign = "left";
+    rodapeMarcaLinha(ctx, SLIDE_W, pad, bottomLimit + 26, bgImg ? "#fff" : ink, family);
 
     // teste grátis e conta admin (divulgação da própria Vitrine): faixa com o link da plataforma em cada página
     if (comLinkVitrine()) {
@@ -806,13 +861,15 @@
     var tpl = findTemplateById(c.template_id);
     var slug = (tpl && tpl.slug) || "minimalista";
     await carregarFonte(c.fonte);
+    await prepararMarca();   // logo + nome + CRECI no rodapé de todos os slides
+    var melhorar = c.melhorar_fotos !== false;   // ✨ Melhorar fotos (ligado por padrão)
     try { await garantirFotosReais(c.slides, contextoDoCarrossel(c), true); }
     catch (e) { toast("Não consegui buscar as fotos: " + e.message); }
     var out = [];
     for (var i = 0; i < c.slides.length; i++) {
       var sl = c.slides[i];
       if (onProgress) onProgress(i + 1, c.slides.length);
-      var img = slideImageUrl(sl) ? await loadImage(slideImageUrl(sl)) : null;
+      var img = slideImageUrl(sl) ? await loadImage(slideImageUrl(sl), melhorar) : null;
       var blob = await renderSlideJpeg(sl, i, c.slides.length, slug, img, alto, c.fonte);
       out.push({ blob: blob, url: URL.createObjectURL(blob) });
     }
@@ -854,7 +911,7 @@
       // legenda pensada pra viralizar: gancho da capa + CTA do último slide + pedido de salvar/compartilhar + hashtags
       var capa = sl[0] ? semMarcas(sl[0].titulo) : "";
       var cta = sl.length > 1 ? semMarcas(sl[sl.length - 1].corpo || sl[sl.length - 1].titulo) : "";
-      leg = [capa ? capa + " 👇" : "", cta, "📌 Salva pra não perder e manda pra quem precisa ver isso.", HASHTAGS].filter(Boolean).join("\n\n");
+      leg = [capa ? capa + " 👇" : "", cta, c.origem === "imovel" ? "📲 Fotos e detalhes: link na bio" : "", "📌 Salva pra não perder e manda pra quem precisa ver isso.", HASHTAGS].filter(Boolean).join("\n\n");
     }
     return comLinkVitrine() ? leg + "\n\n✨ Criado com a Vitrine — " + LINK_VITRINE : leg;
   }
@@ -1172,6 +1229,84 @@
     if (name === "admin") renderAdmin();
     if (name === "equipe") renderEquipe();
     if (name === "novo" && wizard.step === 1) renderWizard();
+    if (window.Vitrine && window.Vitrine.aoMostrar) { try { window.Vitrine.aoMostrar(name); } catch (e) { console.error(e); } }
+  }
+
+  /* ---------------- APROVAÇÃO DO GESTOR (equipe) ---------------- */
+  function rpc(nome, args) { return DB.rest("rpc/" + nome, { method: "POST", body: JSON.stringify(args || {}) }); }
+  async function renderAprovConfig() {
+    var el = document.getElementById("eq-aprov-cfg"); if (!el) return;
+    var cfg = {};
+    try { cfg = (await rpc("equipe_config")) || {}; } catch (e) { return; }
+    el.innerHTML = '<label class="eq-card" style="display:flex;gap:10px;align-items:center;cursor:pointer;margin-bottom:12px;">' +
+      '<input type="checkbox" id="eq-exigir"' + (cfg.exigir_aprovacao ? " checked" : "") + '> ' +
+      '<span><b>Exigir minha aprovação antes de agendar</b><br><span style="font-size:12.5px;color:var(--ink-muted);">Os posts dos corretores só vão pro Instagram depois que você aprovar.</span></span></label>';
+    document.getElementById("eq-exigir").onchange = async function () {
+      var on = this.checked, box = this;
+      try { await rpc("equipe_definir_aprovacao", { p_exigir: on }); toast(on ? "Agora os posts da equipe esperam sua aprovação." : "Aprovação desligada."); }
+      catch (e) { box.checked = !on; toast(e.message); }
+    };
+  }
+  async function renderAprovLista(el) {
+    if (!el) return;
+    var lista = [];
+    try { lista = (await rpc("equipe_pendentes")) || []; } catch (e) { el.innerHTML = ""; return; }
+    if (!lista.length) { el.innerHTML = ""; return; }
+    el.innerHTML = '<div class="eq-card aprov-card" style="margin-bottom:14px;"><h3 style="font-size:16px;margin:0 0 10px;">⏳ Aguardando sua aprovação <span class="adm-pill trial">' + lista.length + '</span></h3>' +
+      lista.map(function (a) {
+        return '<div class="aprov-item" style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--border);">' +
+          '<div style="min-width:0;"><b>' + escapeHtml((a.titulo || "Carrossel").replace(/\*/g, "")) + '</b><div style="font-size:12.5px;color:var(--ink-muted);">' + escapeHtml(a.corretor_nome || "Corretor") +
+          (a.data_agendada ? " · para " + escapeHtml(fmtDateTime(a.data_agendada)) : "") + '</div></div>' +
+          '<div style="display:flex;gap:8px;"><button class="btn btn-primary btn-sm" data-aprovar="' + a.id + '">Aprovar</button>' +
+          '<button class="btn btn-ghost btn-sm btn-danger" data-recusar="' + a.id + '">Recusar</button></div></div>';
+      }).join("") + '</div>';
+    qsa("[data-aprovar]", el).forEach(function (b) {
+      b.onclick = async function () {
+        b.disabled = true;
+        try { await rpc("equipe_aprovar", { p_carrossel: b.dataset.aprovar, p_aprovar: true }); toast("Aprovado. Vai ser publicado no horário agendado."); renderAprovPainel(); renderAprovLista(document.getElementById("eq-aprov-lista")); }
+        catch (e) { toast(e.message); b.disabled = false; }
+      };
+    });
+    qsa("[data-recusar]", el).forEach(function (b) {
+      b.onclick = async function () {
+        var motivo = prompt("Motivo da recusa (opcional):", "");
+        if (motivo === null) return;
+        b.disabled = true;
+        try { await rpc("equipe_aprovar", { p_carrossel: b.dataset.recusar, p_aprovar: false, p_motivo: motivo || null }); toast("Recusado. O carrossel voltou para rascunho do corretor."); renderAprovPainel(); renderAprovLista(document.getElementById("eq-aprov-lista")); }
+        catch (e) { toast(e.message); b.disabled = false; }
+      };
+    });
+  }
+  function renderAprovPainel() {
+    var el = document.getElementById("aprov-painel"); if (!el) return;
+    if (!(equipeInfo && equipeInfo.papel === "dono")) { el.innerHTML = ""; return; }
+    renderAprovLista(el);
+  }
+
+  /* ---------------- PRÓXIMAS DATAS (painel) ---------------- */
+  function renderDatasCard() {
+    var el = document.getElementById("datas-card"); if (!el) return;
+    var V = window.VitrineDatas;
+    var prox = V ? V.proximas(new Date(), 30, 3) : [];
+    if (!prox.length) { el.innerHTML = ""; return; }
+    el.innerHTML = '<div class="eq-card datas-card"><h3 style="font-size:16px;margin:0 0 4px;">📅 Próximas datas</h3>' +
+      '<p style="margin:0 0 6px;font-size:12.5px;color:var(--ink-muted);">Poste com antecedência: datas viram assunto e engajamento.</p>' +
+      prox.map(function (x, i) {
+        var quando = x.emAndamento ? "acontecendo agora" : x.faltam === 0 ? "hoje" : x.faltam === 1 ? "amanhã" : "em " + x.faltam + " dias";
+        var dt = x.data.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+        return '<div style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--border);">' +
+          '<div style="min-width:0;flex:1 1 220px;"><b>' + escapeHtml(x.nome) + '</b> <span style="font-size:12.5px;color:var(--ink-muted);">' + dt + ' · ' + quando + '</span>' +
+          '<div style="font-size:12.5px;color:var(--ink-muted);">' + escapeHtml(x.tema) + '</div></div>' +
+          '<button class="btn btn-primary btn-sm" data-data-post="' + i + '">Criar post</button></div>';
+      }).join("") + '</div>';
+    qsa("[data-data-post]", el).forEach(function (b) {
+      b.onclick = function () {
+        var x = prox[+b.dataset.dataPost];
+        resetWizard(); showScreen("novo");
+        var t = document.getElementById("tema-livre-txt");
+        if (t) { t.value = x.tema; t.focus(); }
+      };
+    });
   }
 
   /* ---------------- EQUIPE (planos de imobiliária) ---------------- */
@@ -1180,6 +1315,7 @@
     try { equipeInfo = await callFunction("equipe", { acao: "minha" }); }
     catch (e) { equipeInfo = null; }
     document.getElementById("nav-equipe").hidden = !(equipeInfo && equipeInfo.papel);
+    renderAprovPainel();
     return equipeInfo;
   }
   async function renderEquipe() {
@@ -1211,6 +1347,7 @@
       '<div style="text-align:right;"><div class="eq-vagas">' + usadas + '/' + d.equipe.max + '</div><div style="font-size:12px;color:var(--ink-muted);">vagas usadas (com você)</div></div></div>' +
       (d.equipe.ativa ? '<div class="eq-convite"><input type="email" id="eq-email" placeholder="E-mail do corretor (o mesmo que ele vai usar pra entrar)"><button class="btn btn-primary btn-sm" id="eq-convidar">Convidar</button></div><div id="eq-link-box"></div>'
         : '<p style="margin:12px 0 0;color:#ff9aab;font-size:13px;">A assinatura da imobiliária não está ativa. Assine de novo em Plano para os corretores voltarem a ter acesso.</p>') + '</div>' +
+      '<div id="eq-aprov-cfg"></div><div id="eq-aprov-lista"></div>' +
       '<div class="admin-tabela-wrap"><table class="admin-tabela" style="min-width:640px;"><thead><tr><th>Corretor</th><th>Situação</th><th>Carrosséis</th><th></th></tr></thead><tbody>' +
       (membros.length ? membros.map(function (m) {
         return '<tr><td><b>' + escapeHtml(m.nome || m.email) + '</b>' + (m.nome ? '<div class="sub">' + escapeHtml(m.email) + '</div>' : "") + '</td>' +
@@ -1219,6 +1356,8 @@
           '<td style="text-align:right;"><button class="btn btn-ghost btn-xs btn-danger" data-remover="' + escapeHtml(m.id) + '">' + (m.status === "ativo" ? "Remover" : "Cancelar convite") + '</button></td></tr>';
       }).join("") : '<tr><td colspan="4" style="padding:20px;color:var(--ink-muted);">Nenhum corretor convidado ainda. Digite o e-mail acima e mande o link pra ele.</td></tr>') +
       '</tbody></table></div>';
+    renderAprovConfig();
+    renderAprovLista(document.getElementById("eq-aprov-lista"));
     var conv = document.getElementById("eq-convidar");
     if (conv) conv.onclick = async function () {
       var email = document.getElementById("eq-email").value.trim();
@@ -1424,6 +1563,8 @@
   }
 
   function renderPainel() {
+    renderDatasCard();
+    renderAprovPainel();
     var total = state.carrosseis.length;
     var rasc = state.carrosseis.filter(function (c) { return c.status === "rascunho"; }).length;
     var ag = state.carrosseis.filter(function (c) { return c.status === "agendado"; }).length;
@@ -1452,11 +1593,12 @@
       sectionHint.textContent = "clique num status acima pra filtrar";
     }
 
+    var temAprov = state.carrosseis.some(function (c) { return c.status === "aguardando_aprovacao"; });
     var allCols = [
-      { status: "rascunho", label: "Rascunho" },
+      { status: "rascunho", label: "Rascunho" }].concat(temAprov ? [{ status: "aguardando_aprovacao", label: "Aguardando aprovação" }] : []).concat([
       { status: "agendado", label: "Agendado" },
       { status: "publicado", label: "Publicado" }
-    ];
+    ]);
     var cols = painelFilter ? allCols.filter(function (c) { return c.status === painelFilter; }) : allCols;
     document.getElementById("kanban").classList.toggle("single", cols.length === 1);
     document.getElementById("kanban").innerHTML = cols.map(function (col) {
@@ -1466,7 +1608,8 @@
         var meta = getSubjectMeta(c);
         var tpl = findTemplateById(c.template_id);
         var slide0 = (c.slides && c.slides[0]) || { tag: "", titulo: meta.titulo, corpo: "" };
-        var when = c.status === "agendado" ? "Agendado " + fmtDateTime(c.data_agendada)
+        var when = c.status === "aguardando_aprovacao" ? '<span class="selo-aprov">⏳ Aguardando aprovação do gestor</span>' + (c.data_agendada ? " · para " + fmtDateTime(c.data_agendada) : "")
+          : c.status === "agendado" ? "Agendado " + fmtDateTime(c.data_agendada)
           : c.status === "publicado" ? "Publicado " + fmtDate(c.data_publicada)
           : "Criado " + fmtDate(c.created_at);
         // agendados e publicados: card compacto (texto e botões na mesma linha), como os rascunhos enxutos
@@ -1523,9 +1666,9 @@
       '<div class="modal-head"><div><h3 style="font-size:19px;">' + escapeHtml(meta.titulo) + '</h3>' +
       '<span class="pill ' + pillCls + '" style="margin-top:6px;">' + escapeHtml(c.status) + '</span></div>' +
       '<button class="modal-close" id="modal-close">' + ICONS.close + '</button></div>' +
-      '<div class="carousel-strip">' + slideStrip(c.slides, tpl && tpl.slug, false, meta.art, c.fonte) + '</div>' +
+      '<div class="carousel-strip">' + slideStrip(c.slides, tpl && tpl.slug, false, meta.art, c.fonte, c.melhorar_fotos) + '</div>' +
       (c.status !== "publicado" ? '<div id="modal-fontes">' + fontPickerHtml(c.fonte) + '</div>' : "") +
-      (c.status !== "publicado" ? '<div class="fotos-titulo">Fotos dos slides</div>' + fotoControlsHtml(c.slides) : "") +
+      (c.status !== "publicado" ? '<div class="fotos-titulo">Fotos dos slides</div>' + melhorarToggleHtml(c.melhorar_fotos) + fotoControlsHtml(c.slides) : "") +
       (c.direcionamento ? '<div style="font-size:12px;color:var(--ink-muted);margin-bottom:8px;"><strong>Direcionamento usado:</strong> ' + escapeHtml(c.direcionamento) + '</div>' : "") +
       '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">' +
       '<span style="font-size:12px;color:var(--ink-faint);">' + escapeHtml(meta.sub) + '</span>' + extra + '</div>';
@@ -1546,6 +1689,16 @@
       };
     });
     if (c.status !== "publicado") wireFotoControls(document.getElementById("modal-body"), c.slides, contextoDoCarrossel(c), true, function () { openCarouselModal(c.id); });
+    var mt = qs("#modal-body [data-melhorar]");
+    if (mt) mt.onchange = async function () {
+      c.melhorar_fotos = mt.checked;
+      try {
+        await DB.update("carrosseis", "id=eq." + c.id, { melhorar_fotos: c.melhorar_fotos });
+        // agendado já tem imagens prontas no Storage: refaz com o novo ajuste
+        if (c.status === "agendado") { toast("Refazendo as imagens agendadas…"); await prepararAgendado(c); }
+      } catch (e) { toast("Erro ao salvar: " + e.message); }
+      openCarouselModal(c.id);
+    };
     // carrossel antigo sem foto: busca as fotos reais uma vez e redesenha
     if (!c._buscouFotos && c.slides.some(function (s) { return !isFotoReal(s.imagem_url); })) {
       c._buscouFotos = true;
@@ -1614,8 +1767,10 @@
         var iso = quando.toISOString();
         var contasSel = lerContasMarcadas(document.getElementById("ag-contas"));
         if (contasAtivas().length > 1 && !contasSel.length) { toast("Marque pelo menos um Instagram."); btn.disabled = false; btn.textContent = orig; return; }
-        await DB.update("carrosseis", "id=eq." + c.id, { status: "agendado", data_agendada: iso, erro_publicacao: null, instagram_contas_ids: contasSel });
-        c.status = "agendado"; c.data_agendada = iso; c.erro_publicacao = null; c.instagram_contas_ids = contasSel;
+        var upd = await DB.update("carrosseis", "id=eq." + c.id, { status: "agendado", data_agendada: iso, erro_publicacao: null, instagram_contas_ids: contasSel });
+        // com a aprovação do gestor ligada, o banco troca 'agendado' por 'aguardando_aprovacao'
+        var stFinal = upd && upd[0] && upd[0].status ? upd[0].status : "agendado";
+        c.status = stFinal; c.data_agendada = iso; c.erro_publicacao = null; c.instagram_contas_ids = contasSel;
         // imagens do feed prontas no Storage pro servidor publicar na hora marcada
         // rascunho pode ter sido editado (fonte/fotos) depois de algum render antigo: renderiza de novo
         if (eraRascunho || c.slides.some(function (s) { return !s.render_url; })) {
@@ -1623,7 +1778,8 @@
           catch (e) { toast("Agendado, mas as imagens não foram preparadas (" + e.message + "). Abra o app antes do horário que eu tento de novo."); }
         }
         closeModal(); renderPainel(); renderInstagram();
-        toast("Agendado para " + fmtDateTime(iso) + (igOn ? " — vai ser publicado sozinho no Instagram." : ". Conecte o Instagram (aba Instagram) até lá pra publicar sozinho."));
+        if (stFinal === "aguardando_aprovacao") toast("Enviado para aprovação do gestor.");
+        else toast("Agendado para " + fmtDateTime(iso) + (igOn ? " — vai ser publicado sozinho no Instagram." : ". Conecte o Instagram (aba Instagram) até lá pra publicar sozinho."));
       } catch (err) { toast("Erro ao agendar: " + err.message); btn.disabled = false; btn.textContent = orig; }
     };
   }
@@ -1659,8 +1815,25 @@
       '</div>' +
       '<div class="prop-foot"><button class="btn btn-primary" data-create="' + escapeHtml(p.id) + '">' + ICONS.wand + ' Criar carrossel</button>' +
       '<div class="prop-acts"><button class="btn btn-ghost btn-sm" data-prop-fotos="' + escapeHtml(p.id) + '">Fotos</button>' +
+      '<button class="btn btn-ghost btn-sm" data-prop-link="' + escapeHtml(p.id) + '" title="Copiar o link da página pública deste imóvel">Copiar link da página</button>' +
       '<button class="btn btn-ghost btn-sm btn-danger" data-prop-del="' + escapeHtml(p.id) + '">Excluir</button></div></div>' +
+      '<div class="imv-stats" data-prop-stats="' + escapeHtml(p.id) + '" style="font-size:12px;color:var(--text-3,#a1a1aa);padding:0 16px 12px;">0 visitas · 0 cliques no WhatsApp</div>' +
       '</div>';
+  }
+  function linkPaginaImovel(id) { return new URL("imovel.html?id=" + encodeURIComponent(id), window.location.href).toString(); }
+  // contadores de visitas/cliques da página pública (RLS: só o dono lê)
+  async function carregarEstatsImoveis() {
+    if (!state.propriedades.length) return;
+    try {
+      var ids = state.propriedades.map(function (p) { return p.id; }).join(",");
+      var rows = await DB.select("imovel_eventos", "select=propriedade_id,tipo&propriedade_id=in.(" + ids + ")&limit=20000");
+      var cont = {};
+      (rows || []).forEach(function (r) { var c = cont[r.propriedade_id] || (cont[r.propriedade_id] = { visita: 0, whatsapp: 0 }); c[r.tipo]++; });
+      qsa("[data-prop-stats]").forEach(function (el) {
+        var c = cont[el.dataset.propStats] || { visita: 0, whatsapp: 0 };
+        el.textContent = c.visita + (c.visita === 1 ? " visita" : " visitas") + " · " + c.whatsapp + (c.whatsapp === 1 ? " clique" : " cliques") + " no WhatsApp";
+      });
+    } catch (e) { /* contadores são opcionais */ }
   }
   function renderImoveis() {
     document.getElementById("imoveis-count").textContent = state.propriedades.length + " imóveis";
@@ -1677,6 +1850,14 @@
       });
     });
     qsa("[data-prop-fotos]").forEach(function (b) { b.addEventListener("click", function () { openFotosImovel(b.dataset.propFotos); }); });
+    qsa("[data-prop-link]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var url = linkPaginaImovel(b.dataset.propLink);
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(function () { toast("Link copiado! Cole na bio do Instagram."); }, function () { window.prompt("Copie o link:", url); });
+        else window.prompt("Copie o link:", url);
+      });
+    });
+    carregarEstatsImoveis();
     qsa("[data-prop-del]").forEach(function (b) {
       b.addEventListener("click", async function () {
         var p = findProp(b.dataset.propDel); if (!p) return;
@@ -1760,6 +1941,10 @@
   function openAddPropertyModal() {
     document.getElementById("modal-body").innerHTML =
       '<div class="modal-head"><h3 style="font-size:19px;">Novo imóvel</h3><button class="modal-close" id="modal-close">' + ICONS.close + '</button></div>' +
+      '<div class="card" style="padding:12px;margin-bottom:14px;"><div style="font-size:13px;font-weight:600;margin-bottom:6px;">Importar por link</div>' +
+      '<div style="display:flex;gap:8px;"><input type="url" id="np-link" placeholder="Cole o link do anúncio (ZAP, VivaReal, OLX, QuintoAndar...)" style="flex:1;min-width:0;">' +
+      '<button class="btn btn-ghost" type="button" id="np-importar">Importar</button></div>' +
+      '<div id="np-imp-msg" style="font-size:12px;margin-top:6px;opacity:.8;"></div></div>' +
       '<div class="form-grid">' +
       '<label class="full">Título<input type="text" id="np-titulo" placeholder="Ex: Cobertura duplex na Praia de Iracema"></label>' +
       '<label>Bairro<input type="text" id="np-bairro" placeholder="Ex: Iracema"></label>' +
@@ -1779,6 +1964,27 @@
     document.getElementById("overlay").hidden = false;
     document.getElementById("modal-close").addEventListener("click", closeModal);
     document.getElementById("np-cancel").addEventListener("click", closeModal);
+    var fotosImportadas = [];
+    var enderecoImportado = "";
+    document.getElementById("np-importar").addEventListener("click", async function () {
+      var inp = document.getElementById("np-link"), msg = document.getElementById("np-imp-msg"), b = this;
+      var link = inp.value.trim();
+      if (!link) { toast("Cole o link do anúncio."); return; }
+      b.disabled = true; msg.textContent = "Lendo o anúncio… pode levar até 30 segundos.";
+      try {
+        var r = await callFunction("importar-imovel", { url: link });
+        var d = r.dados || {};
+        function set(id, v) { if (v !== null && v !== undefined && v !== "") document.getElementById(id).value = v; }
+        set("np-titulo", d.titulo); set("np-bairro", d.bairro); set("np-cidade", d.cidade);
+        set("np-tipo", d.tipo); set("np-finalidade", d.finalidade); set("np-preco", d.preco);
+        set("np-m2", d.area_m2); set("np-quartos", d.quartos);
+        if (d.diferenciais && d.diferenciais.length) document.getElementById("np-dif").value = d.diferenciais.join(", ");
+        enderecoImportado = d.endereco || "";
+        fotosImportadas = (r.fotos || []).filter(function (u) { return /^https:\/\//.test(u); }).slice(0, MAX_FOTOS_IMOVEL);
+        msg.textContent = "Pronto! " + fotosImportadas.length + " foto(s) importada(s). Confira os dados abaixo e salve.";
+      } catch (e) { msg.textContent = e.message; }
+      finally { b.disabled = false; }
+    });
     document.getElementById("np-save").addEventListener("click", async function () {
       var titulo = document.getElementById("np-titulo").value.trim();
       if (!titulo) { toast("Dê um título ao imóvel."); return; }
@@ -1793,7 +1999,7 @@
         titulo: titulo,
         bairro: bairro || null,
         cidade: cidade,
-        endereco: (bairro || "") + ", " + cidade,
+        endereco: enderecoImportado || ((bairro || "") + ", " + cidade),
         preco: Number(document.getElementById("np-preco").value) || 0,
         area_m2: Number(document.getElementById("np-m2").value) || 0,
         quartos: Number(document.getElementById("np-quartos").value) || 0,
@@ -1801,6 +2007,8 @@
         vagas: Number(document.getElementById("np-vagas").value) || 0,
         diferenciais: diferenciais
       };
+      var arqsSel = document.getElementById("np-fotos").files;
+      if (fotosImportadas.length && !(arqsSel && arqsSel.length)) payload.fotos = fotosImportadas;
       var btn = this; btn.disabled = true;
       try {
         var rows = await DB.insert("propriedades", payload);
@@ -1822,7 +2030,7 @@
      WIZARD
   ============================================================ */
   function freshWizard() {
-    return { step: 1, subjectMode: "topic", propertyId: null, topicId: null, customTopic: "", customCategoria: "Dicas", slides: null, templateSlug: "minimalista", fonte: "impacto", dest: "rascunho", customPrompt: "" };
+    return { step: 1, subjectMode: "topic", propertyId: null, topicId: null, customTopic: "", customCategoria: "Dicas", slides: null, templateSlug: "minimalista", fonte: "impacto", dest: "rascunho", customPrompt: "", melhorar: true, calc: null, calcSig: "" };
   }
   var wizard = freshWizard();
   function resetWizard() {
@@ -1853,6 +2061,8 @@
   function invalidateSlides() { wizard.slides = null; }
   // contexto curto (bairro/tipo do imóvel ou categoria do assunto) pra imagem de cada slide combinar com o tema
   function wizardContexto() {
+    if (wizard.subjectMode === "simfin") return "financiamento imobiliário, casa própria, família";
+    if (wizard.subjectMode === "simalug") return "alugar ou comprar imóvel, casa própria";
     if (wizard.subjectMode === "property") { var p = findProp(wizard.propertyId); return p ? (p.tipo || "imóvel") + " em " + (p.bairro || "") : ""; }
     if (wizard.subjectMode === "topic") { var t = findTopic(wizard.topicId); return t ? "mercado imobiliário, " + t.categoria : ""; }
     return "mercado imobiliário, " + (wizard.customCategoria || "");
@@ -1926,8 +2136,65 @@
     document.getElementById("wiz-next").addEventListener("click", onWizNext);
   }
 
+  /* ---------- slides de cálculo (sem IA): simulação de financiamento e alugar x comprar (simulacao.js) ---------- */
+  function ehCalc() { return wizard.subjectMode === "simfin" || wizard.subjectMode === "simalug"; }
+  var CALC_CAMPOS = {
+    simfin: [
+      { k: "valor", rot: "Valor do imóvel (R$)", pad: "500000" }, { k: "entrada", rot: "Entrada (%)", pad: "20" },
+      { k: "anos", rot: "Prazo (anos)", pad: "30" }, { k: "taxa", rot: "Juros ao ano (%)", pad: "11,5", dica: "Taxa ilustrativa, confira com o banco." }
+    ],
+    simalug: [
+      { k: "aluguel", rot: "Aluguel mensal (R$)", pad: "2500" }, { k: "valor", rot: "Valor do imóvel (R$)", pad: "500000" },
+      { k: "entrada", rot: "Entrada (%)", pad: "20" }, { k: "anos", rot: "Prazo do financiamento (anos)", pad: "30" },
+      { k: "taxa", rot: "Juros ao ano (%)", pad: "11,5", dica: "Taxa ilustrativa, confira com o banco." },
+      { k: "rend", rot: "Rendimento da aplicação (% ao mês)", pad: "0,8" },
+      { k: "valoriz", rot: "Valorização do imóvel (% ao ano)", pad: "5" }, { k: "reaj", rot: "Reajuste do aluguel (% ao ano)", pad: "5" }
+    ]
+  };
+  function numBR(t) {
+    t = String(t == null ? "" : t).replace(/[R$\s%]/g, "");
+    if (t.indexOf(",") >= 0) t = t.replace(/\./g, "").replace(",", ".");
+    else if (/\.\d{3}(\.|$)/.test(t)) t = t.replace(/\./g, "");
+    var n = parseFloat(t); return isFinite(n) ? n : NaN;
+  }
+  function renderCalcForm() {
+    var box = document.getElementById("subject-calc"), m = wizard.subjectMode;
+    wizard.calc = wizard.calc || {};
+    var v = wizard.calc[m] = wizard.calc[m] || {};
+    var titulo = m === "simfin" ? "Simulação de financiamento (SAC e Price)" : "Alugar ou comprar? Comparativo em 10 anos";
+    var sub = m === "simfin" ? "A Vitrine calcula a parcela, os juros e a renda mínima e monta 7 slides prontos — sem IA, só conta."
+      : "Compara comprar financiado com alugar e investir a entrada, ao longo de 10 anos. 7 slides prontos, sem IA.";
+    box.innerHTML = '<div class="calc-form"><h4>' + titulo + '</h4><p class="calc-sub">' + sub + '</p><div class="calc-grid">' +
+      CALC_CAMPOS[m].map(function (c) {
+        return '<label>' + c.rot + '<input type="text" inputmode="decimal" data-calc="' + c.k + '" value="' + escapeHtml(v[c.k] != null ? v[c.k] : c.pad) + '">' + (c.dica ? '<small>' + c.dica + '</small>' : "") + '</label>';
+      }).join("") + '</div><p class="calc-sub">Valores ilustrativos, sem seguros e tarifas. Os bancos analisam cada caso.</p></div>';
+    qsa("[data-calc]", box).forEach(function (inp) { inp.addEventListener("input", function () { v[inp.dataset.calc] = inp.value; }); });
+  }
+  // lê o formulário, valida e monta os slides; devolve false se algo estiver inválido
+  async function gerarSlidesCalculo() {
+    var m = wizard.subjectMode, raw = (wizard.calc && wizard.calc[m]) || {}, o = {}, bad = null;
+    var lim = { valor: [20000, 1e9, "o valor do imóvel"], aluguel: [100, 1e6, "o aluguel"], entrada: [0, 95, "a entrada (0 a 95%)"], anos: [1, 35, "o prazo (1 a 35 anos)"], taxa: [0, 40, "os juros ao ano"], rend: [0, 5, "o rendimento mensal (0 a 5%)"], valoriz: [-10, 30, "a valorização ao ano"], reaj: [0, 30, "o reajuste do aluguel"] };
+    CALC_CAMPOS[m].forEach(function (c) {
+      var n = numBR(raw[c.k] != null ? raw[c.k] : c.pad), l = lim[c.k];
+      if (!(n >= l[0] && n <= l[1]) && !bad) bad = "Confira " + l[2] + ".";
+      o[c.k] = n;
+    });
+    if (bad) { toast(bad); return false; }
+    o.entradaPct = o.entrada; o.taxaAnual = o.taxa;
+    var sig = m + JSON.stringify(o);
+    if (wizard.slides && wizard.calcSig === sig) return true;       // nada mudou: mantém as edições feitas no texto
+    var S = window.VitrineSim;
+    wizard.slides = m === "simfin" ? S.slidesFinanciamento(o) : S.slidesAlugarComprar(o);
+    wizard.customTopic = m === "simfin" ? S.descricaoFinanciamento(o) : S.descricaoAlugarComprar(o);
+    wizard.customCategoria = "Financiamento";
+    wizard.calcSig = sig;
+    return true;
+  }
+
   function renderSubjectStep() {
     qsa("#mode-tabs .mode-tab").forEach(function (b) { b.classList.toggle("active", b.dataset.mode === wizard.subjectMode); });
+    document.getElementById("subject-calc").hidden = !ehCalc();
+    if (ehCalc()) renderCalcForm();
     document.getElementById("subject-topic").hidden = wizard.subjectMode !== "topic";
     document.getElementById("subject-property").hidden = wizard.subjectMode !== "property";
     document.getElementById("subject-custom").hidden = wizard.subjectMode !== "custom";
@@ -2260,6 +2527,18 @@
 
   function renderGenArea(errMsg) {
     var area = document.getElementById("gen-area");
+    if (ehCalc() && wizard.slides) {   // slides gerados por conta (sem IA): só edição de texto
+      area.innerHTML = '<div class="subject-spotlight"><div class="art">' + customCoverSvg() + '</div><div><div class="cat">🧮 Cálculo · sem IA</div><h4>' + escapeHtml(wizard.customTopic) + '</h4>' +
+        '<div class="spotlight-label">Os números vêm da simulação. Pra mudar valores, volte ao passo 1.</div></div></div>' +
+        '<p class="dica-destaque">Dica: palavras entre *asteriscos* no título saem em <span class="hl">destaque</span> no carrossel.</p><div class="slide-editor" id="slide-editor"></div>';
+      var ed = document.getElementById("slide-editor");
+      ed.innerHTML = wizard.slides.map(function (s, i) {
+        return '<div class="slide-row"><div class="tagcol"><span class="slide-num">' + (i + 1) + '/' + wizard.slides.length + '</span><span class="slide-tagname">' + escapeHtml(s.tag) + '</span></div>' +
+          '<div><input type="text" data-i="' + i + '" data-f="titulo" value="' + escapeHtml(s.titulo) + '"><textarea data-i="' + i + '" data-f="corpo">' + escapeHtml(s.corpo) + '</textarea></div></div>';
+      }).join("");
+      qsa("input,textarea", ed).forEach(function (el) { el.addEventListener("input", function () { wizard.slides[el.dataset.i][el.dataset.f] = el.value; }); });
+      return;
+    }
     if (!wizard.slides) {
       var fonteTxt = wizard.subjectMode === "property"
         ? "os dados do imóvel selecionado — endereço, valor, metragem e diferenciais"
@@ -2273,9 +2552,21 @@
       document.getElementById("gen-btn").addEventListener("click", runGeneration);
       return;
     }
-    area.innerHTML = subjectSpotlightHtml() + promptBoxHtml() + '<p class="dica-destaque">Dica: palavras entre *asteriscos* no título saem em <span class="hl">amarelo</span> no carrossel.</p><div class="slide-editor" id="slide-editor"></div>' +
+    var ganchosHtml = (wizard.ganchos && wizard.ganchos.length > 1)
+      ? '<div class="gancho-box"><div class="fotos-titulo">Escolha o gancho da capa</div><div class="formato-chips">' +
+        wizard.ganchos.map(function (g, i) {
+          return '<button type="button" class="formato-chip' + (wizard.ganchoIdx === i ? " on" : "") + '" data-gancho="' + i + '">' + (i === 0 ? "Principal: " : "Opção " + (i + 1) + ": ") + escapeHtml(String(g).replace(/\*/g, "")) + '</button>';
+        }).join("") + '</div></div>' : "";
+    area.innerHTML = subjectSpotlightHtml() + promptBoxHtml() + ganchosHtml + '<p class="dica-destaque">Dica: palavras entre *asteriscos* no título saem em <span class="hl">amarelo</span> no carrossel.</p><div class="slide-editor" id="slide-editor"></div>' +
       '<button class="btn btn-ghost btn-sm" id="regen-btn">' + ICONS.wand + ' Gerar novamente com esse direcionamento</button>';
     wirePromptBox();
+    qsa("[data-gancho]", area).forEach(function (b) {
+      b.addEventListener("click", function () {
+        var i = +b.dataset.gancho;
+        wizard.ganchoIdx = i; wizard.slides[0].titulo = wizard.ganchos[i];
+        renderGenArea();
+      });
+    });
     var editor = document.getElementById("slide-editor");
     editor.innerHTML = wizard.slides.map(function (s, i) {
       return '<div class="slide-row">' +
@@ -2306,6 +2597,10 @@
       var resp = await callFunction("gerar-conteudo", { origem: origem, dados: dados, direcionamento: wizard.customPrompt || undefined });
       wizard.slides = resp.slides || [];
       if (!wizard.slides.length) throw new Error("A IA não retornou slides. Tente gerar de novo.");
+      // teste de ganchos: capa principal + alternativas (se a IA não mandar, não mostra nada)
+      var alts = (resp.capas_alternativas || []).filter(function (x) { return typeof x === "string" && x.trim(); }).slice(0, 2);
+      wizard.ganchos = alts.length ? [wizard.slides[0].titulo].concat(alts) : null;
+      wizard.ganchoIdx = 0;
       area.querySelector(".gen-empty p").textContent = "Texto pronto. Buscando fotos reais em alta resolução pra cada slide…";
       // imóvel com fotos próprias: usa as fotos do corretor nos slides (na ordem), o resto vem do banco de fotos
       if (origem === "imovel") {
@@ -2330,7 +2625,7 @@
       el.addEventListener("click", function () { wizard.templateSlug = el.dataset.tpl; renderTplStep(); });
     });
     var strip = document.getElementById("preview-strip");
-    strip.innerHTML = slideStrip(wizard.slides || [], wizard.templateSlug, false, wizardArt(), wizard.fonte);
+    strip.innerHTML = slideStrip(wizard.slides || [], wizard.templateSlug, false, wizardArt(), wizard.fonte, wizard.melhorar);
     var fbox = document.getElementById("wiz-fontes");
     if (!fbox) { fbox = document.createElement("div"); fbox.id = "wiz-fontes"; strip.insertAdjacentElement("beforebegin", fbox); }
     fbox.innerHTML = fontPickerHtml(wizard.fonte);
@@ -2339,8 +2634,10 @@
     var box = document.getElementById("wiz-fotos");
     if (!box) { box = document.createElement("div"); box.id = "wiz-fotos"; strip.insertAdjacentElement("afterend", box); }
     if (wizard.slides && wizard.slides.length) {
-      box.innerHTML = '<div class="fotos-titulo">Fotos dos slides — troque as que quiser</div>' + fotoControlsHtml(wizard.slides);
+      box.innerHTML = '<div class="fotos-titulo">Fotos dos slides — troque as que quiser</div>' + melhorarToggleHtml(wizard.melhorar) + fotoControlsHtml(wizard.slides);
       wireFotoControls(box, wizard.slides, wizardContexto(), false, renderTplStep);
+      var wt = qs("[data-melhorar]", box);
+      if (wt) wt.onchange = function () { wizard.melhorar = wt.checked; renderTplStep(); };
     } else box.innerHTML = "";
   }
 
@@ -2432,6 +2729,13 @@
 
   async function onWizNext() {
     if (wizard.step === 1) {
+      if (ehCalc()) {
+        if (!(await gerarSlidesCalculo())) return;
+        var bt = document.getElementById("wiz-next"), tx = bt.textContent; bt.disabled = true; bt.textContent = "Buscando fotos…";
+        try { await garantirFotosReais(wizard.slides, wizardContexto(), false); } catch (e) { toast("Fotos não encontradas agora — dá pra trocar no passo de estilo."); }
+        bt.disabled = false; bt.textContent = tx;
+        wizard.step = 2; renderWizard(); return;
+      }
       if (wizard.subjectMode === "topic" && !wizard.topicId) { toast("Escolha um assunto sugerido."); return; }
       if (wizard.subjectMode === "property" && !wizard.propertyId) { toast("Escolha um imóvel para continuar."); return; }
       if (wizard.subjectMode === "custom" && !wizard.customTopic.trim()) { toast("Escreva sobre o que é o carrossel."); return; }
@@ -2453,7 +2757,7 @@
     var temp = {
       _temp: true, origem: origem, template_id: tpl ? tpl.id : null, fonte: comCor(wizard.fonte, corDe(wizard.fonte)),
       propriedade_id: wizard.propertyId, topico_id: wizard.topicId,
-      assunto_custom: wizard.customTopic, categoria: wizard.customCategoria,
+      assunto_custom: wizard.customTopic, categoria: wizard.customCategoria, melhorar_fotos: wizard.melhorar !== false,
       slides: wizard.slides
     };
     await abrirPrevia(temp, "ver");
@@ -2474,7 +2778,9 @@
       origem: origem,
       template_id: tpl ? tpl.id : null,
       fonte: comCor(wizard.fonte, corDe(wizard.fonte)),
+      melhorar_fotos: wizard.melhorar !== false,
       direcionamento: wizard.customPrompt || null,
+      gancho_idx: wizard.ganchos ? wizard.ganchoIdx : null,
       status: wizard.dest,
       propriedade_id: origem === "imovel" ? wizard.propertyId : null,
       topico_id: origem === "topico" ? wizard.topicId : null,
@@ -2544,6 +2850,7 @@
         }
       }
       if (wizard.dest === "rascunho") toast("Rascunho salvo.");
+      else if (wizard.dest === "agendado" && carrossel.status === "aguardando_aprovacao") toast("Enviado para aprovação do gestor. Depois de aprovado, ele é agendado para " + fmtDateTime(payload.data_agendada) + ".");
       else if (wizard.dest === "agendado") toast("Agendado para " + fmtDateTime(payload.data_agendada) + (state.igConta && state.igConta.status === "ativo" ? " — vai ser publicado sozinho no Instagram." : ". Conecte o Instagram (aba Instagram) até lá pra publicar sozinho."));
 
       resetWizard(); showScreen("painel");
@@ -2687,7 +2994,84 @@
     }
   }
 
+  /* ---------- Minha marca (kit da marca): logo, cor, nome e CRECI ---------- */
+  function renderMarca() {
+    var box = document.getElementById("marca-box");
+    if (!box || !state.profile) return;
+    var p = state.profile, ativa = p.marca_ativa !== false, cor = /^#[0-9a-f]{6}$/i.test(p.cor_marca || "") ? p.cor_marca : "";
+    var logo = safeUrl(p.logo_url);
+    box.innerHTML = '<div class="section-head" style="margin-top:6px;"><h2>Minha marca</h2></div>' +
+      '<div class="marca-card">' +
+      '<p class="marca-sub">Seu logo, nome e CRECI aparecem em um rodapé discreto em todos os slides, e a cor da marca vira o destaque padrão dos títulos.</p>' +
+      '<label class="melhorar-toggle"><input type="checkbox" id="marca-ativa"' + (ativa ? " checked" : "") + '> <span>Usar minha marca nos slides</span></label>' +
+      '<div class="marca-grid">' +
+      '<div class="marca-logo"><div class="marca-logo-img">' + (logo ? '<img src="' + escapeHtml(logo) + '" alt="Seu logo">' : '<span>Sem logo</span>') + '</div>' +
+      '<label class="btn btn-ghost btn-sm">' + (logo ? "Trocar logo" : "Enviar logo") + '<input type="file" id="marca-logo-up" accept="image/png,image/jpeg,image/webp" hidden></label>' +
+      (logo ? '<button type="button" class="btn btn-ghost btn-sm" id="marca-logo-rm">Remover</button>' : "") +
+      '<small>PNG com fundo transparente fica melhor. Máx. 3 MB.</small></div>' +
+      '<div class="marca-campos">' +
+      '<label>Nome<input type="text" id="marca-nome" maxlength="60" value="' + escapeHtml(p.nome || "") + '"></label>' +
+      '<label>CRECI<input type="text" id="marca-creci" maxlength="20" placeholder="Ex.: 12345-F" value="' + escapeHtml(p.creci || "") + '"></label>' +
+      '<label>Cor da marca<span class="marca-cor"><input type="color" id="marca-cor" value="' + (cor || "#FFD60A") + '"><input type="text" id="marca-cor-hex" maxlength="7" placeholder="#FFD60A" value="' + escapeHtml(cor) + '"></span></label>' +
+      '</div></div>' +
+      '<div class="marca-aviso" id="marca-aviso" hidden>⚠️ Pela lei, anúncio de imóvel precisa do CRECI. Preencha o seu pra seus carrosséis ficarem em dia.</div>' +
+      '<div class="marca-aviso cinza" id="marca-aviso-cor" hidden>Essa cor é bem escura: em slides de fundo escuro o destaque pode ficar difícil de ler.</div>' +
+      '<div class="marca-previa" id="marca-previa"></div>' +
+      '<div style="display:flex;justify-content:flex-end;margin-top:12px;"><button class="btn btn-primary btn-sm" id="marca-salvar">Salvar minha marca</button></div></div>';
+
+    function lerHex() { var v = document.getElementById("marca-cor-hex").value.trim(); if (v && v[0] !== "#") v = "#" + v; return /^#[0-9a-f]{6}$/i.test(v) ? v.toUpperCase() : ""; }
+    function atualizar() {
+      var nome = document.getElementById("marca-nome").value.trim(), creci = document.getElementById("marca-creci").value.trim(), hex = lerHex();
+      document.getElementById("marca-aviso").hidden = !!creci;
+      var lum = 0;
+      if (hex) { lum = (0.299 * parseInt(hex.slice(1, 3), 16) + 0.587 * parseInt(hex.slice(3, 5), 16) + 0.114 * parseInt(hex.slice(5, 7), 16)) / 255; }
+      document.getElementById("marca-aviso-cor").hidden = !(hex && lum < 0.28);
+      document.getElementById("marca-previa").innerHTML = '<div class="marca-previa-barra" style="--m:' + (hex || "#FFD60A") + '">' +
+        (logo ? '<span class="pl"><img src="' + escapeHtml(logo) + '" alt=""></span>' : "") +
+        '<span class="pt"><b>' + escapeHtml(nome || "Seu nome") + '</b>' + (creci ? '<i>CRECI ' + escapeHtml(creci) + '</i>' : "") + '</span><span class="pd">Destaque</span></div>';
+    }
+    ["marca-nome", "marca-creci"].forEach(function (id) { document.getElementById(id).addEventListener("input", atualizar); });
+    document.getElementById("marca-cor").addEventListener("input", function (e) { document.getElementById("marca-cor-hex").value = e.target.value.toUpperCase(); atualizar(); });
+    document.getElementById("marca-cor-hex").addEventListener("input", function () { var h = lerHex(); if (h) document.getElementById("marca-cor").value = h; atualizar(); });
+    atualizar();
+
+    async function gravar(campos, msg) {
+      try {
+        await DB.update("profiles", "id=eq." + p.id, campos);
+        Object.assign(state.profile, campos); syncMarcaCor();
+        var sn = document.getElementById("sidebar-name"); if (sn) sn.textContent = state.profile.nome || state.profile.email;
+        toast(msg);
+      } catch (e) { toast("Erro ao salvar: " + e.message); return false; }
+      return true;
+    }
+    document.getElementById("marca-logo-up").onchange = async function () {
+      var f = this.files && this.files[0]; if (!f) return;
+      if (["image/png", "image/jpeg", "image/webp"].indexOf(f.type) < 0) { toast("Envie o logo em PNG, JPG ou WEBP."); return; }
+      if (f.size > 3 * 1024 * 1024) { toast("Logo muito grande (máx. 3 MB)."); return; }
+      try {
+        toast("Enviando o logo…");
+        var ext = (f.type.split("/")[1] || "png").replace("jpeg", "jpg");
+        var url = await uploadArquivo(f, p.id + "/marca/logo-" + Date.now() + "." + ext, f.type);
+        if (await gravar({ logo_url: url }, "Logo salvo.")) renderMarca();
+      } catch (e) { toast("Erro ao enviar o logo: " + e.message); }
+    };
+    var rm = document.getElementById("marca-logo-rm");
+    if (rm) rm.onclick = async function () { if (await gravar({ logo_url: null }, "Logo removido.")) renderMarca(); };
+    document.getElementById("marca-salvar").onclick = async function () {
+      var hexTxt = document.getElementById("marca-cor-hex").value.trim(), hex = lerHex();
+      if (hexTxt && !hex) { toast("Cor inválida — use o formato #RRGGBB."); return; }
+      var nome = document.getElementById("marca-nome").value.trim();
+      if (!nome) { toast("Preencha o seu nome."); return; }
+      var ok = await gravar({
+        nome: nome, creci: document.getElementById("marca-creci").value.trim() || null,
+        cor_marca: hex || null, marca_ativa: document.getElementById("marca-ativa").checked
+      }, "Marca salva.");
+      if (ok) renderMarca();
+    };
+  }
+
   function renderPlano() {
+    renderMarca();
     var statusEl = document.getElementById("plan-status");
     if (!state.assinatura || state.assinatura.status === "trial") {
       var used = (state.profile.trial_usado || 0), limit = (state.profile.trial_limite || 0), left = Math.max(limit - used, 0);
@@ -3019,6 +3403,7 @@
       var profiles = await DB.select("profiles", "select=*&id=eq." + uid);
       if (!profiles || !profiles.length) throw new Error("perfil não encontrado");
       state.profile = profiles[0];
+      syncMarcaCor();
 
       await loadAllData();
 
@@ -3052,5 +3437,6 @@
     }
   }
 
+  window.Vitrine = Object.assign(window.Vitrine || {}, { state: state, DB: DB, toast: toast, escapeHtml: escapeHtml, fmtDate: fmtDate, fmtDateTime: fmtDateTime, contasAtivas: contasAtivas });
   bootApp();
 })();

@@ -1,7 +1,10 @@
 // Webhook da Meta (comentários). Deploy com --no-verify-jwt.
 // GET  = verificação do endpoint (hub.challenge) usando META_WEBHOOK_VERIFY_TOKEN (você inventa esse texto).
 // POST = eventos; valida X-Hub-Signature-256 com META_APP_SECRET e grava em instagram_webhooks.
-// Resposta automática ("QUERO") fica pra próxima etapa — aqui só registramos com segurança.
+// Comentário vira lead: se o comentário tem a palavra-gatilho da regra da conta (tabela ig_comentario_regras),
+// grava o lead (leads_instagram) e, com a regra ATIVA, manda Private Reply com o link do WhatsApp do corretor
+// e (opcional) uma resposta pública. Só funciona depois que o dono habilitar as permissões de comentários e
+// mensagens no app da Meta (instagram_business_manage_comments / instagram_business_manage_messages).
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 // ---- utilitários (copiados de _shared/util.ts) ----
@@ -66,6 +69,86 @@ async function assinaturaValida(body: string, header: string | null) {
   return diff === 0;
 }
 
+const GRAPH = "https://graph.instagram.com/v21.0";
+
+/** minúsculas e sem acento, pra comparar a palavra-gatilho */
+function normalizar(t: string): string {
+  return (t ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/** link wa.me/55<telefone do perfil>; vazio se o corretor não tem telefone */
+function linkWhatsapp(tel: string | null | undefined): string {
+  let d = (tel ?? "").replace(/\D/g, "");
+  if (d.length < 10) return "";
+  if (!d.startsWith("55") || d.length < 12) d = "55" + d;
+  return `https://wa.me/${d}`;
+}
+
+async function processarComentario(db: SupabaseClient, igId: string, c: any) {
+  const commentId = String(c?.id ?? "");
+  const texto = String(c?.text ?? "");
+  const autorId = String(c?.from?.id ?? "");
+  const username = String(c?.from?.username ?? "");
+  const mediaId = String(c?.media?.id ?? "");
+  if (!commentId || !texto) return;
+  if (autorId && autorId === igId) return;                       // comentário da própria conta
+
+  const { data: conta } = await db.from("instagram_contas").select("id, corretor_id, username")
+    .eq("instagram_business_id", igId).eq("status", "ativo").maybeSingle();
+  if (!conta) return;
+  if (username && conta.username && username.toLowerCase() === String(conta.username).toLowerCase()) return;
+
+  const { data: regra } = await db.from("ig_comentario_regras").select("*").eq("conta_id", conta.id).maybeSingle();
+  if (!regra || !regra.palavra_gatilho) return;
+  if (!normalizar(texto).includes(normalizar(regra.palavra_gatilho))) return;
+
+  // trava: o comment_id é chave primária — se já existe, alguém já tratou esse comentário
+  const { error: dup } = await db.from("ig_comentarios_log").insert({ comment_id: commentId, conta_id: conta.id, corretor_id: conta.corretor_id, status: "recebido" });
+  if (dup) return;
+
+  let carrosselId: string | null = null;
+  if (mediaId) {
+    const { data: car } = await db.from("carrosseis").select("id").eq("corretor_id", conta.corretor_id).eq("instagram_media_id", mediaId).maybeSingle();
+    carrosselId = car?.id ?? null;
+  }
+  await db.from("leads_instagram").insert({
+    corretor_id: conta.corretor_id, conta_id: conta.id, username: username || null,
+    comentario: texto.slice(0, 500), media_id: mediaId || null, carrossel_id: carrosselId,
+  });
+
+  if (!regra.ativa) { await db.from("ig_comentarios_log").update({ status: "sem_regra", detalhe: "regra desligada" }).eq("comment_id", commentId); return; }
+
+  const { data: tok } = await db.from("instagram_tokens").select("access_token").eq("conta_id", conta.id).maybeSingle();
+  const { data: perfil } = await db.from("profiles").select("telefone").eq("id", conta.corretor_id).maybeSingle();
+  const wa = linkWhatsapp(perfil?.telefone);
+  if (!tok?.access_token) { await db.from("ig_comentarios_log").update({ status: "erro", detalhe: "sem token" }).eq("comment_id", commentId); return; }
+
+  const primeiro = (username || "").trim() || "tudo bem";
+  const preencher = (m: string) => String(m ?? "").replace(/\{nome\}/gi, primeiro).replace(/\{whatsapp\}/gi, wa || "(me chame por aqui mesmo)");
+  const mensagem = preencher(regra.mensagem_direct).slice(0, 900);
+  let detalhe = "";
+  let ok = false;
+  try {
+    const r = await fetch(`${GRAPH}/${igId}/messages?access_token=${encodeURIComponent(tok.access_token)}`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ recipient: { comment_id: commentId }, message: { text: mensagem } }),
+    });
+    ok = r.ok;
+    if (!r.ok) detalhe = `direct HTTP ${r.status}: ${(await r.text()).slice(0, 200)}`;
+  } catch (e) { detalhe = `direct: ${(e as Error).message}`; }
+
+  if (ok && regra.resposta_publica) {
+    try {
+      const r = await fetch(`${GRAPH}/${commentId}/replies?access_token=${encodeURIComponent(tok.access_token)}`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ message: preencher(regra.resposta_publica).slice(0, 300) }),
+      });
+      if (!r.ok) detalhe = `resposta pública HTTP ${r.status}: ${(await r.text()).slice(0, 200)}`;
+    } catch (e) { detalhe = `resposta pública: ${(e as Error).message}`; }
+  }
+  await db.from("ig_comentarios_log").update({ status: ok ? "respondido" : "erro", detalhe: detalhe || null }).eq("comment_id", commentId);
+}
+
 Deno.serve(async (req) => {
   const url = new URL(req.url);
   if (req.method === "GET") {
@@ -77,6 +160,15 @@ Deno.serve(async (req) => {
   if (!(await assinaturaValida(body, req.headers.get("x-hub-signature-256"))))
     return new Response("assinatura inválida", { status: 401 });
   const payload = JSON.parse(body);
-  await admin().from("instagram_webhooks").insert({ objeto: payload.object, payload });
+  const db = admin();
+  await db.from("instagram_webhooks").insert({ objeto: payload.object, payload });
+  // comentários: um erro aqui nunca derruba a resposta (a Meta reenviaria o evento)
+  try {
+    for (const entry of payload.entry ?? []) {
+      for (const ch of entry.changes ?? []) {
+        if (ch.field === "comments" && ch.value) await processarComentario(db, String(entry.id), ch.value);
+      }
+    }
+  } catch (e) { console.error("webhook comentários:", e); }
   return new Response("ok");
 });

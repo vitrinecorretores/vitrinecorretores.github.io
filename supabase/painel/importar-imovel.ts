@@ -28,7 +28,7 @@ async function requireUser(req: Request): Promise<string> {
 const BUCKET = "slides-render";
 const MSG_BLOQUEADO = "Esse site não deixou ler o anúncio. Preencha manualmente ou tente o link de outro portal.";
 const MAX_HTML = 1_500_000;
-const MAX_FOTOS = 12;
+const MAX_FOTOS = 30;
 const LIMITE_HORA = 15;
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
@@ -173,17 +173,26 @@ function candidatasFotos(html: string, base: string): string[] {
       if (v && !v.startsWith("data:")) { lista.push(v); break; }
     }
   }
+  // galerias montadas por JavaScript (ZAP, VivaReal, OLX, QuintoAndar...): as fotos ficam em JSON dentro do HTML,
+  // às vezes com barras escapadas (\/ ou \u002F) e com tamanho em modelo ({width}x{height}).
+  const bruto = html.replace(/\\u002F/gi, "/").replace(/\\\//g, "/");
+  const reUrl = /https?:\/\/[^\s"'<>()\\]+?\.(?:jpe?g|webp|png)(?:\?[^\s"'<>()\\]*)?(?=["'\s<>()\\,]|$)/gi;
+  let u;
+  while ((u = reUrl.exec(bruto))) lista.push(u[0]);
   const vistos = new Set<string>();
   const res: string[] = [];
   for (const raw of lista) {
-    const u = absUrl(raw, base);
-    if (!u || RUIM.test(u)) continue;
-    const chave = u.replace(/[?#].*$/, "");
+    const fixo = raw.replace(/\{action\}/g, "fit-in").replace(/\{width\}x\{height\}/g, "1200x900").replace(/&amp;/g, "&");
+    const u = absUrl(fixo, base);
+    if (!u || RUIM.test(u) || /[{}]/.test(u)) continue;
+    // mesma foto em tamanhos diferentes: compara o nome do arquivo
+    const chave = u.replace(/[?#].*$/, "").replace(/^https?:\/\/[^/]+/, "").split("/")
+      .filter((p) => p && !/^\d+x\d+$|^(fit-in|crop|resize|filters:.*|smart)$/i.test(p)).join("/").toLowerCase();
     if (vistos.has(chave)) continue;
     vistos.add(chave);
     res.push(u);
   }
-  return res.slice(0, 40);
+  return res.slice(0, 60);
 }
 function textoVisivel(html: string): string {
   return decodeEntities(html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<noscript[\s\S]*?<\/noscript>|<svg[\s\S]*?<\/svg>|<!--[\s\S]*?-->/gi, " ")

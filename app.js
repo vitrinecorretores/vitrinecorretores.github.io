@@ -934,11 +934,11 @@
           '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">' +
           (modo === "publicar"
             ? '<button class="btn btn-ghost btn-sm" id="pv-back">Voltar e ajustar</button><button class="btn btn-primary btn-sm" id="pv-ok"' + (carregando || aviso ? " disabled" : "") + '>' + ICONS.ig + ' Publicar no ' + F.nome + '</button>'
-            : '<button class="btn btn-ghost btn-sm" id="pv-back">Fechar</button>' + (formato === "feed" && !carregando && blobs.length && !c._temp ? '<button class="btn btn-primary btn-sm" id="pv-musica">📲 Postar no Instagram</button>' : '')) + '</div>';
+            : '<button class="btn btn-ghost btn-sm" id="pv-back">Fechar</button>' + (!carregando && blobs.length && !c._temp ? '<button class="btn btn-primary btn-sm" id="pv-musica">📲 Postar no ' + F.nome + '</button>' : '')) + '</div>';
         document.getElementById("pv-close").onclick = function () { done(null); };
         document.getElementById("pv-back").onclick = function () { done(null); };
         var ok = document.getElementById("pv-ok"); if (ok) ok.onclick = function () { done({ formato: formato, blobs: cache[formato] }); };
-        var mu = document.getElementById("pv-musica"); if (mu) mu.onclick = function () { var b = cache.feed; closeModal(); resolve(null); postarComMusica(c, b); };
+        var mu = document.getElementById("pv-musica"); if (mu) mu.onclick = function () { var b = cache[formato]; closeModal(); resolve(null); postarComMusica(c, b, formato); };
         var pr = document.getElementById("pv-prev"); if (pr) pr.onclick = function () { idx--; draw(); };
         var nx = document.getElementById("pv-next"); if (nx) nx.onclick = function () { idx++; draw(); };
         qsa("[data-fmt]", body).forEach(function (b) { b.onclick = function () { if (carregando) return; formato = b.dataset.fmt; idx = 0; draw(); carregar(formato); }; });
@@ -951,18 +951,27 @@
   /* ---------- postar com música: manda as imagens pro app do Instagram ----------
      A API oficial do Instagram não permite escolher música, então a Vitrine entrega as imagens
      prontas pro app (menu Compartilhar do celular) e copia a legenda. A música é escolhida lá. */
-  async function postarComMusica(c, blobsProntos) {
+  // formato escolhido antes de postar: feed (carrossel 4:5), stories (imagens 9:16) ou reels (vídeo 9:16)
+  async function postarComMusica(c, blobsProntos, formatoIni) {
     if (!c.slides || !c.slides.length) { toast("Este carrossel não tem slides."); return; }
     if (testeSemPublicacoes()) { avisoFimDoTeste(); return; }
     var body = document.getElementById("modal-body");
-    var blobs = blobsProntos && blobsProntos.length ? blobsProntos : null;
+    var formato = FORMATOS[formatoIni] ? formatoIni : "feed";
+    var cache = {}, video = null;
+    if (blobsProntos && blobsProntos.length) cache[formato] = blobsProntos;
+    var blobs = cache[formato] || null;
     var legenda = legendaPadrao(c);
-    function arquivos() { return blobs.map(function (b, i) { return new File([b.blob], "vitrine-" + (i + 1) + ".jpg", { type: "image/jpeg" }); }); }
+    var NOME_DESTINO = { feed: "Feed", stories: "Story", reels: "Reels" };
+    function arquivos() {
+      if (formato === "reels" && video) return [new File([video], "vitrine-reels.mp4", { type: "video/mp4" })];
+      return blobs.map(function (b, i) { return new File([b.blob], "vitrine-" + (i + 1) + ".jpg", { type: "image/jpeg" }); });
+    }
     function podeCompartilhar() {
       try { return !!(navigator.canShare && navigator.share && navigator.canShare({ files: arquivos() })); } catch (e) { return false; }
     }
     function copiarLegenda() { try { if (navigator.clipboard) navigator.clipboard.writeText(legenda).catch(function () {}); } catch (e) { } }
     function baixarTodas() {
+      if (formato === "reels" && video) { var u = URL.createObjectURL(video), av = document.createElement("a"); av.href = u; av.download = "vitrine-reels.mp4"; document.body.appendChild(av); av.click(); av.remove(); setTimeout(function () { URL.revokeObjectURL(u); }, 60000); return; }
       blobs.forEach(function (b, i) {
         setTimeout(function () { var a = document.createElement("a"); a.href = b.url; a.download = "vitrine-" + (i + 1) + ".jpg"; document.body.appendChild(a); a.click(); a.remove(); }, i * 350);
       });
@@ -973,12 +982,30 @@
     function previaHtml() {
       return '<div class="igpv mu-previa"><div class="igpv-head"><div class="igpv-av">' + escapeHtml(user.slice(0, 1).toUpperCase()) + '</div>' +
         '<div class="mu-quem"><b>' + escapeHtml(user) + '</b><span class="mu-som">🎵 a música que você escolher no Instagram</span></div></div>' +
-        '<div class="igpv-media" id="mu-media"><img src="' + blobs[idx].url + '" alt="Slide ' + (idx + 1) + '" draggable="false">' +
+        '<div class="igpv-media' + (FORMATOS[formato].alto ? ' alto' : '') + '" id="mu-media"><img src="' + blobs[idx].url + '" alt="Slide ' + (idx + 1) + '" draggable="false">' +
         (idx > 0 ? '<button class="igpv-nav l" id="mu-prev" aria-label="Anterior">‹</button>' : '') +
         (idx < blobs.length - 1 ? '<button class="igpv-nav r" id="mu-next" aria-label="Próximo">›</button>' : '') +
         '<span class="igpv-count">' + (idx + 1) + '/' + blobs.length + '</span></div>' +
         '<div class="igpv-dots">' + blobs.map(function (b, k) { return '<span class="' + (k === idx ? "on" : "") + '"></span>'; }).join("") + '</div>' +
-        '<div class="igpv-cap"><b>' + escapeHtml(user) + '</b> ' + escapeHtml(legenda) + '</div></div>';
+        (formato !== "stories" ? '<div class="igpv-cap"><b>' + escapeHtml(user) + '</b> ' + escapeHtml(legenda) + '</div>' : '') + '</div>';
+    }
+    function abasHtml() {
+      return '<div class="fmt-tabs">' + Object.keys(FORMATOS).map(function (k) {
+        return '<button type="button" class="fmt-tab' + (k === formato ? " on" : "") + '" data-mfmt="' + k + '"><b>' + FORMATOS[k].nome + '</b><span>' + FORMATOS[k].desc + '</span></button>';
+      }).join("") + '</div>';
+    }
+    async function carregar(f) {
+      formato = f; idx = 0; video = null;
+      draw(true);
+      try {
+        if (!cache[f]) cache[f] = await renderCarouselBlobs(c, function (n, t) { var el = document.getElementById("mu-load"); if (el) el.textContent = "Gerando imagem " + n + "/" + t + "…"; }, f);
+        blobs = cache[f];
+        if (f === "reels") {
+          var el = document.getElementById("mu-load"); if (el) el.textContent = "Montando o vídeo do Reels…";
+          video = await gerarVideoReels(blobs);
+        }
+      } catch (e) { toast("Erro ao gerar: " + e.message); if (f !== "feed") return carregar("feed"); closeModal(); return; }
+      draw(false);
     }
     function ligarPrevia() {
       var pr = document.getElementById("mu-prev"); if (pr) pr.onclick = function () { idx--; draw(false); };
@@ -997,25 +1024,28 @@
       var celular = !carregando && podeCompartilhar();
       body.innerHTML =
         '<div class="modal-head"><div><h3 style="font-size:18px;">📲 Postar no Instagram</h3>' +
-        '<p style="margin:4px 0 0;font-size:12.5px;color:var(--ink-muted);">Abre o app do Instagram com o carrossel pronto — lá você pode colocar música e publicar.</p></div>' +
-        '<button class="modal-close" id="mu-close">' + ICONS.close + '</button></div>' +
+        '<p style="margin:4px 0 0;font-size:12.5px;color:var(--ink-muted);">Escolha onde postar: Feed, Stories ou Reels. Abre o app do Instagram com tudo pronto — lá você pode colocar música.</p></div>' +
+        '<button class="modal-close" id="mu-close">' + ICONS.close + '</button></div>' + abasHtml() +
         (carregando
           ? '<div class="igpv-load" style="position:static;padding:30px 0;"><div class="spin"></div><span id="mu-load">' + (msg || "Gerando imagens…") + '</span></div>'
           : '<p class="mu-titulo-previa">Veja como vai ficar antes de postar:</p>' + previaHtml() +
             (celular
-              ? '<ol class="mu-passos"><li>Toque em <b>Abrir no Instagram</b> e escolha <b>Instagram → Feed</b>.</li><li>No Instagram, toque no ícone de <b>música 🎵</b> e escolha a sua.</li><li>Na legenda, <b>cole</b> o texto (já copiei pra você) e publique.</li></ol>'
-              : '<p class="fmt-aviso" style="margin:6px 0;">Neste computador o navegador não compartilha arquivos direto com o Instagram. Siga os 3 passos:</p>' +
-                '<ol class="mu-passos"><li><b>Baixe as ' + blobs.length + ' imagens</b> e <b>copie a legenda</b> (botão abaixo).</li><li>Abra o Instagram no navegador e clique em <b>Criar → Publicação</b>; selecione as <b>' + blobs.length + ' imagens baixadas</b> (na ordem 1, 2, 3…).</li><li>No campo de legenda, <b>cole</b> (Ctrl+V / ⌘V) e publique.</li></ol>' +
+              ? '<ol class="mu-passos"><li>Toque em <b>Abrir no Instagram</b> e escolha <b>Instagram → ' + NOME_DESTINO[formato] + '</b>.</li><li>No Instagram, toque no ícone de <b>música 🎵</b> e escolha a sua.</li><li>Na legenda, <b>cole</b> o texto (já copiei pra você) e publique.</li></ol>'
+              : formato === "stories"
+                ? '<p class="fmt-aviso" style="margin:6px 0;">O Instagram no computador não publica Stories. Baixe as imagens e poste pelo app do celular, ou escolha Feed ou Reels.</p>'
+                : '<p class="fmt-aviso" style="margin:6px 0;">Neste computador o navegador não compartilha arquivos direto com o Instagram. Siga os 3 passos:</p>' +
+                '<ol class="mu-passos"><li><b>Baixe ' + (formato === "reels" ? 'o vídeo' : 'as ' + blobs.length + ' imagens') + '</b> e <b>copie a legenda</b> (botão abaixo).</li><li>Abra o Instagram no navegador e clique em <b>Criar → Publicação</b>; selecione ' + (formato === "reels" ? 'o <b>vídeo baixado</b>' : 'as <b>' + blobs.length + ' imagens baixadas</b> (na ordem 1, 2, 3…)') + '.</li><li>No campo de legenda, <b>cole</b> (Ctrl+V / ⌘V) e publique.</li></ol>' +
                 '<p class="fmt-aviso" style="margin-top:6px;">Para colocar música, use o app do celular — no computador o Instagram não oferece essa opção.</p>')) +
         '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px;">' +
         (carregando ? '' :
           '<button class="btn btn-ghost btn-sm" id="mu-feito">Já postei — marcar como publicado</button>' +
           (celular
             ? '<button class="btn btn-primary btn-sm" id="mu-abrir">' + ICONS.ig + ' Abrir no Instagram</button>'
-            : '<button class="btn btn-ghost btn-sm" id="mu-baixar">1. Baixar imagens e copiar legenda</button>' +
+            : '<button class="btn btn-ghost btn-sm" id="mu-baixar">1. Baixar ' + (formato === "reels" ? 'vídeo' : 'imagens') + ' e copiar legenda</button>' +
               '<button class="btn btn-primary btn-sm" id="mu-ig-web">2. Abrir Instagram.com</button>')) +
         '</div>';
       document.getElementById("mu-close").onclick = closeModal;
+      qsa("[data-mfmt]", body).forEach(function (b) { b.onclick = function () { if (!carregando && b.dataset.mfmt !== formato) carregar(b.dataset.mfmt); }; });
       if (!carregando) ligarPrevia();
       var ab = document.getElementById("mu-abrir");
       if (ab) ab.onclick = async function () {
@@ -1024,7 +1054,7 @@
         catch (e) { if (e && e.name !== "AbortError") { toast("Não deu pra abrir o compartilhamento — baixando as imagens."); baixarTodas(); } }
       };
       var bx = document.getElementById("mu-baixar");
-      if (bx) bx.onclick = function () { copiarLegenda(); baixarTodas(); toast("Baixando " + blobs.length + " imagens — legenda copiada."); };
+      if (bx) bx.onclick = function () { copiarLegenda(); baixarTodas(); toast(formato === "reels" ? "Baixando o vídeo — legenda copiada." : "Baixando " + blobs.length + " imagens — legenda copiada."); };
       var igw = document.getElementById("mu-ig-web");
       if (igw) igw.onclick = function () {
         copiarLegenda();   // garante a legenda na área de transferência mesmo se o usuário pulou o botão 1
@@ -1043,12 +1073,7 @@
       };
     }
     document.getElementById("overlay").hidden = false;
-    if (!blobs) {
-      draw(true);
-      try {
-        blobs = await renderCarouselBlobs(c, function (n, t) { var el = document.getElementById("mu-load"); if (el) el.textContent = "Gerando imagem " + n + "/" + t + "…"; }, "feed");
-      } catch (e) { closeModal(); toast("Erro ao gerar as imagens: " + e.message); return; }
-    }
+    if (!blobs || formato === "reels") { await carregar(formato); return; }
     draw(false);
   }
 
@@ -1444,14 +1469,17 @@
         var when = c.status === "agendado" ? "Agendado " + fmtDateTime(c.data_agendada)
           : c.status === "publicado" ? "Publicado " + fmtDate(c.data_publicada)
           : "Criado " + fmtDate(c.created_at);
-        return '<div class="ccard">' +
+        // agendados e publicados: card compacto (texto e botões na mesma linha), como os rascunhos enxutos
+        var compacto = c.status !== "rascunho";
+        return '<div class="ccard' + (compacto ? ' compacto' : '') + '">' +
           '<div class="thumb">' + slideTile(slide0, tpl && tpl.slug, true, 1, 1, null, c.fonte) + '</div>' +
-          '<div class="body">' +
+          '<div class="body">' + (compacto ? '<div class="txt">' : '') +
           '<h4>' + escapeHtml(meta.titulo) + '</h4>' +
-          '<div class="addr">' + escapeHtml(meta.sub) + '</div>' +
+          (compacto ? '' : '<div class="addr">' + escapeHtml(meta.sub) + '</div>') +
           '<div class="meta">' + when + '</div>' +
           (c.status === "agendado" && destinosDoCarrossel(c).length ? '<div class="meta ig-dest">→ ' + escapeHtml(destinosDoCarrossel(c).join(", ")) + '</div>' : "") +
           (c.erro_publicacao ? '<div class="meta erro-pub" title="' + escapeHtml(c.erro_publicacao) + '">⚠ ' + escapeHtml(c.erro_publicacao) + '</div>' : '') +
+          (compacto ? '</div>' : '') +
           '<div class="actions">' +
           (c.status === "rascunho" ? '<button class="btn btn-primary btn-sm btn-agendar" data-agendar="' + c.id + '" title="Agendar publicação">📅 Agendar</button>' : "") +
           (c.status === "agendado" ? '<button class="btn btn-ghost btn-sm" data-agendar="' + c.id + '" title="Mudar data e horário">📅</button>' : "") +

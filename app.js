@@ -315,7 +315,7 @@
     carrosseis: [],
     topicos: [],
     templates: [],
-    igConta: null,
+    igConta: null, igContas: [],
     autoReply: null
   };
 
@@ -444,13 +444,24 @@
 
   /* ---------------- slide tile renderer ---------------- */
   function slideTile(slide, tplSlug, mini, index, total, art, fonte) {
-    // imagem relacionada sempre por baixo do texto (fundo do slide inteiro), com o SVG/cor do template como fallback
-    var foto = mini ? null : slideImageUrl(slide);
-    var artHtml = foto ? '<div class="tile-bg">' + imgWithFallback(foto, "") + '</div>' : "";
+    var ev = ESTILOS_VIRAIS[tplSlug];
     var cor = CORES[corDe(fonte)];
-    return '<div class="slide-tile fnt-' + fonteDe(fonte) + ' ' + (mini ? "mini " : "") + (foto ? "has-bg " : "") + 'tpl-' + (tplSlug || "minimalista") + '" style="--hl:' + cor.destaque + '">' + artHtml +
-      '<div class="stag">' + escapeHtml(slide.tag || "") + '</div>' +
-      '<div class="stitle" style="color:' + cor.titulo + '">' + tituloHtml(slide.titulo) + '</div>' +
+    var foto = mini ? null : slideImageUrl(slide);
+    if (tplSlug === "bloco-cor") foto = null;                  // bloco de cor: sem foto
+    var fotoCard = tplSlug === "post-social" && foto;           // post-social: foto vira imagem dentro do "post"
+    var artHtml = foto && !fotoCard ? '<div class="tile-bg">' + imgWithFallback(foto, "") + '</div>' : "";
+    var extra = "";
+    if (tplSlug === "post-social") {
+      var a = nomeAutor();
+      extra = '<div class="ps-head"><i class="ps-av">' + escapeHtml(a.nome.slice(0, 1).toUpperCase()) + '</i><span class="ps-nm"><b>' + escapeHtml(a.nome) + '</b><u>✓</u><em>@' + escapeHtml(a.user) + '</em></span></div>';
+    } else if (tplSlug === "checklist") {
+      extra = '<div class="ck-num">' + (index === 1 ? "✓" : (index - 1)) + '</div>';
+    }
+    var tit = ev ? ' style="color:' + ev.tit + '"' : ' style="color:' + cor.titulo + '"';
+    return '<div class="slide-tile fnt-' + fonteDe(fonte) + ' ' + (mini ? "mini " : "") + (foto && !fotoCard ? "has-bg " : "") + 'tpl-' + (tplSlug || "minimalista") + '" style="--hl:' + cor.destaque + '">' + artHtml + extra +
+      '<div class="stag">' + escapeHtml(slide.tag || (tplSlug === "manchete" ? (index === 1 ? "Urgente" : "Atenção") : "")) + '</div>' +
+      '<div class="stitle"' + tit + '>' + tituloHtml(slide.titulo) + '</div>' +
+      (fotoCard ? '<div class="ps-foto">' + imgWithFallback(foto, "") + '</div>' : "") +
       '<div class="sbody">' + escapeHtml(slide.corpo) + '</div>' +
       (mini ? "" : '<div class="sindex">' + index + "/" + total + "</div>") +
       "</div>";
@@ -522,11 +533,184 @@
     return { size: size, lines: lines, height: lines.length * size * opts.lh };
   }
 
+  /* ============================================================
+     ESTILOS VIRAIS — formatos que costumam viralizar no feed (tabela templates, slugs abaixo).
+     Todos usam texto principal BEM GRANDE, *destaque* colorido, numeração e a faixa com o link da Vitrine.
+       manchete    — notícia: selo vermelho, foto escurecida e manchete em caixa-alta
+       post-social — print de post (avatar, selo verificado, texto grande, curtir/salvar)
+       checklist   — número gigante por item (a capa vira um "check")
+       bloco-cor   — fundo sólido saturado (a cor escolhida), texto gigante, sem foto
+  ============================================================ */
+  var ESTILOS_VIRAIS = {
+    "manchete": { tit: "#FFFFFF" },
+    "post-social": { tit: "#14171A" },
+    "checklist": { tit: "#FFFFFF" },
+    "bloco-cor": { tit: "#111111" }
+  };
+  function nomeAutor() {
+    var p = (typeof state !== "undefined" && state.profile) || {};
+    var ig = (typeof state !== "undefined" && state.igConta && state.igConta.status === "ativo" && state.igConta.username) || "";
+    var nome = p.nome || "Seu Nome";
+    return { nome: nome, user: ig || nome.toLowerCase().replace(/[^a-z0-9]+/g, "") || "seuperfil" };
+  }
+  function rrect(ctx, x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  function coverImg(ctx, img, x, y, w, h) {
+    var r = Math.max(w / img.width, h / img.height), sw = w / r, sh = h / r;
+    ctx.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, x, y, w, h);
+  }
+  // título com palavras *destacadas*: cor (marca:"cor") ou "marca-texto" (marca:{bg,fg}); devolve a altura usada
+  function tituloViral(ctx, slide, o) {
+    var padX = o.pill ? 14 : 0;
+    var t = fitText(ctx, o.upper ? semMarcas(slide.titulo).toUpperCase() : semMarcas(slide.titulo),
+      { size: o.size, min: o.min || 56, weight: o.weight, family: o.family, maxW: o.maxW - padX * 2, maxH: o.maxH, lh: o.lh });
+    ctx.font = o.weight + " " + t.size + "px " + o.family;
+    var hl = palavrasDestaque(slide.titulo), esp = ctx.measureText(" ").width, y0 = o.bottom ? o.y - t.height : o.y;
+    ctx.textBaseline = "top";
+    t.lines.forEach(function (l, k) {
+      var x = o.x, y = y0 + k * t.size * o.lh;
+      l.split(" ").forEach(function (w) {
+        var ww = ctx.measureText(w).width, on = hl[normPalavra(w)];
+        if (on && o.pill) {
+          ctx.fillStyle = o.pill.bg; rrect(ctx, x, y + t.size * 0.02, ww + padX * 2, t.size * 1.04, 12); ctx.fill();
+          ctx.fillStyle = o.pill.fg; ctx.fillText(w, x + padX, y); x += ww + padX * 2 + esp;
+        } else {
+          ctx.fillStyle = on ? o.hl : o.cor; ctx.fillText(w, x, y); x += ww + esp;
+        }
+      });
+    });
+    return { size: t.size, height: t.height, y: y0 };
+  }
+  function corpoViral(ctx, slide, o) {   // corpo alinhado embaixo (termina em o.bottom)
+    var b = fitText(ctx, slide.corpo, { size: o.size, min: 26, weight: o.weight || 500, family: o.family, maxW: o.maxW, maxH: o.maxH, lh: 1.36 });
+    ctx.font = (o.weight || 500) + " " + b.size + "px " + o.family; ctx.fillStyle = o.cor; ctx.textBaseline = "top"; ctx.textAlign = "left";
+    var y = o.bottom - b.height;
+    b.lines.forEach(function (l, k) { ctx.fillText(l, o.x, y + k * b.size * 1.36); });
+    return { height: b.height, y: y };
+  }
+  function rodapeViral(ctx, i, total, W, pad, yBase, cor, corCapa, family) {
+    ctx.textAlign = "right"; ctx.textBaseline = "top";
+    if (i === 0 && total > 1) { ctx.fillStyle = corCapa; ctx.font = "800 34px " + family; ctx.fillText("ARRASTA  →", W - pad, yBase); }
+    else { ctx.fillStyle = cor; ctx.globalAlpha = 0.75; ctx.font = '500 30px "JetBrains Mono", monospace'; ctx.fillText((i + 1) + "/" + total, W - pad, yBase + 2); ctx.globalAlpha = 1; }
+    ctx.textAlign = "left";
+  }
+  function faixaLinkVitrine(ctx, W, H, alto) {
+    if (!comLinkVitrine()) return;
+    var faixaH = 64, faixaY = H - (alto ? 250 : 0) - faixaH;
+    ctx.fillStyle = "rgba(5,6,13,0.78)"; ctx.fillRect(0, faixaY, W, faixaH);
+    ctx.fillStyle = "#ffffff"; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.font = "600 26px Manrope, Arial, sans-serif";
+    ctx.fillText("Criado com Vitrine  ·  " + LINK_VITRINE, W / 2, faixaY + 20);
+    ctx.textAlign = "left";
+  }
+
+  function desenharEstiloViral(ctx, slug, slide, i, total, bgImg, alto, fonte, W, H) {
+    var F = FONTES[fonteDe(fonte)], COR = CORES[corDe(fonte)];
+    var fam = F.corpo, disp = F.titulo, tp = F.tPeso;
+    var pad = 96, top = alto ? 250 : pad, botLimit = H - (alto ? 340 : pad) - 60, maxW = W - pad * 2;
+    ctx.textBaseline = "top"; ctx.textAlign = "left";
+
+    if (slug === "manchete") {
+      var g = ctx.createLinearGradient(0, 0, W * 0.6, H); g.addColorStop(0, "#1c1c26"); g.addColorStop(1, "#050507");
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      if (bgImg) {
+        coverImg(ctx, bgImg, 0, 0, W, H);
+        var v = ctx.createLinearGradient(0, 0, 0, H);
+        v.addColorStop(0, "rgba(0,0,0,0.45)"); v.addColorStop(0.35, "rgba(0,0,0,0.40)"); v.addColorStop(0.65, "rgba(0,0,0,0.82)"); v.addColorStop(1, "rgba(0,0,0,0.96)");
+        ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+      }
+      // selo vermelho de "plantão" no topo
+      var selo = "●  " + String(slide.tag || (i === 0 ? "URGENTE" : "ATENÇÃO")).toUpperCase();
+      ctx.font = "800 40px " + fam; var sw = ctx.measureText(selo).width + 80;
+      ctx.fillStyle = "#E10600"; ctx.fillRect(0, top, sw, 84); ctx.fillStyle = "#fff"; ctx.fillText(selo, 40, top + 20);
+      var yB = botLimit;
+      var b = corpoViral(ctx, slide, { x: pad, maxW: maxW, size: 38, maxH: 230, bottom: yB, cor: "rgba(255,255,255,0.92)", family: fam });
+      var tBottom = b.y - 44;
+      ctx.fillStyle = "#E10600"; var t = tituloViral(ctx, slide, { x: pad, y: tBottom, bottom: true, maxW: maxW, maxH: tBottom - (top + 84 + 70), size: i === 0 ? 150 : 124, weight: tp, family: disp, lh: 1.1, upper: true, cor: "#fff", pill: { bg: COR.destaque, fg: "#111" } });
+      ctx.fillStyle = "#E10600"; ctx.fillRect(pad, t.y - 34, 190, 14);
+      rodapeViral(ctx, i, total, W, pad, botLimit + 26, "#fff", COR.destaque, fam);
+    }
+
+    else if (slug === "post-social") {
+      ctx.fillStyle = "#E6EAEE"; ctx.fillRect(0, 0, W, H);
+      var cardT = alto ? 210 : 56, cardB = botLimit + 84, cx = 48, cw = W - 96;
+      ctx.shadowColor = "rgba(0,0,0,0.18)"; ctx.shadowBlur = 30; ctx.shadowOffsetY = 8;
+      ctx.fillStyle = "#fff"; rrect(ctx, cx, cardT, cw, cardB - cardT, 44); ctx.fill();
+      ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+      var x0 = cx + 56, w0 = cw - 112, a = nomeAutor(), y = cardT + 52;
+      var ag = ctx.createLinearGradient(x0, y, x0 + 110, y + 110); ag.addColorStop(0, "#8B5CFF"); ag.addColorStop(1, COR.destaque);
+      ctx.fillStyle = ag; ctx.beginPath(); ctx.arc(x0 + 55, y + 55, 55, 0, 7); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.font = "800 56px " + fam; ctx.fillText(a.nome.slice(0, 1).toUpperCase(), x0 + 55, y + 28); ctx.textAlign = "left";
+      ctx.fillStyle = "#0F1419"; ctx.font = "800 40px " + fam; ctx.fillText(a.nome, x0 + 134, y + 6);
+      var nw = ctx.measureText(a.nome).width;
+      ctx.fillStyle = "#1D9BF0"; ctx.beginPath(); ctx.arc(x0 + 134 + nw + 30, y + 30, 18, 0, 7); ctx.fill();   // selo verificado
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 5; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.beginPath();
+      ctx.moveTo(x0 + 134 + nw + 21, y + 30); ctx.lineTo(x0 + 134 + nw + 28, y + 37); ctx.lineTo(x0 + 134 + nw + 40, y + 22); ctx.stroke();
+      ctx.fillStyle = "#536471"; ctx.font = "500 32px " + fam; ctx.fillText("@" + a.user + (slide.tag ? "  ·  " + String(slide.tag).toLowerCase() : ""), x0 + 134, y + 58);
+      var yTxt = y + 150, acaoY = cardB - 92, fotoH = bgImg ? (alto ? 560 : 360) : 0, fotoY = acaoY - 28 - fotoH;
+      var area = (bgImg ? fotoY - 28 : acaoY - 20) - yTxt;
+      var bodyH = Math.min(area * 0.34, 260);
+      var t2 = tituloViral(ctx, slide, { x: x0, y: yTxt, maxW: w0, maxH: area - bodyH - 24, size: i === 0 ? 104 : 88, weight: tp, family: disp, lh: 1.14, cor: "#0F1419", hl: "#0F1419", pill: { bg: COR.destaque, fg: "#111" } });
+      var bd = fitText(ctx, slide.corpo, { size: 40, min: 26, weight: 500, family: fam, maxW: w0, maxH: Math.max(60, area - t2.height - 28), lh: 1.36 });
+      ctx.font = "500 " + bd.size + "px " + fam; ctx.fillStyle = "#536471";
+      bd.lines.forEach(function (l, k) { ctx.fillText(l, x0, yTxt + t2.height + 28 + k * bd.size * 1.36); });
+      if (bgImg) { ctx.save(); rrect(ctx, x0, fotoY, w0, fotoH, 32); ctx.clip(); coverImg(ctx, bgImg, x0, fotoY, w0, fotoH); ctx.restore(); ctx.strokeStyle = "#CFD9DE"; ctx.lineWidth = 2; rrect(ctx, x0, fotoY, w0, fotoH, 32); ctx.stroke(); }
+      ctx.fillStyle = "#536471"; ctx.font = "600 32px " + fam; ctx.fillText("♥ 18,2 mil     Salvar     Enviar", x0, acaoY + 14);
+      rodapeViral(ctx, i, total, W, cx + 56, acaoY + 14, "#536471", "#0F1419", fam);
+    }
+
+    else if (slug === "checklist") {
+      ctx.fillStyle = "#0B0B10"; ctx.fillRect(0, 0, W, H);
+      if (bgImg) { coverImg(ctx, bgImg, 0, 0, W, H); ctx.fillStyle = "rgba(8,8,12,0.88)"; ctx.fillRect(0, 0, W, H); }
+      var numH;
+      if (i === 0) {   // capa: círculo com "check" enorme
+        numH = 300; ctx.fillStyle = COR.destaque; ctx.beginPath(); ctx.arc(pad + 150, top + 150, 150, 0, 7); ctx.fill();
+        ctx.strokeStyle = "#0B0B10"; ctx.lineWidth = 36; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.beginPath();
+        ctx.moveTo(pad + 150 - 80, top + 150 + 6); ctx.lineTo(pad + 150 - 20, top + 150 + 66); ctx.lineTo(pad + 150 + 86, top + 150 - 60); ctx.stroke();
+      } else {
+        var ns = alto ? 480 : 430; ctx.font = "800 " + ns + "px " + disp; ctx.fillStyle = COR.destaque; ctx.textBaseline = "alphabetic";
+        ctx.fillText(String(i), pad - 14, top + ns * 0.76); ctx.textBaseline = "top"; numH = ns * 0.76;
+      }
+      if (slide.tag) {
+        ctx.font = "700 32px " + fam; var tg = String(slide.tag).toUpperCase(), tw = ctx.measureText(tg).width + 48;
+        ctx.strokeStyle = COR.destaque; ctx.lineWidth = 4; rrect(ctx, W - pad - tw, top + 6, tw, 66, 33); ctx.stroke();
+        ctx.fillStyle = COR.destaque; ctx.fillText(tg, W - pad - tw + 24, top + 22);
+      }
+      var b3 = corpoViral(ctx, slide, { x: pad, maxW: maxW, size: 40, maxH: 260, bottom: botLimit, cor: "rgba(255,255,255,0.9)", family: fam });
+      var yT = top + numH + 44;
+      tituloViral(ctx, slide, { x: pad, y: yT, maxW: maxW, maxH: b3.y - 36 - yT, size: i === 0 ? 140 : 112, weight: tp, family: disp, lh: 1.08, cor: "#fff", hl: COR.destaque });
+      rodapeViral(ctx, i, total, W, pad, botLimit + 26, "#fff", COR.destaque, fam);
+    }
+
+    else {   // bloco-cor
+      ctx.fillStyle = COR.destaque; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "rgba(0,0,0,0.07)"; ctx.beginPath(); ctx.arc(W, 0, 560, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(0, H, 420, 0, 7); ctx.fill();
+      var yy = top;
+      if (slide.tag) {
+        ctx.font = "800 32px " + fam; var tx = String(slide.tag).toUpperCase(), tw2 = ctx.measureText(tx).width + 56;
+        ctx.fillStyle = "#111"; rrect(ctx, pad, top, tw2, 68, 34); ctx.fill(); ctx.fillStyle = COR.destaque; ctx.fillText(tx, pad + 28, top + 17); yy += 112;
+      }
+      var b4 = corpoViral(ctx, slide, { x: pad, maxW: maxW, size: 42, weight: 600, maxH: 230, bottom: botLimit, cor: "#111", family: fam });
+      tituloViral(ctx, slide, { x: pad, y: yy, maxW: maxW, maxH: b4.y - 40 - yy, size: i === 0 ? 190 : 150, min: 60, weight: tp, family: disp, lh: 1.04, upper: true, cor: "#111", pill: { bg: "#111", fg: COR.destaque } });
+      rodapeViral(ctx, i, total, W, pad, botLimit + 26, "#111", "#111", fam);
+    }
+    faixaLinkVitrine(ctx, W, H, alto);
+  }
+
   async function renderSlideJpeg(slide, i, total, tplSlug, bgImg, alto, fonte) {
     var SLIDE_W = 1080, SLIDE_H = alto ? 1920 : 1350;   // alto = 9:16 (stories/reels)
     var th = SLIDE_THEMES[tplSlug] || SLIDE_THEMES.minimalista;
     var cv = document.createElement("canvas"); cv.width = SLIDE_W; cv.height = SLIDE_H;
     var ctx = cv.getContext("2d");
+    if (ESTILOS_VIRAIS[tplSlug]) {   // estilos virais têm layout próprio (ver desenharEstiloViral)
+      desenharEstiloViral(ctx, tplSlug, slide, i, total, bgImg, alto, fonte, SLIDE_W, SLIDE_H);
+      return new Promise(function (resolve, reject) {
+        try { cv.toBlob(function (b) { b ? resolve(b) : reject(new Error("Falha ao gerar imagem.")); }, "image/jpeg", 0.9); } catch (e) { reject(e); }
+      });
+    }
     var g = ctx.createLinearGradient(0, 0, SLIDE_W * 0.6, SLIDE_H);
     g.addColorStop(0, th.bg[0]); g.addColorStop(1, th.bg[1]);
     ctx.fillStyle = g; ctx.fillRect(0, 0, SLIDE_W, SLIDE_H);
@@ -820,14 +1004,16 @@
           : '<p class="mu-titulo-previa">Veja como vai ficar antes de postar:</p>' + previaHtml() +
             (celular
               ? '<ol class="mu-passos"><li>Toque em <b>Abrir no Instagram</b> e escolha <b>Instagram → Feed</b>.</li><li>No Instagram, toque no ícone de <b>música 🎵</b> e escolha a sua.</li><li>Na legenda, <b>cole</b> o texto (já copiei pra você) e publique.</li></ol>'
-              : '<ol class="mu-passos"><li>Baixe as imagens e passe para o celular (ou abra a Vitrine pelo celular, que é mais rápido).</li><li>No app do Instagram, crie um post, selecione as imagens em ordem e toque no ícone de <b>música 🎵</b>.</li><li>Cole a legenda (já copiei pra você) e publique.</li></ol>' +
-                '<p class="fmt-aviso" style="margin-top:6px;">No computador o Instagram não deixa escolher música — só no app do celular.</p>')) +
+              : '<p class="fmt-aviso" style="margin:6px 0;">Neste computador o navegador não compartilha arquivos direto com o Instagram. Siga os 3 passos:</p>' +
+                '<ol class="mu-passos"><li><b>Baixe as ' + blobs.length + ' imagens</b> e <b>copie a legenda</b> (botão abaixo).</li><li>Abra o Instagram no navegador e clique em <b>Criar → Publicação</b>; selecione as <b>' + blobs.length + ' imagens baixadas</b> (na ordem 1, 2, 3…).</li><li>No campo de legenda, <b>cole</b> (Ctrl+V / ⌘V) e publique.</li></ol>' +
+                '<p class="fmt-aviso" style="margin-top:6px;">Para colocar música, use o app do celular — no computador o Instagram não oferece essa opção.</p>')) +
         '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px;">' +
         (carregando ? '' :
           '<button class="btn btn-ghost btn-sm" id="mu-feito">Já postei — marcar como publicado</button>' +
           (celular
             ? '<button class="btn btn-primary btn-sm" id="mu-abrir">' + ICONS.ig + ' Abrir no Instagram</button>'
-            : '<button class="btn btn-primary btn-sm" id="mu-baixar">Baixar imagens e copiar legenda</button>')) +
+            : '<button class="btn btn-ghost btn-sm" id="mu-baixar">1. Baixar imagens e copiar legenda</button>' +
+              '<button class="btn btn-primary btn-sm" id="mu-ig-web">2. Abrir Instagram.com</button>')) +
         '</div>';
       document.getElementById("mu-close").onclick = closeModal;
       if (!carregando) ligarPrevia();
@@ -838,7 +1024,13 @@
         catch (e) { if (e && e.name !== "AbortError") { toast("Não deu pra abrir o compartilhamento — baixando as imagens."); baixarTodas(); } }
       };
       var bx = document.getElementById("mu-baixar");
-      if (bx) bx.onclick = function () { copiarLegenda(); baixarTodas(); toast("Imagens baixadas e legenda copiada."); };
+      if (bx) bx.onclick = function () { copiarLegenda(); baixarTodas(); toast("Baixando " + blobs.length + " imagens — legenda copiada."); };
+      var igw = document.getElementById("mu-ig-web");
+      if (igw) igw.onclick = function () {
+        copiarLegenda();   // garante a legenda na área de transferência mesmo se o usuário pulou o botão 1
+        window.open("https://www.instagram.com/", "_blank", "noopener");
+        toast("No Instagram: Criar → selecione as imagens baixadas → cole a legenda.");
+      };
       var ft = document.getElementById("mu-feito");
       if (ft) ft.onclick = async function () {
         ft.disabled = true;
@@ -1174,6 +1366,38 @@
   ============================================================ */
   var painelFilter = null;
 
+  /* ---------- vários Instagram por corretor ---------- */
+  function contasAtivas() { return state.igContas || []; }
+  // quantas contas o plano permite: Starter 1, Pro 3, equipe 3, teste grátis 1 (o servidor confere de novo)
+  function limiteContasIg() {
+    if (emTeste()) return 1;
+    var pl = findPlano(state.assinatura.plano_id);
+    if (!pl) return 1;
+    if (pl.tipo === "equipe" || pl.slug === "pro") return 3;
+    return 1;
+  }
+  // @usuário(s) onde o carrossel vai sair (lista vazia = conta principal)
+  function destinosDoCarrossel(c) {
+    var ativas = contasAtivas(), ids = c.instagram_contas_ids || [];
+    var sel = ids.length ? ativas.filter(function (x) { return ids.indexOf(x.id) >= 0; }) : ativas.slice(0, 1);
+    return sel.map(function (x) { return "@" + x.username; });
+  }
+  // caixas de escolha da conta; não mostra nada se só tem 1 conta conectada
+  function escolhaContasHtml(selecionados) {
+    var ativas = contasAtivas();
+    if (ativas.length < 2) return "";
+    var marcados = selecionados && selecionados.length ? selecionados : [ativas[0].id];
+    return '<div class="ag-contas"><div class="ag-contas-t">Postar em qual Instagram?</div>' +
+      ativas.map(function (x) {
+        return '<label class="ag-conta"><input type="checkbox" data-conta-ig="' + x.id + '"' + (marcados.indexOf(x.id) >= 0 ? " checked" : "") + '> @' + escapeHtml(x.username) + (x.id === ativas[0].id ? ' <small>(principal)</small>' : '') + '</label>';
+      }).join("") + '</div>';
+  }
+  // ids marcados dentro de um container; [] quando não há escolha (= principal)
+  function lerContasMarcadas(root) {
+    if (contasAtivas().length < 2 || !root) return [];
+    return Array.prototype.slice.call(root.querySelectorAll("[data-conta-ig]:checked")).map(function (i) { return i.getAttribute("data-conta-ig"); });
+  }
+
   function renderPainel() {
     var total = state.carrosseis.length;
     var rasc = state.carrosseis.filter(function (c) { return c.status === "rascunho"; }).length;
@@ -1226,6 +1450,7 @@
           '<h4>' + escapeHtml(meta.titulo) + '</h4>' +
           '<div class="addr">' + escapeHtml(meta.sub) + '</div>' +
           '<div class="meta">' + when + '</div>' +
+          (c.status === "agendado" && destinosDoCarrossel(c).length ? '<div class="meta ig-dest">→ ' + escapeHtml(destinosDoCarrossel(c).join(", ")) + '</div>' : "") +
           (c.erro_publicacao ? '<div class="meta erro-pub" title="' + escapeHtml(c.erro_publicacao) + '">⚠ ' + escapeHtml(c.erro_publicacao) + '</div>' : '') +
           '<div class="actions">' +
           (c.status === "rascunho" ? '<button class="btn btn-primary btn-sm btn-agendar" data-agendar="' + c.id + '" title="Agendar publicação">📅 Agendar</button>' : "") +
@@ -1336,6 +1561,7 @@
       '<label>Horário<input type="time" id="ag-hora" value="' + tIni + '" step="300"></label></div>' +
       '<div class="ag-chips">' + HORARIOS_TOP.map(function (t) { return '<button type="button" class="cal-slot top" data-ag-hora="' + t + '">' + t + '</button>'; }).join("") +
       '<span class="ag-dica">horários de mais engajamento</span></div>' +
+      '<div id="ag-contas">' + escolhaContasHtml(c.instagram_contas_ids) + '</div>' +
       (igOn ? '<p class="ag-info">Na hora marcada, a Vitrine publica sozinha no seu Instagram — mesmo com o app fechado.</p>'
             : '<p class="ag-info ag-warn">⚠ Seu Instagram ainda não está conectado. Conecte na aba Instagram até o horário, senão o post não sai sozinho.</p>') +
       '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">' +
@@ -1358,8 +1584,10 @@
       var eraRascunho = c.status !== "agendado";
       try {
         var iso = quando.toISOString();
-        await DB.update("carrosseis", "id=eq." + c.id, { status: "agendado", data_agendada: iso, erro_publicacao: null });
-        c.status = "agendado"; c.data_agendada = iso; c.erro_publicacao = null;
+        var contasSel = lerContasMarcadas(document.getElementById("ag-contas"));
+        if (contasAtivas().length > 1 && !contasSel.length) { toast("Marque pelo menos um Instagram."); btn.disabled = false; btn.textContent = orig; return; }
+        await DB.update("carrosseis", "id=eq." + c.id, { status: "agendado", data_agendada: iso, erro_publicacao: null, instagram_contas_ids: contasSel });
+        c.status = "agendado"; c.data_agendada = iso; c.erro_publicacao = null; c.instagram_contas_ids = contasSel;
         // imagens do feed prontas no Storage pro servidor publicar na hora marcada
         // rascunho pode ter sido editado (fonte/fotos) depois de algum render antigo: renderiza de novo
         if (eraRascunho || c.slides.some(function (s) { return !s.render_url; })) {
@@ -1573,6 +1801,7 @@
     wizard = freshWizard(); cal = null;
     var tl = document.getElementById("tema-livre-txt"); if (tl) tl.value = "";
     var d = document.getElementById("sched-date"); if (d) d.value = "";
+    var sc = document.getElementById("sched-contas"); if (sc) sc.innerHTML = "";
   }
 
   // svg puro (usado como base/fallback, ex. spotlight do passo 1-2, onde a foto real ainda não importa)
@@ -1631,9 +1860,11 @@
       if (/mercado|valoriz|pre[cç]o|alta|queda|investi|aluguel sobe|tend[eê]ncia|bairro/.test(t)) return "Mercado";
       return "Dicas";
     }
-    function criarComTemaLivre() {
+    async function criarComTemaLivre() {
       var txt = document.getElementById("tema-livre-txt").value.trim();
       if (txt.length < 5) { toast("Escreva sua ideia em pelo menos algumas palavras."); document.getElementById("tema-livre-txt").focus(); return; }
+      if (!(await avisarTemaRepetido(txt, null))) return;
+      wizard.temaAvisado = txt;
       invalidateSlides();
       wizard.subjectMode = "custom";
       wizard.customTopic = txt;
@@ -1672,6 +1903,105 @@
     for (var i = c.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = c[i]; c[i] = c[j]; c[j] = t; }
     return c.slice(0, n);
   }
+  // ---------- temas já usados: nunca repetir o mesmo assunto ----------
+  var STOPWORDS_TEMA = {};
+  ("a o as os um uma uns umas de da do das dos em na no nas nos por para pra com sem sobre entre ate e ou mas que se como mais menos muito muita seu sua seus suas meu minha ao aos ja nao sim e eh ser ter voce vc ele ela eles elas isso esse essa este esta aqui ali la qual quais quando onde porque por que dica dicas").split(" ")
+    .forEach(function (w) { STOPWORDS_TEMA[w] = 1; });
+  // minúsculas, sem acento, sem pontuação, sem stopwords; devolve o conjunto de palavras
+  function palavrasDoTema(txt) {
+    var s = String(txt || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9\s]/g, " ");
+    var set = {}, n = 0;
+    s.split(/\s+/).forEach(function (w) {
+      if (w.length < 2 || STOPWORDS_TEMA[w]) return;
+      if (w.length > 4 && /s$/.test(w)) w = w.slice(0, -1); // plural simples
+      if (!set[w]) { set[w] = 1; n++; }
+    });
+    set._n = n;
+    return set;
+  }
+  function similaridadeTemas(a, b) {
+    var A = palavrasDoTema(a), B = palavrasDoTema(b);
+    if (!A._n || !B._n) return 0;
+    var inter = 0;
+    Object.keys(A).forEach(function (w) { if (w !== "_n" && B[w]) inter++; });
+    return inter / (A._n + B._n - inter);
+  }
+  var LIMIAR_TEMA_REPETIDO = 0.6;
+  // texto do assunto de um carrossel: tópico do banco (gancho), assunto próprio ou título da capa (slide ordem 0)
+  function textosDoCarrossel(c) {
+    var out = [];
+    if (c.topico_id) { var t = findTopic(c.topico_id); if (t && t.gancho) out.push(t.gancho); }
+    if (c.assunto_custom) out.push(c.assunto_custom);
+    var s0 = (c.slides || []).filter(function (s) { return s.ordem === 0; })[0] || (c.slides || [])[0];
+    if (s0 && s0.titulo) out.push(s0.titulo);
+    return out;
+  }
+  // carrosséis do corretor (rascunho, agendado ou publicado) mais recentes primeiro
+  function carrosselsUsados() {
+    return (state.carrosseis || []).filter(function (c) { return c.status === "rascunho" || c.status === "agendado" || c.status === "publicado"; })
+      .slice().sort(function (a, b) { return String(b.created_at || "").localeCompare(String(a.created_at || "")); });
+  }
+  // últimos ~60 temas usados (texto), pra IA da edge function evitar
+  function temasUsados(n) {
+    var out = [];
+    carrosselsUsados().forEach(function (c) {
+      var tx = textosDoCarrossel(c)[0];
+      if (tx && out.indexOf(tx) < 0) out.push(String(tx).slice(0, 140));
+    });
+    return out.slice(0, n || 60);
+  }
+  // o tópico do banco já foi usado (mesmo id ou texto muito parecido)?
+  function topicoJaUsado(t) {
+    var usados = carrosselsUsados();
+    for (var i = 0; i < usados.length; i++) {
+      var c = usados[i];
+      if (c.topico_id && c.topico_id === t.id) return true;
+      var txs = textosDoCarrossel(c);
+      for (var j = 0; j < txs.length; j++) if (similaridadeTemas(t.gancho, txs[j]) >= LIMIAR_TEMA_REPETIDO) return true;
+    }
+    return false;
+  }
+  // acha o carrossel mais parecido já usado com um tema (texto e/ou topico_id)
+  function carrosselParecido(texto, topicoId) {
+    var usados = carrosselsUsados(), melhor = null, nota = 0;
+    usados.forEach(function (c) {
+      if (c._temp) return;
+      var sc = 0;
+      if (topicoId && c.topico_id === topicoId) sc = 1;
+      else if (texto) textosDoCarrossel(c).forEach(function (tx) { sc = Math.max(sc, similaridadeTemas(texto, tx)); });
+      if (sc >= LIMIAR_TEMA_REPETIDO && sc > nota) { melhor = c; nota = sc; }
+    });
+    return melhor;
+  }
+  // aviso (não bloqueia): mostra o carrossel parecido e deixa "criar mesmo assim". Resolve true = pode seguir.
+  function avisarTemaRepetido(texto, topicoId) {
+    var c = carrosselParecido(texto, topicoId);
+    if (!c) return Promise.resolve(true);
+    return new Promise(function (resolve) {
+      var tx = textosDoCarrossel(c)[0] || "esse assunto";
+      var quando = c.status === "publicado" ? "publicado em " + fmtDataTema(c.data_publicada || c.created_at)
+        : c.status === "agendado" ? "agendado para " + fmtDataTema(c.data_agendada)
+        : "rascunho criado em " + fmtDataTema(c.created_at);
+      var ov = document.createElement("div");
+      ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px";
+      var box = document.createElement("div");
+      box.style.cssText = "background:#fff;color:#222;max-width:420px;width:100%;border-radius:14px;padding:20px;font:15px/1.4 system-ui,sans-serif";
+      var h = document.createElement("div"); h.style.cssText = "font-weight:700;font-size:17px;margin-bottom:8px"; h.textContent = "Você já fez um carrossel parecido";
+      var p = document.createElement("div"); p.style.cssText = "margin-bottom:16px";
+      p.textContent = "“" + tx + "” — " + quando + ". Quer criar mesmo assim ou escolher outro tema?";
+      var row = document.createElement("div"); row.style.cssText = "display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap";
+      function fim(v) { document.body.removeChild(ov); resolve(v); }
+      var b1 = document.createElement("button"); b1.type = "button"; b1.textContent = "Escolher outro tema";
+      b1.style.cssText = "padding:10px 14px;border-radius:10px;border:1px solid #ccc;background:#fff;cursor:pointer";
+      var b2 = document.createElement("button"); b2.type = "button"; b2.textContent = "Criar mesmo assim";
+      b2.style.cssText = "padding:10px 14px;border-radius:10px;border:0;background:#222;color:#fff;cursor:pointer";
+      b1.onclick = function () { fim(false); }; b2.onclick = function () { fim(true); };
+      row.appendChild(b1); row.appendChild(b2); box.appendChild(h); box.appendChild(p); box.appendChild(row); ov.appendChild(box); document.body.appendChild(ov);
+    });
+  }
+  function fmtDataTema(iso) { try { return new Date(iso).toLocaleDateString("pt-BR"); } catch (e) { return "—"; } }
+  // lista sem os temas já usados (se tudo já foi usado, devolve a lista toda pra não esvaziar a tela)
+  function semUsados(lista) { var l = lista.filter(function (t) { return !topicoJaUsado(t); }); return l.length ? l : lista; }
   var gerandoAssuntos = false;
   function statusAssuntos(txt) { var el = document.getElementById("topic-status"); if (el) el.textContent = txt; }
   // pede 6 assuntos inéditos pra IA (botão "Gerar novas sugestões"; automático só 1x/24h)
@@ -1684,7 +2014,7 @@
   }
   function ineditosDoBanco(n) {
     var vistos = {}; assuntosVistos().forEach(function (id) { vistos[id] = 1; });
-    var novos = state.topicos.filter(function (t) { return !vistos[t.id]; })
+    var novos = state.topicos.filter(function (t) { return !vistos[t.id] && !topicoJaUsado(t); })
       .sort(function (a, b) { return String(b.created_at || "").localeCompare(String(a.created_at || "")); });
     return sortear(novos.slice(0, Math.max(n * 3, 18)), n);
   }
@@ -1701,8 +2031,9 @@
     var btn = document.getElementById("topic-novas");
     if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spin"></div> Gerando…'; }
     statusAssuntos("A IA está criando assuntos novos de mercado imobiliário…");
-    callFunction("sugerir-conteudo", { tipo: "assunto" }).then(function (r) {
-      var novos = (r && r.topicos) || [];
+    callFunction("sugerir-conteudo", { tipo: "assunto", temas_usados: temasUsados(60) }).then(function (r) {
+      // descarta o que a IA trouxer repetido (rede de segurança além do temas_usados)
+      var novos = ((r && r.topicos) || []).filter(function (t) { return !topicoJaUsado(t); });
       if (!novos.length) throw new Error("A IA não trouxe sugestões agora.");
       state.topicos = state.topicos.concat(novos);
       topicosDaVez = novos.slice(0, 6); topicosIA = true; marcarVistos(topicosDaVez);
@@ -1711,7 +2042,7 @@
     }).catch(function (e) {
       if (manual) {
         // sem IA no momento (ex.: limite por hora): pelo menos troca por outros do banco
-        topicosDaVez = sortear(state.topicos, 6); topicosIA = false;
+        topicosDaVez = sortear(semUsados(state.topicos), 6); topicosIA = false;
         if (wizard.subjectMode === "topic") renderTopicGrid();
         toast((e && e.message ? e.message : "Não deu pra gerar agora.") + " Mostrei outros assuntos do banco.");
       }
@@ -1723,7 +2054,7 @@
     });
   }
   function prepararAssuntos() {
-    topicosDaVez = sortear(state.topicos, 6); topicosIA = false;
+    topicosDaVez = sortear(semUsados(state.topicos), 6); topicosIA = false;
     var btn = document.getElementById("topic-novas");
     if (btn && !btn.dataset.ok) { btn.dataset.ok = "1"; btn.addEventListener("click", function () { gerarNovosAssuntos(true); }); }
     // ao abrir: mostra os mais novos do banco que este navegador ainda não viu (sem chamar a IA)
@@ -1733,7 +2064,7 @@
   }
 
   function renderTopicGrid() {
-    if (!topicosDaVez) topicosDaVez = sortear(state.topicos, 6);
+    if (!topicosDaVez) topicosDaVez = sortear(semUsados(state.topicos), 6);
     if (wizard.topicId && !topicosDaVez.some(function (t) { return t.id === wizard.topicId; })) { var sel = findTopic(wizard.topicId); if (sel) topicosDaVez = [sel].concat(topicosDaVez.slice(0, 5)); }
     document.getElementById("topic-grid").innerHTML = topicosDaVez.map(function (t) {
       var primeiraIdeia = (t.ideias && t.ideias[0]) ? t.ideias[0].titulo : "";
@@ -1958,6 +2289,11 @@
     if (wizard.dest === "agendado") renderCalendario();
     var igOn = state.igConta && state.igConta.status === "ativo";
     document.getElementById("ig-warn").hidden = !(wizard.dest === "agendado" && !igOn);
+    var boxContas = document.getElementById("sched-contas");
+    if (boxContas) {
+      if (wizard.dest !== "agendado") boxContas.innerHTML = "";
+      else if (!boxContas.innerHTML) boxContas.innerHTML = escolhaContasHtml([]);   // não redesenha: mantém o que já foi marcado
+    }
   }
 
   /* ---------- calendário de agendamento (dia + hora) ---------- */
@@ -2049,6 +2385,12 @@
     var btn = document.getElementById("wiz-next");
     var origem = wizard.subjectMode === "property" ? "imovel" : wizard.subjectMode === "topic" ? "topico" : "custom";
     var tpl = findTemplateBySlug(wizard.templateSlug);
+    // aviso de tema repetido (não bloqueia); não repete se já foi avisado no tema livre
+    var temaTxt = origem === "custom" ? wizard.customTopic.trim() : origem === "topico" ? ((findTopic(wizard.topicId) || {}).gancho || "") : "";
+    if (origem !== "imovel" && wizard.temaAvisado !== temaTxt) {
+      if (!(await avisarTemaRepetido(temaTxt, origem === "topico" ? wizard.topicId : null))) return;
+      wizard.temaAvisado = temaTxt;
+    }
     var payload = {
       corretor_id: state.profile.id,
       origem: origem,
@@ -2067,6 +2409,8 @@
       if (!date) { toast("Escolha a data da publicação."); return; }
       if (new Date(date + "T" + time) <= new Date()) { toast("Esse horário já passou — escolha outro no calendário."); return; }
       payload.data_agendada = new Date(date + "T" + time).toISOString();
+      payload.instagram_contas_ids = lerContasMarcadas(document.getElementById("sched-contas"));
+      if (contasAtivas().length > 1 && !payload.instagram_contas_ids.length) { toast("Marque pelo menos um Instagram."); return; }
       if (wizard.slides.length < 2 || wizard.slides.length > 10) { toast("Pra publicar no feed o carrossel precisa ter de 2 a 10 slides."); return; }
       if (testeSemPublicacoes()) { avisoFimDoTeste(); return; }
     }
@@ -2192,28 +2536,38 @@
   }
 
   function renderInstagram() {
-    var connected = state.igConta && state.igConta.status === "ativo";
-    document.getElementById("ig-connect").innerHTML = connected ?
-      ('<div class="l"><div class="ig-icon">' + ICONS.ig + '</div><div><div style="font-weight:700;">@' + escapeHtml(state.igConta.username) + '</div>' +
-        '<div style="font-size:12px;color:var(--status-pub-fg);font-weight:600;">Conectado' + (state.igConta.token_expires_at ? ' · acesso válido até ' + fmtDate(state.igConta.token_expires_at) : '') + '</div></div></div>' +
-        '<button class="btn btn-ghost btn-sm" id="ig-toggle">Desconectar</button>') +
-        (emTeste() ? '<div style="flex-basis:100%;font-size:12.5px;color:var(--ink-muted);margin-top:10px;">Teste grátis: você pode agendar até ' + limitePublicacoesTeste() + ' carrosséis (' + Math.max(limitePublicacoesTeste() - publicadosNoInstagram(), 0) + ' restante' + (limitePublicacoesTeste() - publicadosNoInstagram() === 1 ? "" : "s") + '). As imagens e a legenda levam o link da Vitrine.</div>' : "")
-      :
-      ('<div class="l"><div class="ig-icon">' + ICONS.ig + '</div><div><div style="font-weight:700;">Nenhuma conta conectada</div>' +
-        '<div style="font-size:12px;color:var(--ink-muted);">Conecte sua conta Profissional do Instagram para os posts agendados saírem sozinhos na hora marcada</div></div></div>' +
-        '<button class="btn btn-primary btn-sm" id="ig-toggle">Conectar Instagram</button>');
-    document.getElementById("ig-toggle").addEventListener("click", async function () {
-      try {
-        if (connected) {
-          await callFunction("instagram-oauth-callback", { acao: "desconectar" });
-          state.igConta.status = "inativo";
+    var ativas = contasAtivas(), limite = limiteContasIg();
+    var linhas = ativas.map(function (ct, i) {
+      return '<div class="ig-linha"><div class="l"><div class="ig-icon">' + ICONS.ig + '</div><div><div style="font-weight:700;">@' + escapeHtml(ct.username) + (i === 0 && ativas.length > 1 ? ' <small style="font-weight:500;color:var(--ink-muted);">(principal)</small>' : '') + '</div>' +
+        '<div style="font-size:12px;color:var(--status-pub-fg);font-weight:600;">Conectado' + (ct.token_expires_at ? ' · acesso válido até ' + fmtDate(ct.token_expires_at) : '') + '</div></div></div>' +
+        '<button class="btn btn-ghost btn-sm" data-ig-desc="' + ct.id + '">Desconectar</button></div>';
+    }).join("");
+    var podeMais = ativas.length < limite;
+    document.getElementById("ig-connect").innerHTML = (ativas.length ? linhas :
+      '<div class="ig-linha"><div class="l"><div class="ig-icon">' + ICONS.ig + '</div><div><div style="font-weight:700;">Nenhuma conta conectada</div>' +
+        '<div style="font-size:12px;color:var(--ink-muted);">Conecte sua conta Profissional do Instagram para os posts agendados saírem sozinhos na hora marcada</div></div></div></div>') +
+      '<div class="ig-linha ig-rodape"><div style="font-size:12.5px;color:var(--ink-muted);">' + ativas.length + ' de ' + limite + (limite === 1 ? ' conta' : ' contas') + ' do seu plano' +
+        (!podeMais && ativas.length ? ' — para conectar outra, desconecte uma' + (limite === 1 ? ' ou mude de plano' : '') + '.' : '') + '</div>' +
+        '<button class="btn ' + (ativas.length ? 'btn-ghost' : 'btn-primary') + ' btn-sm" id="ig-toggle"' + (podeMais ? '' : ' disabled') + '>' + (ativas.length ? 'Conectar outro Instagram' : 'Conectar Instagram') + '</button></div>' +
+      (emTeste() && ativas.length ? '<div style="flex-basis:100%;font-size:12.5px;color:var(--ink-muted);margin-top:10px;">Teste grátis: você pode agendar até ' + limitePublicacoesTeste() + ' carrosséis (' + Math.max(limitePublicacoesTeste() - publicadosNoInstagram(), 0) + ' restante' + (limitePublicacoesTeste() - publicadosNoInstagram() === 1 ? "" : "s") + '). As imagens e a legenda levam o link da Vitrine.</div>' : "");
+    qsa("[data-ig-desc]").forEach(function (b) {
+      b.addEventListener("click", async function () {
+        if (!confirm("Desconectar essa conta do Instagram?")) return;
+        try {
+          await callFunction("instagram-oauth-callback", { acao: "desconectar", conta_id: b.dataset.igDesc });
+          state.igContas = contasAtivas().filter(function (x) { return x.id !== b.dataset.igDesc; });
+          state.igConta = state.igContas[0] || null;
           renderInstagram();
           toast("Conta desconectada.");
-        } else {
-          // abre o login do Instagram; ele volta pra Edge Function, que salva o token e redireciona pra cá
-          var resp = await callFunction("instagram-oauth-callback", { acao: "iniciar" });
-          irPara(resp.url, ["www.instagram.com", "api.instagram.com", "instagram.com"]);
-        }
+        } catch (err) { toast("Erro: " + err.message); }
+      });
+    });
+    var tg = document.getElementById("ig-toggle");
+    if (tg) tg.addEventListener("click", async function () {
+      try {
+        // abre o login do Instagram; ele volta pra Edge Function, que salva o token e redireciona pra cá
+        var resp = await callFunction("instagram-oauth-callback", { acao: "iniciar" });
+        irPara(resp.url, ["www.instagram.com", "api.instagram.com", "instagram.com"]);
       } catch (err) { toast("Erro: " + err.message); }
     });
 
@@ -2377,11 +2731,12 @@
       showScreen("plano");
       toast(state.assinatura && state.assinatura.status === "ativa" ? "Plano ativado. Bem-vindo à Vitrine Pro!" : "Pagamento em processamento — o plano aparece em instantes.");
     }
-    var igMsgs = { conectado: "Instagram conectado!", negado: "Conexão com o Instagram cancelada.", expirado: "O link de conexão expirou — tente de novo.", erro: "Não foi possível conectar o Instagram. Verifique se a conta é Profissional (Empresa ou Criador)." };
+    var igMsgs = { conectado: "Instagram conectado!", negado: "Conexão com o Instagram cancelada.", expirado: "O link de conexão expirou — tente de novo.", limite: "Seu plano não permite conectar mais contas de Instagram. Desconecte uma ou mude de plano.", erro: "Não foi possível conectar o Instagram. Verifique se a conta é Profissional (Empresa ou Criador)." };
     if (ig) {
       if (ig === "conectado") {
-        var c = await DB.select("instagram_contas", "select=*&corretor_id=eq." + state.profile.id + "&limit=1");
-        state.igConta = (c || [])[0] || null;
+        var c = await DB.select("instagram_contas", "select=*&corretor_id=eq." + state.profile.id + "&status=eq.ativo&order=connected_at.asc");
+        state.igContas = c || [];
+        state.igConta = state.igContas[0] || null;
       }
       showScreen("instagram");
       toast(igMsgs[ig] || igMsgs.erro);
@@ -2419,7 +2774,7 @@
       DB.select("templates", "select=*&ativo=eq.true"),
       DB.select("propriedades", "select=*&corretor_id=eq." + uid + "&order=created_at.desc"),
       DB.select("assinaturas", "select=*&corretor_id=eq." + uid + "&status=in.(trial,ativa)&limit=1"),
-      DB.select("instagram_contas", "select=*&corretor_id=eq." + uid + "&limit=1"),
+      DB.select("instagram_contas", "select=*&corretor_id=eq." + uid + "&status=eq.ativo&order=connected_at.asc"),
       DB.select("autoreply_config", "select=*&corretor_id=eq." + uid + "&limit=1"),
       DB.select("carrosseis", "select=*,slides(*)&corretor_id=eq." + uid + "&order=created_at.desc")
     ]);
@@ -2428,7 +2783,8 @@
     state.templates = results[2] || [];
     state.propriedades = results[3] || [];
     state.assinatura = (results[4] || [])[0] || null;
-    state.igConta = (results[5] || [])[0] || null;
+    state.igContas = results[5] || [];
+    state.igConta = state.igContas[0] || null;
     state.autoReply = (results[6] || [])[0] || { ativo: true, template: "Oi {{nome}}! Que bom o seu interesse 😊 Já te chamo aqui pra conversarmos com mais detalhes sobre esse imóvel. Precisa de mais alguma informação?", palavra_gatilho: "QUERO" };
     state.carrosseis = (results[7] || []).map(function (c) {
       c.slides = (c.slides || []).slice().sort(function (a, b) { return a.ordem - b.ordem; });

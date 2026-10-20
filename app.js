@@ -2731,7 +2731,7 @@
       showScreen("plano");
       toast(state.assinatura && state.assinatura.status === "ativa" ? "Plano ativado. Bem-vindo à Vitrine Pro!" : "Pagamento em processamento — o plano aparece em instantes.");
     }
-    var igMsgs = { conectado: "Instagram conectado!", negado: "Conexão com o Instagram cancelada.", expirado: "O link de conexão expirou — tente de novo.", limite: "Seu plano não permite conectar mais contas de Instagram. Desconecte uma ou mude de plano.", erro: "Não foi possível conectar o Instagram. Verifique se a conta é Profissional (Empresa ou Criador)." };
+    var igMsgs = { conectado: "Instagram conectado!", negado: "Conexão com o Instagram cancelada.", expirado: "O link de conexão expirou — tente de novo.", limite: "Seu plano não permite conectar mais contas de Instagram. Desconecte uma ou mude de plano.", ja_conectada: "Essa conta já estava conectada. Para conectar outra, entre com o outro usuário na tela de login do Instagram (ou saia do Instagram neste navegador antes).", erro: "Não foi possível conectar o Instagram. Verifique se a conta é Profissional (Empresa ou Criador)." };
     if (ig) {
       if (ig === "conectado") {
         var c = await DB.select("instagram_contas", "select=*&corretor_id=eq." + state.profile.id + "&status=eq.ativo&order=connected_at.asc");

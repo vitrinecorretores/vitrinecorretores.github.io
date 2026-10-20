@@ -1869,11 +1869,24 @@
       wizard.subjectMode = "custom";
       wizard.customTopic = txt;
       wizard.customCategoria = categoriaDoTema(txt);
+      wizard.customPrompt = formatosTemaLivre.map(function (i) { return FORMATOS_VIRAIS[i].txt; }).join(" ");
       wizard.step = 2;
       renderWizard();
       runGeneration();
     }
     document.getElementById("tema-livre-btn").addEventListener("click", criarComTemaLivre);
+    var formatosTemaLivre = [];
+    var boxF = document.getElementById("tema-livre-formatos");
+    if (boxF) {
+      boxF.innerHTML = formatosHtml("formatos-tema", "");
+      qsa("#formatos-tema .formato-chip").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var i = +b.dataset.formato, k = formatosTemaLivre.indexOf(i);
+          if (k >= 0) formatosTemaLivre.splice(k, 1); else formatosTemaLivre.push(i);
+          b.classList.toggle("on", k < 0);
+        });
+      });
+    }
     document.getElementById("tema-livre-txt").addEventListener("keydown", function (e) {
       if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); criarComTemaLivre(); }
     });
@@ -2124,6 +2137,35 @@
     });
   }
 
+  // formatos que mais viralizam no Instagram: o corretor toca no botão e a IA segue a instrução (vai junto no direcionamento)
+  var FORMATOS_VIRAIS = [
+    { nome: "🔥 Gancho polêmico", txt: "Comece com uma afirmação forte e polêmica (sem mentir) que faça a pessoa parar de rolar; depois explique." },
+    { nome: "❌ Erro comum", txt: "Formato 'erros que custam caro': cada slide é um erro comum e como evitar." },
+    { nome: "🔢 Lista numerada", txt: "Lista numerada (ex.: 5 coisas que...), um item por slide, título curto e direto." },
+    { nome: "🆚 Antes x depois", txt: "Compare o jeito errado (antes) com o jeito certo (depois) em cada slide." },
+    { nome: "🧐 Mito x verdade", txt: "Formato mito x verdade: cada slide derruba um mito comum do mercado imobiliário." },
+    { nome: "🤫 Ninguém te conta", txt: "Tom de bastidor: 'o que ninguém te conta sobre...', revelando algo que o cliente não sabe." },
+    { nome: "✅ Checklist", txt: "Checklist prático para salvar: itens objetivos que a pessoa possa conferir." },
+    { nome: "❓ Pergunta pro seguidor", txt: "Termine com uma pergunta direta pro seguidor responder nos comentários." },
+    { nome: "💾 Salve e compartilhe", txt: "Conteúdo útil de referência e último slide pedindo para salvar e mandar pra quem precisa." },
+    { nome: "⏱️ Em 30 segundos", txt: "Bem direto: frases curtíssimas, como uma dica rápida de 30 segundos." },
+    { nome: "📖 História real", txt: "Conte em formato de história curta de um cliente (sem nomes reais), com começo, problema e solução." },
+    { nome: "🎯 Pra quem é", txt: "Fale direto com um público específico logo no título (ex.: 'Se você ganha até X...' ou 'Se você vai comprar o 1º imóvel...')." }
+  ];
+  // junta ou tira a instrução do formato no texto do direcionamento
+  function alternarFormato(texto, instrucao) {
+    texto = String(texto || "");
+    if (texto.indexOf(instrucao) >= 0) return texto.replace(instrucao, "").replace(/\s{2,}/g, " ").trim();
+    return (texto ? texto.trim() + " " : "") + instrucao;
+  }
+  function formatosHtml(idBox, textoAtual) {
+    return '<div class="formatos-virais" id="' + idBox + '"><span class="formatos-label">Formato viral (toque pra usar):</span>' +
+      FORMATOS_VIRAIS.map(function (f, i) {
+        var on = String(textoAtual || "").indexOf(f.txt) >= 0;
+        return '<button type="button" class="prompt-chip formato-chip' + (on ? ' on' : '') + '" data-formato="' + i + '" title="' + escapeHtml(f.txt) + '">' + escapeHtml(f.nome) + '</button>';
+      }).join("") + '</div>';
+  }
+
   var PROMPT_SUGGESTIONS = [
     "Foco em quem tá comprando o primeiro imóvel",
     "Tom mais descontraído, como se fosse pra um amigo",
@@ -2167,11 +2209,19 @@
       '<div class="prompt-suggestions" id="prompt-suggestions">' + PROMPT_SUGGESTIONS.map(function (s) {
         return '<button type="button" class="prompt-chip" data-sugg="' + escapeHtml(s) + '">' + escapeHtml(s) + '</button>';
       }).join("") + '</div>' +
+      formatosHtml("formatos-wizard", wizard.customPrompt) +
       '<textarea id="custom-prompt" rows="2" placeholder="Sem ideia? Clique numa sugestão acima, ou escreva a sua — ex: destaque a vista pro mar" ' +
       'style="width:100%; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-family:inherit; font-size:13px; padding:8px 10px; resize:vertical;">' + escapeHtml(wizard.customPrompt) + '</textarea></div>';
   }
   function wirePromptBox() {
     document.getElementById("custom-prompt").addEventListener("input", function (e) { wizard.customPrompt = e.target.value; });
+    qsa("#formatos-wizard .formato-chip").forEach(function (b) {
+      b.addEventListener("click", function () {
+        wizard.customPrompt = alternarFormato(document.getElementById("custom-prompt").value, FORMATOS_VIRAIS[+b.dataset.formato].txt);
+        document.getElementById("custom-prompt").value = wizard.customPrompt;
+        b.classList.toggle("on");
+      });
+    });
     qsa("#prompt-suggestions .prompt-chip").forEach(function (b) {
       b.addEventListener("click", function () {
         wizard.customPrompt = b.dataset.sugg;

@@ -1944,7 +1944,8 @@
       '<div class="card" style="padding:12px;margin-bottom:14px;"><div style="font-size:13px;font-weight:600;margin-bottom:6px;">Importar por link</div>' +
       '<div style="display:flex;gap:8px;"><input type="url" id="np-link" placeholder="Cole o link do anúncio (ZAP, VivaReal, OLX, QuintoAndar...)" style="flex:1;min-width:0;">' +
       '<button class="btn btn-ghost" type="button" id="np-importar">Importar</button></div>' +
-      '<div id="np-imp-msg" style="font-size:12px;margin-top:6px;opacity:.8;"></div></div>' +
+      '<div id="np-imp-msg" style="font-size:12px;margin-top:6px;opacity:.8;"></div>' +
+      '<div id="np-imp-fotos" hidden style="margin-top:10px;"></div></div>' +
       '<div class="form-grid">' +
       '<label class="full">Título<input type="text" id="np-titulo" placeholder="Ex: Cobertura duplex na Praia de Iracema"></label>' +
       '<label>Bairro<input type="text" id="np-bairro" placeholder="Ex: Iracema"></label>' +
@@ -1965,7 +1966,74 @@
     document.getElementById("modal-close").addEventListener("click", closeModal);
     document.getElementById("np-cancel").addEventListener("click", closeModal);
     var fotosImportadas = [];
+    var todasImportadas = [];
+    var arquivosFotos = null; // Files já baixados (pra "Baixar todas" funcionar no celular sem perder o toque)
     var enderecoImportado = "";
+    function desenharFotosImportadas() {
+      var box = document.getElementById("np-imp-fotos");
+      if (!todasImportadas.length) { box.hidden = true; return; }
+      box.hidden = false;
+      box.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">' +
+        '<span style="font-size:12px;opacity:.85;">' + fotosImportadas.length + ' de ' + todasImportadas.length + ' marcadas pro imóvel (máx. ' + MAX_FOTOS_IMOVEL + ')</span>' +
+        '<button class="btn btn-primary" type="button" id="np-baixar" style="padding:8px 12px;font-size:13px;">⬇️ Baixar todas (' + todasImportadas.length + ')</button></div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:6px;">' +
+        todasImportadas.map(function (u, i) {
+          var on = fotosImportadas.indexOf(u) >= 0;
+          return '<button type="button" data-fi="' + i + '" title="' + (on ? "Tirar do imóvel" : "Usar no imóvel") + '" style="position:relative;padding:0;border:2px solid ' + (on ? "var(--accent)" : "transparent") + ';border-radius:8px;overflow:hidden;aspect-ratio:1;background:#18181B;cursor:pointer;opacity:' + (on ? 1 : .45) + '">' +
+            '<img src="' + escapeHtml(u) + '" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;">' +
+            (on ? '<span style="position:absolute;top:3px;right:3px;background:var(--accent);color:#0A0A0A;border-radius:50%;width:18px;height:18px;font-size:12px;line-height:18px;font-weight:700;">✓</span>' : '') +
+            '</button>';
+        }).join("") + '</div>';
+      qsa("[data-fi]", box).forEach(function (b) {
+        b.addEventListener("click", function () {
+          var u = todasImportadas[+b.dataset.fi], k = fotosImportadas.indexOf(u);
+          if (k >= 0) fotosImportadas.splice(k, 1);
+          else if (fotosImportadas.length >= MAX_FOTOS_IMOVEL) { toast("No máximo " + MAX_FOTOS_IMOVEL + " fotos por imóvel."); return; }
+          else fotosImportadas.push(u);
+          fotosImportadas.sort(function (a, c) { return todasImportadas.indexOf(a) - todasImportadas.indexOf(c); });
+          desenharFotosImportadas();
+        });
+      });
+      document.getElementById("np-baixar").addEventListener("click", baixarTodasFotos);
+      prepararArquivosFotos();
+    }
+    function nomeFoto(i, tipo) {
+      var base = (document.getElementById("np-titulo").value.trim() || "imovel").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase().slice(0, 40) || "imovel";
+      return base + "-" + String(i + 1).padStart(2, "0") + (/png/.test(tipo) ? ".png" : /webp/.test(tipo) ? ".webp" : ".jpg");
+    }
+    var prepPromise = null;
+    function prepararArquivosFotos() {
+      if (prepPromise) return prepPromise;
+      var lista = todasImportadas.slice();
+      prepPromise = Promise.all(lista.map(function (u, i) {
+        return fetch(u).then(function (r) { if (!r.ok) throw new Error(); return r.blob(); })
+          .then(function (bl) { return new File([bl], nomeFoto(i, bl.type), { type: bl.type || "image/jpeg" }); })
+          .catch(function () { return null; });
+      })).then(function (fs) { arquivosFotos = fs.filter(Boolean); return arquivosFotos; });
+      return prepPromise;
+    }
+    async function baixarTodasFotos() {
+      var b = document.getElementById("np-baixar");
+      // celular: abre a folha de compartilhar com todas as fotos ("Salvar imagens" / "Salvar na galeria")
+      var celular = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform));
+      if (!arquivosFotos) { b.disabled = true; b.textContent = "Preparando fotos…"; await prepararArquivosFotos(); b.disabled = false; b.textContent = "⬇️ Baixar todas (" + todasImportadas.length + ")"; if (celular) { toast("Fotos prontas! Toque de novo em Baixar todas."); return; } }
+      var arqs = arquivosFotos || [];
+      if (!arqs.length) { toast("Não consegui baixar as fotos desse anúncio."); return; }
+      if (celular && navigator.canShare && navigator.canShare({ files: arqs })) {
+        try { await navigator.share({ files: arqs, title: "Fotos do imóvel" }); return; }
+        catch (e) { if (e && e.name === "AbortError") return; }
+      }
+      // computador (ou celular sem compartilhar): baixa uma por uma
+      for (var i = 0; i < arqs.length; i++) {
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(arqs[i]); a.download = arqs[i].name;
+        document.body.appendChild(a); a.click(); a.remove();
+        (function (h) { setTimeout(function () { URL.revokeObjectURL(h); }, 60000); })(a.href);
+        await new Promise(function (r) { setTimeout(r, 350); });
+      }
+      toast(arqs.length + " foto(s) baixada(s). Se o navegador perguntar, permita vários downloads.");
+    }
     document.getElementById("np-importar").addEventListener("click", async function () {
       var inp = document.getElementById("np-link"), msg = document.getElementById("np-imp-msg"), b = this;
       var link = inp.value.trim();
@@ -1980,8 +2048,12 @@
         set("np-m2", d.area_m2); set("np-quartos", d.quartos);
         if (d.diferenciais && d.diferenciais.length) document.getElementById("np-dif").value = d.diferenciais.join(", ");
         enderecoImportado = d.endereco || "";
-        fotosImportadas = (r.fotos || []).filter(function (u) { return /^https:\/\//.test(u); }).slice(0, MAX_FOTOS_IMOVEL);
-        msg.textContent = "Pronto! " + fotosImportadas.length + " foto(s) importada(s). Confira os dados abaixo e salve.";
+        todasImportadas = (r.fotos || []).filter(function (u) { return /^https:\/\//.test(u); });
+        fotosImportadas = todasImportadas.slice(0, MAX_FOTOS_IMOVEL);
+        msg.textContent = todasImportadas.length
+          ? "Pronto! " + todasImportadas.length + " foto(s) encontrada(s). Baixe todas pro seu aparelho e marque as que vão pro imóvel."
+          : "Dados importados, mas o site não liberou as fotos. Envie as fotos manualmente abaixo.";
+        desenharFotosImportadas();
       } catch (e) { msg.textContent = e.message; }
       finally { b.disabled = false; }
     });

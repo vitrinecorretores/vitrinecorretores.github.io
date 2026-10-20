@@ -630,6 +630,10 @@ body .auth-card{padding:22px;}
   .slide-tile .stitle .hl{color:var(--hl,#FFD60A);}
   .dica-destaque .hl{color:#FFD60A;}
   .dica-destaque{font-size:12px; color:var(--ink-muted); margin:0 0 10px;}
+  .selo-aprov{display:inline-block; padding:2px 8px; border-radius:999px; background:rgba(212,255,63,0.14); color:var(--accent); font-weight:600; font-size:12px;}
+  .gancho-box{margin:12px 0;}
+  .gancho-box .formato-chip{display:block; width:100%; text-align:left; margin-bottom:6px; white-space:normal;}
+  .gancho-box .formato-chip.on{color:#0A0A0A;}
   .tema-livre{background:linear-gradient(135deg, rgba(212,255,63,0.088), rgba(255,255,255,0.036)); border:1px solid rgba(212,255,63,0.248); border-radius:16px; padding:18px; margin-bottom:18px;}
   .tema-livre-titulo{display:block; font-family:"Space Grotesk",sans-serif; font-size:20px; font-weight:700; margin-bottom:10px;}
   .tema-livre textarea{width:100%; min-height:110px; resize:vertical; font:inherit; font-size:16px; line-height:1.5; padding:14px; border-radius:12px; border:1px solid var(--border); background:var(--bg); color:var(--ink);}
@@ -659,6 +663,37 @@ body .auth-card{padding:22px;}
   .igpv-bars i{flex:1; height:2.5px; border-radius:2px; background:rgba(255,255,255,0.35);} .igpv-bars i.on{background:#fff;}
   .igpv-tag{position:absolute; bottom:10px; left:10px; background:rgba(0,0,0,0.6); color:#fff; font-size:11.5px; padding:3px 8px; border-radius:20px;}
   /* controles de foto por slide */
+  .marca-card{background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:18px 22px;}
+  .marca-sub{margin:0 0 12px; font-size:13px; color:var(--ink-muted);}
+  .marca-grid{display:grid; grid-template-columns:200px 1fr; gap:20px; align-items:start;}
+  .marca-logo{display:flex; flex-direction:column; gap:8px; align-items:flex-start;}
+  .marca-logo small{font-size:11.5px; color:var(--ink-faint);}
+  .marca-logo-img{width:200px; height:96px; border:1px dashed var(--border); border-radius:12px; background:#fff; display:flex; align-items:center; justify-content:center; overflow:hidden; color:#888; font-size:12px;}
+  .marca-logo-img img{max-width:100%; max-height:100%; object-fit:contain;}
+  .marca-campos{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .marca-campos label{display:flex; flex-direction:column; gap:6px; font-size:12px; font-weight:600; color:var(--ink-muted);}
+  .marca-campos input[type=text]{border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--ink); font-family:inherit; font-size:13.5px; padding:8px 10px; width:100%;}
+  .marca-cor{display:flex; gap:8px; align-items:center;}
+  .marca-cor input[type=color]{width:42px; height:36px; padding:0; border:1px solid var(--border); border-radius:8px; background:none; cursor:pointer;}
+  .marca-aviso{margin-top:12px; padding:10px 12px; border-radius:10px; background:rgba(255,200,40,0.14); border:1px solid rgba(255,200,40,0.55); color:#FFD24A; font-size:13px; font-weight:600;}
+  .marca-aviso.cinza{background:var(--bg); border-color:var(--border); color:var(--ink-muted); font-weight:500;}
+  .marca-previa-barra{display:flex; align-items:center; gap:12px; margin-top:12px; padding:10px 14px; border-radius:12px; background:#0B0B10; color:#fff;}
+  .marca-previa-barra .pl{background:rgba(255,255,255,0.94); border-radius:8px; padding:4px; display:flex;}
+  .marca-previa-barra .pl img{height:34px; max-width:130px; object-fit:contain;}
+  .marca-previa-barra .pt{display:flex; flex-direction:column; line-height:1.25; flex:1; min-width:0;}
+  .marca-previa-barra .pt b{font-size:14px;} .marca-previa-barra .pt i{font-style:normal; font-size:12px; opacity:.8;}
+  .marca-previa-barra .pd{font-weight:800; color:var(--m); font-size:15px;}
+  @media (max-width:640px){.marca-grid{grid-template-columns:1fr;}.marca-campos{grid-template-columns:1fr;}}
+  .calc-form{max-width:640px;} .calc-form h4{font-size:15px; margin:0 0 4px;}
+  .calc-sub{font-size:12.5px; color:var(--ink-muted); margin:0 0 12px;}
+  .calc-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;}
+  .calc-grid label{display:flex; flex-direction:column; gap:6px; font-size:12px; font-weight:600; color:var(--ink-muted);}
+  .calc-grid input{border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--ink); font-family:inherit; font-size:14px; padding:9px 10px;}
+  .calc-grid small{font-weight:500; font-size:11px; color:var(--ink-faint);}
+  @media (max-width:560px){.calc-grid{grid-template-columns:1fr;}}
+  .melhorar-toggle{display:flex; align-items:center; gap:8px; margin:0 0 10px; font-size:13px; font-weight:700; cursor:pointer;}
+  .melhorar-toggle em{font-style:normal; font-weight:500; font-size:11.5px; color:var(--ink-faint);}
+  .slide-tile.melhor .tile-bg img, .slide-tile.melhor .ps-foto img{filter:saturate(1.12) contrast(1.06) brightness(1.04);}
   .fotos-titulo{font-size:12px; font-weight:700; color:var(--ink-muted); text-transform:uppercase; letter-spacing:0.04em; margin:6px 0 8px;}
   .fotos-ctl{display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:8px; margin-bottom:14px;}
   .foto-ctl{border:1px solid var(--border); border-radius:10px; padding:8px 10px; background:var(--bg);}
@@ -733,6 +768,12 @@ body .auth-card{padding:22px;}
   .autoreply-label{display:block; font-size:12px; font-weight:600; color:var(--ink-muted); margin-bottom:7px;}
   .autoreply-label span{font-weight:500; color:var(--ink-faint); text-transform:none; letter-spacing:0;}
   #autoreply-template{width:100%; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--ink); font-family:inherit; font-size:13px; padding:9px 11px; resize:vertical; margin-bottom:16px;}
+  .rs-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:12px;}
+  .rs-n{font-size:26px; font-weight:700;} .rs-l{font-size:12px; color:var(--ink-muted);}
+  .rs-top{margin:14px 0 0; padding-left:18px; font-size:13px;}
+  .lead-row{display:flex; justify-content:space-between; gap:10px; padding:8px 0; border-top:1px solid var(--border); font-size:13px;}
+  .ig-pendente{background:var(--accent-soft); color:var(--accent); border-radius:10px; padding:10px 12px; font-size:12.5px; margin:12px 0;}
+  @media (max-width:700px){.rs-grid{grid-template-columns:repeat(2,1fr);}}
   .autoreply-preview{display:flex; flex-direction:column; gap:10px;}
   .areply-ex, .areply-pair .reply{display:flex; gap:10px; align-items:flex-start;}
   .areply-ex .who, .areply-pair .reply .who{width:28px; height:28px; border-radius:50%; background:var(--accent2); color:var(--accent2-ink); font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex:none;}
@@ -1073,6 +1114,9 @@ body .auth-card{padding:22px;}
 
         <!-- PAINEL -->
         <section class="screen" id="screen-painel">
+          <div id="resumo-semana"></div>
+          <div id="aprov-painel"></div>
+          <div id="datas-card"></div>
           <div class="stat-row" id="stat-row"></div>
           <div class="section-head">
             <h2>Organização por status</h2>
@@ -1112,9 +1156,12 @@ body .auth-card{padding:22px;}
                 <button class="mode-tab" data-mode="topic"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M4 20l10-10"/><path d="M14 10l6-6"/><path d="M17 3l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/></svg> Sugestões da Vitrine</button>
                 <button class="mode-tab" data-mode="property"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M4 21V9l8-5 8 5v12"/><path d="M9 21v-7h6v7"/></svg> Imóvel da carteira</button>
                 <button class="mode-tab" data-mode="custom"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Meu próprio assunto</button>
+                <button class="mode-tab" data-mode="simfin">🧮 Simulação de financiamento</button>
+                <button class="mode-tab" data-mode="simalug">🏠 Alugar ou comprar?</button>
               </div>
               <div id="subject-topic"><div class="topic-bar"><span id="topic-status" class="topic-status"></span><button type="button" class="btn btn-ghost btn-sm" id="topic-novas">✨ Gerar novas sugestões</button></div><div class="topic-grid" id="topic-grid"></div></div>
               <div id="subject-property" hidden><div class="pick-grid" id="pick-grid"></div></div>
+              <div id="subject-calc" hidden></div>
               <div id="subject-custom" hidden>
                 <div class="custom-form">
                   <label style="font-size:12px;font-weight:600;color:var(--ink-muted);">Sobre o que é o carrossel?
@@ -1189,6 +1236,9 @@ body .auth-card{padding:22px;}
             <div class="autoreply-preview" id="autoreply-preview"></div>
           </div>
 
+          <div class="autoreply-card" id="comentario-lead-card"></div>
+          <div class="autoreply-card" id="leads-ig-card"></div>
+
           <div class="section-head"><h2>Próximas publicações</h2></div>
           <div class="queue-list" id="queue-scheduled" style="margin-bottom:26px;"></div>
           <div class="section-head"><h2>Publicados</h2></div>
@@ -1208,7 +1258,8 @@ body .auth-card{padding:22px;}
 
         <!-- PLANO / PAGAMENTO -->
         <section class="screen" id="screen-plano" hidden>
-          <div id="plan-status"></div>
+          <div id="marca-box"></div>
+          <div id="plan-status" style="margin-top:22px;"></div>
           <div class="section-head" style="margin-top:22px;"><h2>Planos</h2></div>
           <div class="plan-grid" id="plan-grid"></div>
           <div class="plan-grid equipe" id="plan-grid-equipe"></div>
@@ -1226,6 +1277,10 @@ body .auth-card{padding:22px;}
   <div id="toast"></div>
 </div>
 
-<script src="app.js?v=20261020-tema"></script>
+<script src="fotos.js?v=20261021-r"></script>
+<script src="simulacao.js?v=20261021-r"></script>
+<script src="datas.js?v=20261021-r"></script>
+<script src="app.js?v=20261021-r"></script>
+<script src="vitrine-leads.js?v=20261021-r"></script>
 </body>
 </html>

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://qbfmozumntequvecttfs.supabase.co https://images.unsplash.com https://plus.unsplash.com https://images.pexels.com; media-src 'self' blob: https://qbfmozumntequvecttfs.supabase.co; connect-src https://qbfmozumntequvecttfs.supabase.co; base-uri 'none'; form-action 'self'; object-src 'none'; manifest-src 'self'; upgrade-insecure-requests">
+<title>Imóvel | Vitrine</title>
+<meta name="description" content="Veja fotos, detalhes e fale direto com o corretor pelo WhatsApp.">
+<meta name="robots" content="noindex">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:site_name" content="Vitrine">
+<meta property="og:title" content="Imóvel à venda | Vitrine">
+<meta property="og:description" content="Veja fotos, detalhes e fale direto com o corretor pelo WhatsApp.">
+<meta property="og:image" content="https://vitrinecorretores.github.io/og-vitrine.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@500;600&display=swap">
+<style>
+  :root{--bg:#09090B; --surface:#151517; --surface-2:#202022; --border:#27272A; --ink:#F4F4F5; --ink-muted:#A1A1AA; --accent:#D4FF3F; --accent-ink:#0A0A0A;}
+  *{box-sizing:border-box;}
+  html,body{margin:0; background:var(--bg); color:var(--ink); font-family:"Geist",system-ui,-apple-system,"Segoe UI",sans-serif; font-size:16px; line-height:1.5;}
+  .wrap{max-width:720px; margin:0 auto; padding:16px 16px 120px;}
+  .brand{font-weight:800; letter-spacing:-.02em; color:var(--ink-muted); font-size:14px; margin:4px 0 14px;}
+  .brand b{color:var(--accent);}
+  .gal-main{position:relative; width:100%; aspect-ratio:4/3; background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden;}
+  .gal-main img{width:100%; height:100%; object-fit:cover; display:block;}
+  .gal-nav{position:absolute; top:50%; transform:translateY(-50%); width:42px; height:42px; border-radius:50%; border:0; background:rgba(0,0,0,.6); color:#fff; font-size:22px; cursor:pointer;}
+  .gal-nav.prev{left:10px;} .gal-nav.next{right:10px;}
+  .gal-count{position:absolute; right:10px; bottom:10px; background:rgba(0,0,0,.65); color:#fff; font-size:12px; padding:3px 9px; border-radius:20px;}
+  .thumbs{display:flex; gap:8px; overflow-x:auto; padding:10px 0 2px;}
+  .thumbs button{flex:none; width:72px; height:54px; padding:0; border:2px solid transparent; border-radius:8px; overflow:hidden; background:var(--surface); cursor:pointer;}
+  .thumbs button.on{border-color:var(--accent);}
+  .thumbs img{width:100%; height:100%; object-fit:cover; display:block;}
+  .tag{display:inline-block; margin-top:18px; background:var(--accent); color:var(--accent-ink); font-weight:700; font-size:12px; padding:3px 10px; border-radius:20px; text-transform:uppercase; letter-spacing:.04em;}
+  h1{font-size:26px; line-height:1.2; margin:8px 0 4px; letter-spacing:-.02em;}
+  .loc{color:var(--ink-muted); margin:0 0 12px;}
+  .preco{font-family:"Geist Mono",monospace; font-size:30px; font-weight:600; color:var(--accent); margin:0 0 16px;}
+  .specs{display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px; margin-bottom:20px;}
+  .spec{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:10px 12px;}
+  .spec b{display:block; font-size:18px;} .spec span{font-size:12px; color:var(--ink-muted);}
+  h2{font-size:16px; margin:22px 0 8px;}
+  .desc{color:var(--ink-muted); white-space:pre-line; margin:0;}
+  .difs{display:flex; flex-wrap:wrap; gap:8px; padding:0; margin:0; list-style:none;}
+  .difs li{background:var(--surface-2); border:1px solid var(--border); border-radius:20px; padding:5px 12px; font-size:14px;}
+  .corretor{margin-top:24px; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:14px 16px;}
+  .corretor small{color:var(--ink-muted); display:block;}
+  .corretor strong{font-size:18px;}
+  .cta-bar{position:fixed; left:0; right:0; bottom:0; padding:12px 16px calc(12px + env(safe-area-inset-bottom)); background:linear-gradient(to top,var(--bg) 70%,transparent);}
+  .cta{display:block; max-width:720px; margin:0 auto; text-align:center; background:var(--accent); color:var(--accent-ink); font-weight:800; font-size:18px; padding:16px; border-radius:14px; text-decoration:none;}
+  .cta:hover{filter:brightness(1.06);}
+  .msg{text-align:center; padding:80px 16px; color:var(--ink-muted);}
+  [hidden]{display:none !important;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">Vit<b>rine</b></div>
+  <div id="msg" class="msg">Carregando imóvel…</div>
+  <main id="conteudo" hidden>
+    <div class="gal-main" id="gal-main">
+      <img id="gal-img" alt="Foto do imóvel">
+      <button class="gal-nav prev" id="gal-prev" aria-label="Foto anterior">&#8249;</button>
+      <button class="gal-nav next" id="gal-next" aria-label="Próxima foto">&#8250;</button>
+      <span class="gal-count" id="gal-count"></span>
+    </div>
+    <div class="thumbs" id="thumbs"></div>
+    <span class="tag" id="tag"></span>
+    <h1 id="titulo"></h1>
+    <p class="loc" id="loc"></p>
+    <p class="preco" id="preco"></p>
+    <div class="specs" id="specs"></div>
+    <section id="sec-desc" hidden><h2>Sobre o imóvel</h2><p class="desc" id="desc"></p></section>
+    <section id="sec-dif" hidden><h2>Diferenciais</h2><ul class="difs" id="difs"></ul></section>
+    <div class="corretor"><small>Corretor responsável</small><strong id="c-nome"></strong><small id="c-creci"></small></div>
+  </main>
+</div>
+<div class="cta-bar" id="cta-bar" hidden><a class="cta" id="cta" href="#" target="_blank" rel="noopener">Chamar no WhatsApp</a></div>
+<script src="imovel.js?v=20261021-a"></script>
+</body>
+</html>

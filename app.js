@@ -79,13 +79,16 @@
   function slideImageUrl(slide) { return isFotoReal(slide.imagem_url) ? slide.imagem_url : null; }
 
   // busca no servidor fotos reais pros slides que ainda não têm; grava no próprio objeto (e no banco, se já salvos)
-  async function garantirFotosReais(slides, contexto, salvarNoBanco) {
+  // termosFixos (opcional): buscas de foto já decididas (ex.: data comemorativa → "mother playing with child"), sem IA
+  async function garantirFotosReais(slides, contexto, salvarNoBanco, termosFixos) {
     var faltando = slides.map(function (s, i) { return { s: s, i: i }; }).filter(function (x) { return !isFotoReal(x.s.imagem_url); });
     if (!faltando.length) return;
-    var resp = await callFunction("buscar-imagens", {
+    var corpoReq = {
       contexto: contexto || "",
       slides: faltando.map(function (x) { return { titulo: x.s.titulo, corpo: x.s.corpo }; })
-    });
+    };
+    if (termosFixos && termosFixos.length) corpoReq.termos = faltando.map(function (x) { return termosFixos[x.i % termosFixos.length]; });
+    var resp = await callFunction("buscar-imagens", corpoReq);
     for (var k = 0; k < faltando.length; k++) {
       var foto = (resp.imagens || [])[k];
       if (!foto) continue;
@@ -1303,6 +1306,7 @@
       b.onclick = function () {
         var x = prox[+b.dataset.dataPost];
         resetWizard(); showScreen("novo");
+        wizard.fotosData = x.foto || null;   // fotos ligadas à data (ex.: Dia das Mães → mãe brincando com o filho)
         var t = document.getElementById("tema-livre-txt");
         if (t) { t.value = x.tema; t.focus(); }
       };
@@ -2679,7 +2683,7 @@
         var fotosImovel = fotosDe(findProp(wizard.propertyId));
         wizard.slides.forEach(function (sl, i) { if (fotosImovel[i]) aplicarFoto(sl, { url: fotosImovel[i], credito: "Foto do imóvel", link: "" }); });
       }
-      try { await garantirFotosReais(wizard.slides, wizardContexto(), false); }
+      try { await garantirFotosReais(wizard.slides, wizardContexto(), false, wizard.fotosData); }
       catch (e) { toast("Fotos não encontradas agora (" + e.message + ") — dá pra tentar de novo na prévia."); }
       renderGenArea();
     } catch (err) {
@@ -2804,7 +2808,7 @@
       if (ehCalc()) {
         if (!(await gerarSlidesCalculo())) return;
         var bt = document.getElementById("wiz-next"), tx = bt.textContent; bt.disabled = true; bt.textContent = "Buscando fotos…";
-        try { await garantirFotosReais(wizard.slides, wizardContexto(), false); } catch (e) { toast("Fotos não encontradas agora — dá pra trocar no passo de estilo."); }
+        try { await garantirFotosReais(wizard.slides, wizardContexto(), false, wizard.fotosData); } catch (e) { toast("Fotos não encontradas agora — dá pra trocar no passo de estilo."); }
         bt.disabled = false; bt.textContent = tx;
         wizard.step = 2; renderWizard(); return;
       }

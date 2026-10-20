@@ -661,6 +661,45 @@ body .auth-card{padding:22px;}
   .tpl-vibrante{background:linear-gradient(150deg,#8B5CFF,#00B8E6); color:#fff; border-color:var(--accent);}
   .tpl-editorial{background:linear-gradient(165deg,#080A10,#0F1B33); color:var(--ink); border-color:var(--accent2);}
   .tpl-editorial .stag{color:var(--accent2);}
+  /* ---- estilos virais (slugs: manchete, post-social, checklist, bloco-cor) — espelham o canvas de renderSlideJpeg ---- */
+  .tpl-manchete{background:linear-gradient(160deg,#1c1c26,#050507); color:#fff; border-color:#E10600;}
+  .tpl-manchete .stag{background:#E10600; color:#fff; font-weight:800; align-self:flex-start; padding:3px 7px; margin:-14px 0 0 -12px; border-radius:0 0 6px 0; opacity:1;}
+  .tpl-manchete .stitle{text-transform:uppercase; font-size:17px; overflow-wrap:anywhere; line-height:1.1; margin-top:auto; border-top:3px solid #E10600; padding-top:7px;}
+  .tpl-manchete .stitle .hl{background:var(--hl); color:#111; padding:0 3px; border-radius:3px;}
+  .tpl-manchete .sbody{margin-top:7px;}
+  .tpl-manchete.has-bg .tile-bg::after{background:linear-gradient(180deg,rgba(0,0,0,0.45),rgba(0,0,0,0.40) 35%,rgba(0,0,0,0.82) 65%,rgba(0,0,0,0.96));}
+  .tpl-post-social{background:#fff; color:#14171A; border-color:#CFD9DE;}
+  .tpl-post-social .stag, .tpl-post-social .sbody, .tpl-post-social .sindex{color:#536471;}
+  .tpl-post-social .stag{display:none;}
+  .tpl-post-social .ps-head{display:flex; align-items:center; gap:6px; margin-bottom:6px;}
+  .tpl-post-social .ps-av{width:22px; height:22px; border-radius:50%; background:linear-gradient(135deg,#8B5CFF,var(--hl)); color:#fff; font:800 11px/22px "Manrope",sans-serif; text-align:center; font-style:normal; flex:none;}
+  .tpl-post-social .ps-nm{display:flex; flex-direction:column; line-height:1.15; font-size:8px; min-width:0;}
+  .tpl-post-social .ps-nm b{font-weight:800; color:#0F1419; display:inline;}
+  .tpl-post-social .ps-nm u{text-decoration:none; background:#1D9BF0; color:#fff; border-radius:50%; font-size:6px; width:9px; height:9px; text-align:center; line-height:9px; display:inline-block; margin-left:3px;}
+  .tpl-post-social .ps-nm em{font-style:normal; color:#536471; font-size:7px;}
+  .tpl-post-social .stitle{font-size:18px; line-height:1.14; margin-top:2px;}
+  .tpl-post-social .stitle .hl{background:var(--hl); color:#111; padding:0 3px; border-radius:3px;}
+  .tpl-post-social .sbody{margin-top:6px;}
+  .tpl-post-social .ps-foto{margin-top:auto; height:34%; border-radius:8px; overflow:hidden; border:1px solid #CFD9DE;}
+  .tpl-post-social .ps-foto img{width:100%; height:100%; object-fit:cover; display:block;}
+  .tpl-post-social .ps-foto + .sbody{margin-top:5px;}
+  .tpl-checklist{background:#0B0B10; color:#fff; border-color:var(--hl);}
+  .tpl-checklist .ck-num{font-family:var(--fs-t); font-weight:800; font-size:56px; line-height:.8; color:var(--hl); margin:2px 0 8px -2px;}
+  .tpl-checklist .stag{position:absolute; top:10px; right:10px; border:1.5px solid var(--hl); color:var(--hl); border-radius:99px; padding:1px 6px;}
+  .tpl-checklist .stitle{font-size:17px;}
+  .tpl-checklist.has-bg .tile-bg::after{background:rgba(8,8,12,0.88);}
+  .tpl-bloco-cor{background:var(--hl); color:#111; border-color:var(--hl);}
+  .tpl-bloco-cor .stag{align-self:flex-start; background:#111; color:var(--hl); border-radius:99px; padding:2px 8px; font-weight:800; opacity:1;}
+  .tpl-bloco-cor .stag:empty{display:none;}
+  .tpl-bloco-cor .stitle{text-transform:uppercase; font-size:19px; overflow-wrap:anywhere; line-height:1.04; font-weight:800;}
+  .tpl-bloco-cor .stitle .hl{background:#111; color:var(--hl); padding:0 3px; border-radius:3px;}
+  .tpl-bloco-cor .sbody{font-weight:600;}
+  .slide-tile.mini.tpl-checklist .ck-num{font-size:20px; margin:0;}
+  .slide-tile.mini.tpl-post-social .ps-head, .slide-tile.mini .ps-foto{display:none;}
+  .slide-tile.mini.tpl-manchete .stitle{font-size:6.5px; border-top-width:1px; padding-top:2px;}
+  .slide-tile.mini.tpl-manchete .stag{margin:-6px 0 0 -5px; padding:1px 3px;}
+  .tpl-swatch{--hl:#FFD60A;}
+  .tpl-swatch.tpl-manchete span, .tpl-swatch.tpl-checklist span{color:#fff;}
 
   .dest-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:16px;}
   .dest-card{border:2px solid var(--border); border-radius:13px; padding:14px; cursor:pointer; background:var(--bg);}
@@ -760,6 +799,13 @@ body .auth-card{padding:22px;}
 .agendar-rapido input{background:#05060D;color:#F3F4FF;border:1px solid #252A50;border-radius:10px;padding:10px 12px;font-size:15px;color-scheme:dark;}
 .ag-chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px;}
 .ag-chips .ag-dica{font-size:11.5px;color:var(--ink-faint);}
+.ag-contas{margin:14px 0 0;padding:12px 14px;border:1px solid var(--border);border-radius:12px;}
+.ag-contas-t{font-size:12.5px;font-weight:700;margin-bottom:8px;}
+.ag-conta{display:flex;align-items:center;gap:8px;font-size:13.5px;padding:4px 0;cursor:pointer;}
+.ag-conta small{color:var(--ink-muted);}
+.ig-dest{color:var(--accent,#8ab4ff);font-weight:600;}
+.ig-connect .ig-linha{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;flex-basis:100%;padding:10px 0;}
+.ig-connect .ig-linha + .ig-linha{border-top:1px solid var(--border);}
 .ag-info{font-size:12.5px;color:var(--ink-muted);margin:14px 0 0;}
 .ag-info.ag-warn{color:#ffcf6e;}
 .cor-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:14px;}
@@ -1048,6 +1094,7 @@ body .auth-card{padding:22px;}
                 <input type="hidden" id="sched-date">
                 <input type="hidden" id="sched-time" value="09:00">
                 <div id="sched-cal" class="cal-wrap"></div>
+                <div id="sched-contas"></div>
               </div>
               <div class="ig-note" id="ig-warn" hidden>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
@@ -1123,6 +1170,6 @@ body .auth-card{padding:22px;}
   <div id="toast"></div>
 </div>
 
-<script src="app.js?v=20261013-link"></script>
+<script src="app.js?v=20261020-multi"></script>
 </body>
 </html>

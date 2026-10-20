@@ -36,9 +36,11 @@ async function aguardarPronto(id: string, token: string, tentativas = 20, espera
 // deno-lint-ignore no-explicit-any
 async function publicarUm(db: SupabaseClient, car: any) {
   const uid = car.corretor_id as string;
-  const { data: conta } = await db.from("instagram_contas").select("*").eq("corretor_id", uid).eq("status", "ativo").maybeSingle();
-  const { data: tok } = await db.from("instagram_tokens").select("*").eq("corretor_id", uid).maybeSingle();
-  if (!conta || !tok) throw new Error("Instagram não conectado na hora agendada. Conecte na aba Instagram e publique pelo painel.");
+  // contas de destino: as escolhidas no agendamento ou, sem escolha, a principal (mais antiga ativa)
+  const pedidas: string[] = car.instagram_contas_ids ?? [];
+  const { data: todas } = await db.from("instagram_contas").select("*").eq("corretor_id", uid).eq("status", "ativo").order("connected_at", { ascending: true });
+  const contas = pedidas.length ? (todas ?? []).filter((c) => pedidas.includes(c.id)) : (todas ?? []).slice(0, 1);
+  if (!contas.length) throw new Error("Instagram não conectado na hora agendada. Conecte na aba Instagram e publique pelo painel.");
 
   // teste grátis: limite de publicações e link da Vitrine na legenda
   const { data: assinTeste } = await db.from("assinaturas").select("status").eq("corretor_id", uid).in("status", ["trial", "ativa"]).maybeSingle();
@@ -49,18 +51,6 @@ async function publicarUm(db: SupabaseClient, car: any) {
       .eq("corretor_id", uid).eq("status", "publicado").not("instagram_media_id", "is", null);
     const limite = perfilTeste?.trial_limite ?? 3;
     if ((jaPublicados ?? 0) >= limite) throw new Error(`O teste grátis permite publicar ${limite} carrosséis e esse limite já foi usado. Assine um plano para continuar publicando.`);
-  }
-
-  let token = tok.access_token as string;
-  if (tok.expires_at && new Date(tok.expires_at).getTime() - Date.now() < 7 * 86_400_000) {
-    const r = await fetch(`https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${token}`);
-    const d = await r.json();
-    if (r.ok && d.access_token) {
-      token = d.access_token;
-      const exp = new Date(Date.now() + d.expires_in * 1000).toISOString();
-      await db.from("instagram_tokens").update({ access_token: token, expires_at: exp, updated_at: new Date().toISOString() }).eq("corretor_id", uid);
-      await db.from("instagram_contas").update({ token_expires_at: exp }).eq("corretor_id", uid);
-    }
   }
 
   const pasta = `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/slides-render/${uid}/`;
@@ -76,19 +66,42 @@ async function publicarUm(db: SupabaseClient, car: any) {
   let caption = (typeof car.legenda === "string" && car.legenda.trim()) ? car.legenda.trim() : slides.map((s: any) => s.titulo).filter(Boolean).join(" · ");
   if (emTeste && !caption.includes("vitrinecorretores.github.io")) caption = caption.slice(0, 2200 - LINK_TESTE.length) + LINK_TESTE;
   caption = caption.slice(0, 2200);
-  const igId = conta.instagram_business_id as string;
-
-  const filhos: string[] = [];
-  for (const image_url of imagens) filhos.push((await ig(`${igId}/media`, { image_url, is_carousel_item: "true", access_token: token })).id);
-  for (const id of filhos) await aguardarPronto(id, token);
-  const pai = await ig(`${igId}/media`, { media_type: "CAROUSEL", children: filhos.join(","), caption, access_token: token });
-  await aguardarPronto(pai.id, token);
-  const pub = await ig(`${igId}/media_publish`, { creation_id: pai.id, access_token: token });
-  const info = await ig(pub.id, { fields: "permalink", access_token: token }, "GET").catch(() => ({}));
+  // publica em cada conta; se uma falhar, as outras continuam
+  const ok: { id: string; mediaId: string; permalink: string | null }[] = [];
+  const erros: string[] = [];
+  for (const conta of contas) {
+    try {
+      const { data: tok } = await db.from("instagram_tokens").select("*").eq("conta_id", conta.id).maybeSingle();
+      if (!tok) throw new Error("essa conta precisa ser reconectada.");
+      let token = tok.access_token as string;
+      if (tok.expires_at && new Date(tok.expires_at).getTime() - Date.now() < 7 * 86_400_000) {
+        const r = await fetch(`https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${token}`);
+        const d = await r.json();
+        if (r.ok && d.access_token) {
+          token = d.access_token;
+          const exp = new Date(Date.now() + d.expires_in * 1000).toISOString();
+          await db.from("instagram_tokens").update({ access_token: token, expires_at: exp, updated_at: new Date().toISOString() }).eq("conta_id", conta.id);
+          await db.from("instagram_contas").update({ token_expires_at: exp }).eq("id", conta.id);
+        }
+      }
+      const igId = conta.instagram_business_id as string;
+      const filhos: string[] = [];
+      for (const image_url of imagens) filhos.push((await ig(`${igId}/media`, { image_url, is_carousel_item: "true", access_token: token })).id);
+      for (const id of filhos) await aguardarPronto(id, token);
+      const pai = await ig(`${igId}/media`, { media_type: "CAROUSEL", children: filhos.join(","), caption, access_token: token });
+      await aguardarPronto(pai.id, token);
+      const pub = await ig(`${igId}/media_publish`, { creation_id: pai.id, access_token: token });
+      // deno-lint-ignore no-explicit-any
+      const info: any = await ig(pub.id, { fields: "permalink", access_token: token }, "GET").catch(() => ({}));
+      ok.push({ id: conta.id, mediaId: pub.id, permalink: info.permalink ?? null });
+    } catch (e) {
+      erros.push(`@${conta.username}: ${(e as Error).message}`);
+    }
+  }
+  if (!ok.length) throw new Error(erros.join(" | "));
   await db.from("carrosseis").update({
-    status: "publicado", data_publicada: new Date().toISOString(), instagram_media_id: pub.id,
-    // deno-lint-ignore no-explicit-any
-    instagram_permalink: (info as any).permalink ?? null, erro_publicacao: null, publicando_em: null,
+    status: "publicado", data_publicada: new Date().toISOString(), instagram_media_id: ok[0].mediaId,
+    instagram_permalink: ok[0].permalink, erro_publicacao: erros.length ? "Falhou em: " + erros.join(" | ") : null, publicando_em: null,
   }).eq("id", car.id);
 }
 

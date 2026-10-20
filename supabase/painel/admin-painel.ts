@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
     const planoDe = new Map((planos ?? []).map((p) => [p.id, p]));
     const assinDe = porId(assin, "corretor_id");
     const carsDe = porId(cars, "corretor_id");
-    const igDe = new Map((igs ?? []).map((i) => [i.corretor_id, i]));
+    const igDe = porId((igs ?? []).filter((i) => i.status === "ativo"), "corretor_id");
 
     let ativos = 0, trials = 0, receitaMensal = 0;
     const contas = users.map((usr) => {
@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
         trial_limite: p?.trial_limite ?? 0,
         carrosseis: cs.length,
         publicados: cs.filter((c) => c.status === "publicado").length,
-        instagram: ig && ig.status === "ativo" ? "@" + ig.username : "",
+        instagram: (ig ?? []).map((i) => "@" + i.username).join(", "),
       };
     }).sort((a, b) => (b.cadastrado_em || "").localeCompare(a.cadastrado_em || ""));
 

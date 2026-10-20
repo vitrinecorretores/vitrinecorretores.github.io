@@ -3074,6 +3074,82 @@
   }
 
   /* ---------- Minha marca (kit da marca): logo, cor, nome e CRECI ---------- */
+  // serviço pago de logo feito por designer (pedido chega por e-mail ao dono da Vitrine)
+  var PRECO_LOGO_PRO = "197";
+  var CONTATO_LOGO_PRO = "evandrotorresrj@gmail.com";
+
+  // criador de logo grátis: tudo no navegador (canvas), sem IA e sem custo
+  function desenharLogo(estilo, nome, sub, cor) {
+    var S = 600, cv = document.createElement("canvas"); cv.width = S; cv.height = S;
+    var c = cv.getContext("2d"), fam = "Geist, Manrope, Arial, sans-serif";
+    var partes = nome.trim().split(/\s+/).filter(Boolean);
+    var ini = ((partes[0] || "V")[0] + (partes.length > 1 ? partes[partes.length - 1][0] : "")).toUpperCase();
+    var lum = (0.299 * parseInt(cor.slice(1, 3), 16) + 0.587 * parseInt(cor.slice(3, 5), 16) + 0.114 * parseInt(cor.slice(5, 7), 16)) / 255;
+    var tinta = lum > 0.6 ? "#0A0A0A" : "#FFFFFF";
+    function caber(txt, peso, max, larg) { var t = max; do { c.font = peso + " " + t + "px " + fam; t -= 2; } while (c.measureText(txt).width > larg && t > 12); }
+    function telhado(x, y, w, h, esp) { c.beginPath(); c.moveTo(x, y + h); c.lineTo(x + w / 2, y); c.lineTo(x + w, y + h); c.lineWidth = esp; c.lineJoin = "round"; c.lineCap = "round"; c.stroke(); }
+    c.textAlign = "center"; c.textBaseline = "middle";
+    if (estilo === 0) {        // círculo com iniciais
+      c.fillStyle = cor; c.beginPath(); c.arc(S / 2, 230, 170, 0, Math.PI * 2); c.fill();
+      c.fillStyle = tinta; caber(ini, "800", 170, 260); c.fillText(ini, S / 2, 236);
+      c.fillStyle = cor; caber(nome.toUpperCase(), "700", 46, 540); c.fillText(nome.toUpperCase(), S / 2, 470);
+      c.globalAlpha = .8; caber(sub.toUpperCase(), "500", 26, 520); c.fillText(sub.toUpperCase(), S / 2, 525);
+    } else if (estilo === 1) { // casa com iniciais
+      c.strokeStyle = cor; c.fillStyle = cor; telhado(140, 60, 320, 140, 26);
+      c.fillRect(185, 195, 230, 190); c.fillStyle = tinta; caber(ini, "800", 120, 190); c.fillText(ini, S / 2, 292);
+      c.fillStyle = cor; caber(nome, "700", 50, 540); c.fillText(nome, S / 2, 460);
+      c.globalAlpha = .8; caber(sub, "500", 28, 520); c.fillText(sub, S / 2, 515);
+    } else if (estilo === 2) { // telhado sobre o nome
+      c.strokeStyle = cor; telhado(200, 120, 200, 90, 18);
+      c.fillStyle = cor; caber(nome, "800", 76, 540); c.fillText(nome, S / 2, 290);
+      c.fillRect(150, 350, 300, 6);
+      c.globalAlpha = .85; caber(sub.toUpperCase(), "600", 30, 520); c.fillText(sub.toUpperCase(), S / 2, 405);
+    } else {                   // selo quadrado
+      c.fillStyle = cor; var r = 60, x = 60, y = 60, w = 480, h = 480;
+      c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.fill();
+      c.strokeStyle = tinta; c.fillStyle = tinta; telhado(220, 120, 160, 70, 14);
+      caber(nome, "800", 64, 400); c.fillText(nome, S / 2, 300);
+      c.globalAlpha = .85; caber(sub.toUpperCase(), "600", 26, 400); c.fillText(sub.toUpperCase(), S / 2, 380);
+    }
+    return cv;
+  }
+  function abrirCriadorLogo(p, corIni, aoSalvar) {
+    var nomeIni = (equipeInfo && equipeInfo.papel === "dono" && equipeInfo.equipe && equipeInfo.equipe.nome) || p.nome || "";
+    document.getElementById("modal-body").innerHTML =
+      '<div class="modal-head"><h3 style="font-size:19px;">Criar logo grátis</h3><button class="modal-close" id="modal-close">' + ICONS.close + '</button></div>' +
+      '<div class="form-grid"><label>Nome no logo<input type="text" id="lg-nome" maxlength="30" value="' + escapeHtml(nomeIni) + '"></label>' +
+      '<label>Frase de baixo<input type="text" id="lg-sub" maxlength="34" value="Corretor de Imóveis" list="lg-subs"></label>' +
+      '<datalist id="lg-subs"><option value="Corretor de Imóveis"><option value="Corretora de Imóveis"><option value="Imóveis"><option value="Negócios Imobiliários"><option value="Consultoria Imobiliária"></datalist>' +
+      '<label>Cor<input type="color" id="lg-cor" value="' + corIni + '"></label></div>' +
+      '<p style="font-size:12.5px;color:var(--ink-muted);margin:10px 0 8px;">Toque no modelo que mais gostar para usar como seu logo.</p>' +
+      '<div id="lg-op" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;"></div>';
+    document.getElementById("overlay").hidden = false;
+    document.getElementById("modal-close").onclick = closeModal;
+    var cvs = [];
+    function desenhar() {
+      var nome = document.getElementById("lg-nome").value.trim() || "Seu Nome", sub = document.getElementById("lg-sub").value.trim(), cor = document.getElementById("lg-cor").value;
+      var box = document.getElementById("lg-op"); box.innerHTML = ""; cvs = [];
+      for (var i = 0; i < 4; i++) {
+        var cv = desenharLogo(i, nome, sub, cor); cvs.push(cv);
+        var b = document.createElement("button"); b.type = "button"; b.dataset.lg = i;
+        b.style.cssText = "padding:8px;border:1px solid var(--border);border-radius:10px;background:repeating-conic-gradient(#1f1f22 0 25%,#141416 0 50%) 0 0/20px 20px;cursor:pointer;";
+        cv.style.cssText = "width:100%;height:auto;display:block;"; b.appendChild(cv); box.appendChild(b);
+      }
+    }
+    ["lg-nome", "lg-sub", "lg-cor"].forEach(function (id) { document.getElementById(id).addEventListener("input", desenhar); });
+    document.getElementById("lg-op").addEventListener("click", function (e) {
+      var b = e.target.closest("[data-lg]"); if (!b) return;
+      cvs[+b.dataset.lg].toBlob(async function (blob) {
+        try {
+          toast("Salvando seu logo…");
+          var url = await uploadArquivo(blob, p.id + "/marca/logo-" + Date.now() + ".png", "image/png");
+          closeModal(); aoSalvar(url);
+        } catch (err) { toast("Erro ao salvar o logo: " + err.message); }
+      }, "image/png");
+    });
+    desenhar();
+  }
+
   function renderMarca() {
     var box = document.getElementById("marca-box");
     if (!box || !state.profile) return;
@@ -3087,6 +3163,7 @@
       '<div class="marca-logo"><div class="marca-logo-img">' + (logo ? '<img src="' + escapeHtml(logo) + '" alt="Seu logo">' : '<span>Sem logo</span>') + '</div>' +
       '<label class="btn btn-ghost btn-sm">' + (logo ? "Trocar logo" : "Enviar logo") + '<input type="file" id="marca-logo-up" accept="image/png,image/jpeg,image/webp" hidden></label>' +
       (logo ? '<button type="button" class="btn btn-ghost btn-sm" id="marca-logo-rm">Remover</button>' : "") +
+      '<button type="button" class="btn btn-ghost btn-sm" id="marca-logo-criar">✨ Criar logo grátis</button>' +
       '<small>PNG com fundo transparente fica melhor. Máx. 3 MB.</small></div>' +
       '<div class="marca-campos">' +
       '<label>Nome<input type="text" id="marca-nome" maxlength="60" value="' + escapeHtml(p.nome || "") + '"></label>' +
@@ -3096,7 +3173,12 @@
       '<div class="marca-aviso" id="marca-aviso" hidden>⚠️ Pela lei, anúncio de imóvel precisa do CRECI. Preencha o seu pra seus carrosséis ficarem em dia.</div>' +
       '<div class="marca-aviso cinza" id="marca-aviso-cor" hidden>Essa cor é bem escura: em slides de fundo escuro o destaque pode ficar difícil de ler.</div>' +
       '<div class="marca-previa" id="marca-previa"></div>' +
-      '<div style="display:flex;justify-content:flex-end;margin-top:12px;"><button class="btn btn-primary btn-sm" id="marca-salvar">Salvar minha marca</button></div></div>';
+      '<div style="display:flex;justify-content:flex-end;margin-top:12px;"><button class="btn btn-primary btn-sm" id="marca-salvar">Salvar minha marca</button></div></div>' +
+      '<div class="marca-card" style="margin-top:12px;display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;">' +
+      '<div style="flex:1 1 260px;min-width:0;"><b>🎨 Logo profissional feito por designer</b>' +
+      '<p class="marca-sub" style="margin:4px 0 0;">3 propostas exclusivas para você ou sua imobiliária, 2 rodadas de ajuste e arquivos finais (PNG transparente, SVG e versão para Instagram). Entrega em até 5 dias úteis.</p></div>' +
+      '<div style="text-align:right;"><div style="font-size:22px;font-weight:700;">R$ ' + PRECO_LOGO_PRO + '</div><div style="font-size:12px;color:var(--ink-muted);margin-bottom:6px;">pagamento único</div>' +
+      '<a class="btn btn-primary btn-sm" id="marca-logo-pro" href="#">Quero meu logo</a></div></div>';
 
     function lerHex() { var v = document.getElementById("marca-cor-hex").value.trim(); if (v && v[0] !== "#") v = "#" + v; return /^#[0-9a-f]{6}$/i.test(v) ? v.toUpperCase() : ""; }
     function atualizar() {
@@ -3134,6 +3216,9 @@
         if (await gravar({ logo_url: url }, "Logo salvo.")) renderMarca();
       } catch (e) { toast("Erro ao enviar o logo: " + e.message); }
     };
+    document.getElementById("marca-logo-criar").onclick = function () { abrirCriadorLogo(p, lerHex() || cor || "#D4FF3F", function (url) { gravar({ logo_url: url }, "Logo salvo.").then(function (ok) { if (ok) renderMarca(); }); }); };
+    document.getElementById("marca-logo-pro").href = "mailto:" + CONTATO_LOGO_PRO + "?subject=" + encodeURIComponent("Quero o logo profissional (R$ " + PRECO_LOGO_PRO + ")") +
+      "&body=" + encodeURIComponent("Olá! Quero o logo profissional da Vitrine.\n\nNome que vai no logo: " + (p.nome || "") + "\nCRECI: " + (p.creci || "") + "\nE-mail da conta: " + (p.email || "") + "\nCores que gosto: \nEstilo (moderno, clássico, luxo...): \nWhatsApp pra contato: ");
     var rm = document.getElementById("marca-logo-rm");
     if (rm) rm.onclick = async function () { if (await gravar({ logo_url: null }, "Logo removido.")) renderMarca(); };
     document.getElementById("marca-salvar").onclick = async function () {

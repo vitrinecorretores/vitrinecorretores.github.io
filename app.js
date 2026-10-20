@@ -3074,9 +3074,9 @@
   }
 
   /* ---------- Minha marca (kit da marca): logo, cor, nome e CRECI ---------- */
-  // serviço pago de logo feito por designer (pedido chega por e-mail ao dono da Vitrine)
-  var PRECO_LOGO_PRO = "197";
-  var CONTATO_LOGO_PRO = "evandrotorresrj@gmail.com";
+  // serviço pago de logo feito por designer (pedido vai direto pro WhatsApp do dono da Vitrine)
+  var PRECO_LOGO_PRO = "99,90";
+  var WHATS_LOGO_PRO = "5585981665189";
 
   // criador de logo grátis: tudo no navegador (canvas), sem IA e sem custo
   function desenharLogo(estilo, nome, sub, cor) {
@@ -3217,8 +3217,9 @@
       } catch (e) { toast("Erro ao enviar o logo: " + e.message); }
     };
     document.getElementById("marca-logo-criar").onclick = function () { abrirCriadorLogo(p, lerHex() || cor || "#D4FF3F", function (url) { gravar({ logo_url: url }, "Logo salvo.").then(function (ok) { if (ok) renderMarca(); }); }); };
-    document.getElementById("marca-logo-pro").href = "mailto:" + CONTATO_LOGO_PRO + "?subject=" + encodeURIComponent("Quero o logo profissional (R$ " + PRECO_LOGO_PRO + ")") +
-      "&body=" + encodeURIComponent("Olá! Quero o logo profissional da Vitrine.\n\nNome que vai no logo: " + (p.nome || "") + "\nCRECI: " + (p.creci || "") + "\nE-mail da conta: " + (p.email || "") + "\nCores que gosto: \nEstilo (moderno, clássico, luxo...): \nWhatsApp pra contato: ");
+    var lp = document.getElementById("marca-logo-pro");
+    lp.target = "_blank"; lp.rel = "noopener noreferrer";
+    lp.href = "https://wa.me/" + WHATS_LOGO_PRO + "?text=" + encodeURIComponent("Olá! Quero o logo profissional da Vitrine (R$ " + PRECO_LOGO_PRO + ").\n\nNome que vai no logo: " + (p.nome || "") + "\nCRECI: " + (p.creci || "") + "\nE-mail da conta: " + (p.email || "") + "\nCores que gosto: \nEstilo (moderno, clássico, luxo...): ");
     var rm = document.getElementById("marca-logo-rm");
     if (rm) rm.onclick = async function () { if (await gravar({ logo_url: null }, "Logo removido.")) renderMarca(); };
     document.getElementById("marca-salvar").onclick = async function () {

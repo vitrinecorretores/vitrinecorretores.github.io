@@ -2139,6 +2139,7 @@
   function wizardContexto() {
     if (wizard.subjectMode === "simfin") return "financiamento imobiliário, casa própria, família";
     if (wizard.subjectMode === "simalug") return "alugar ou comprar imóvel, casa própria";
+    if (wizard.subjectMode === "precos") return "preço do metro quadrado, bairros, mercado imobiliário";
     if (wizard.subjectMode === "property") { var p = findProp(wizard.propertyId); return p ? (p.tipo || "imóvel") + " em " + (p.bairro || "") : ""; }
     if (wizard.subjectMode === "topic") { var t = findTopic(wizard.topicId); return t ? "mercado imobiliário, " + t.categoria : ""; }
     return "mercado imobiliário, " + (wizard.customCategoria || "");
@@ -2213,7 +2214,7 @@
   }
 
   /* ---------- slides de cálculo (sem IA): simulação de financiamento e alugar x comprar (simulacao.js) ---------- */
-  function ehCalc() { return wizard.subjectMode === "simfin" || wizard.subjectMode === "simalug"; }
+  function ehCalc() { return wizard.subjectMode === "simfin" || wizard.subjectMode === "simalug" || wizard.subjectMode === "precos"; }
   var CALC_CAMPOS = {
     simfin: [
       { k: "valor", rot: "Valor do imóvel (R$)", pad: "500000" }, { k: "entrada", rot: "Entrada (%)", pad: "20" },
@@ -2236,6 +2237,7 @@
   function renderCalcForm() {
     var box = document.getElementById("subject-calc"), m = wizard.subjectMode;
     wizard.calc = wizard.calc || {};
+    if (m === "precos") { if (window.VitrineCresc) window.VitrineCresc.renderPrecos(box, wizard); return; }   // crescimento.js
     var v = wizard.calc[m] = wizard.calc[m] || {};
     var titulo = m === "simfin" ? "Simulação de financiamento (SAC e Price)" : "Alugar ou comprar? Comparativo em 10 anos";
     var sub = m === "simfin" ? "A Vitrine calcula a parcela, os juros e a renda mínima e monta 7 slides prontos — sem IA, só conta."
@@ -2248,6 +2250,7 @@
   }
   // lê o formulário, valida e monta os slides; devolve false se algo estiver inválido
   async function gerarSlidesCalculo() {
+    if (wizard.subjectMode === "precos") return window.VitrineCresc ? window.VitrineCresc.gerarSlides(wizard) : false;   // crescimento.js
     var m = wizard.subjectMode, raw = (wizard.calc && wizard.calc[m]) || {}, o = {}, bad = null;
     var lim = { valor: [20000, 1e9, "o valor do imóvel"], aluguel: [100, 1e6, "o aluguel"], entrada: [0, 95, "a entrada (0 a 95%)"], anos: [1, 35, "o prazo (1 a 35 anos)"], taxa: [0, 40, "os juros ao ano"], rend: [0, 5, "o rendimento mensal (0 a 5%)"], valoriz: [-10, 30, "a valorização ao ano"], reaj: [0, 30, "o reajuste do aluguel"] };
     CALC_CAMPOS[m].forEach(function (c) {
@@ -3589,6 +3592,6 @@
     }
   }
 
-  window.Vitrine = Object.assign(window.Vitrine || {}, { state: state, DB: DB, toast: toast, escapeHtml: escapeHtml, fmtDate: fmtDate, fmtDateTime: fmtDateTime, contasAtivas: contasAtivas });
+  window.Vitrine = Object.assign(window.Vitrine || {}, { state: state, DB: DB, toast: toast, escapeHtml: escapeHtml, fmtDate: fmtDate, fmtDateTime: fmtDateTime, contasAtivas: contasAtivas, callFunction: callFunction, fotosDe: fotosDe, fmtBRL: fmtBRL, closeModal: closeModal });
   bootApp();
 })();

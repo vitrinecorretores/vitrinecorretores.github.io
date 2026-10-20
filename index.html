@@ -8,6 +8,11 @@
 <title>Vitrine | Posts com IA para corretores de imóveis</title>
 <meta name="description" content="Crie carrosséis, Reels e Stories para imóveis em 2 minutos com IA. Fotos reais, publicação no Instagram e teste grátis sem cartão.">
 <meta name="robots" content="index,follow">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Vitrine">
 <link rel="canonical" href="https://vitrinecorretores.github.io/">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="pt_BR">
@@ -542,6 +547,13 @@ body .auth-card{padding:22px;}
   .lp-billing-btn small{display:block; font-size:10.5px; font-weight:700; opacity:0.85; margin-top:1px;}
   .lp-plan ul{list-style:none; padding:0; margin:0 0 20px; display:flex; flex-direction:column; gap:9px;} .lp-plan li{display:flex; gap:8px; align-items:center; color:var(--ink-muted);} .lp-plan li svg{width:15px; height:15px; color:var(--accent2); flex:none;}
   .lp-full{width:100%; justify-content:center; padding:12px !important;}
+  .lp-numeros{text-align:center; margin:0 0 30px;} .lp-numeros h3{font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-muted); margin:0 0 12px;}
+  .lp-numeros-grid{display:flex; flex-wrap:wrap; justify-content:center; gap:12px;} .lp-numeros-grid div{min-width:150px; flex:1 1 150px; max-width:240px; padding:14px; border:1px solid var(--border); border-radius:14px; background:rgba(21,21,23,0.6);}
+  .lp-numeros-grid b{display:block; font-family:"Space Grotesk",sans-serif; font-size:26px; color:var(--accent);} .lp-numeros-grid span{font-size:12.5px; color:var(--ink-muted);}
+  .cresc-card{background:var(--surface); border:1.5px solid var(--border); border-radius:14px; padding:18px 20px; margin-top:22px;} .cresc-card h3{font-size:16px; margin:0 0 6px;} .cresc-card p{margin:0 0 10px; font-size:13px; color:var(--ink-muted);}
+  .cresc-row{display:flex; gap:8px; flex-wrap:wrap; align-items:center;} .cresc-row input{flex:1 1 220px; min-width:0;} .cresc-cont{font-size:12.5px; color:var(--ink-muted); margin-top:10px;}
+  .cresc-chips{display:flex; flex-wrap:wrap; gap:8px; margin:10px 0;} .cresc-bairro{font-size:12.5px; line-height:1.3; text-align:left;} .cresc-bairro small{display:block; color:var(--ink-muted);}
+  .cresc-adm-li{display:flex; justify-content:space-between; gap:10px; align-items:center; padding:8px 0; border-top:1px solid var(--border); font-size:13px;}
   .lp-faq{max-width:760px; margin:30px auto 0; display:flex; flex-direction:column; gap:10px;}
   .lp-faq details{border:1px solid var(--border); border-radius:14px; padding:16px 18px; background:rgba(21,21,23,0.7);}
   .lp-faq summary{cursor:pointer; font-weight:700; list-style:none;} .lp-faq summary::after{content:"+"; float:right; color:var(--accent2); font-size:18px; line-height:1;} .lp-faq details[open] summary::after{content:"–";}
@@ -961,6 +973,11 @@ body .auth-card{padding:22px;}
     <div><b>100%</b><span>em português, pro mercado brasileiro</span></div>
   </section>
 
+  <section class="lp-numeros" id="lp-numeros" hidden>
+    <h3>Números reais da Vitrine</h3>
+    <div class="lp-numeros-grid" id="lp-numeros-grid"></div>
+  </section>
+
   <section class="lp-sec" id="como">
     <h2 class="lp-h2">Do zero ao post em <span class="lp-grad">3 passos</span></h2>
     <p class="lp-lead">Você não precisa escrever copy, procurar foto nem montar layout. A Vitrine cuida do trabalho pesado.</p>
@@ -1050,6 +1067,8 @@ body .auth-card{padding:22px;}
       <details><summary>As fotos podem ser usadas nos meus posts?</summary><p>Sim. São fotos de banco de imagens profissional com licença livre para uso comercial. Se preferir, troque por uma foto sua com um clique.</p></details>
       <details><summary>Como funciona a publicação no Instagram?</summary><p>Você conecta sua conta Profissional (Empresa ou Criador) uma vez. Depois, cada carrossel pode ir direto pro feed, Reels ou Stories, sempre com a prévia antes.</p></details>
       <details><summary>Posso cancelar quando quiser?</summary><p>Pode. O cancelamento é feito na própria Vitrine, sem multa e sem burocracia. Os detalhes estão na <a href="politica-de-cancelamento.html">Política de Cancelamento</a>.</p></details>
+      <details><summary>Funciona no celular?</summary><p>Funciona. A Vitrine abre direto no navegador do celular e você pode adicionar à tela inicial para abrir como um app: no Android, pelo menu do Chrome em "Adicionar à tela inicial"; no iPhone, em "Compartilhar" e depois "Adicionar à Tela de Início".</p></details>
+      <details><summary>Tem programa de indicação?</summary><p>Tem. Na tela Plano você encontra seu link de indicação. Quando um colega que entrou pelo seu link assinar, vocês dois ganham 1 mês grátis.</p></details>
       <details><summary>Como falo com o suporte?</summary><p>É só mandar um e-mail para <a class="lp-mail" data-suporte href="mailto:vitrinecorretor@gmail.com">vitrinecorretor@gmail.com</a> — respondemos em até 1 dia útil.</p></details>
     </div>
   </section>
@@ -1135,6 +1154,7 @@ body .auth-card{padding:22px;}
         <section class="screen" id="screen-painel">
           <div id="resumo-semana"></div>
           <div id="aprov-painel"></div>
+          <div id="resultado-card"></div>
           <div id="datas-card"></div>
           <div class="stat-row" id="stat-row"></div>
           <div class="section-head">
@@ -1177,6 +1197,7 @@ body .auth-card{padding:22px;}
                 <button class="mode-tab" data-mode="custom"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Meu próprio assunto</button>
                 <button class="mode-tab" data-mode="simfin">🧮 Simulação de financiamento</button>
                 <button class="mode-tab" data-mode="simalug">🏠 Alugar ou comprar?</button>
+                <button class="mode-tab" data-mode="precos">📍 Preço por bairro</button>
               </div>
               <div id="subject-topic"><div class="topic-bar"><span id="topic-status" class="topic-status"></span><button type="button" class="btn btn-ghost btn-sm" id="topic-novas">✨ Gerar novas sugestões</button></div><div class="topic-grid" id="topic-grid"></div></div>
               <div id="subject-property" hidden><div class="pick-grid" id="pick-grid"></div></div>
@@ -1303,10 +1324,13 @@ body .auth-card{padding:22px;}
   <div id="toast"></div>
 </div>
 
-<script src="fotos.js?v=20261021-r"></script>
-<script src="simulacao.js?v=20261021-r"></script>
-<script src="datas.js?v=20261022-d"></script>
-<script src="app.js?v=20261022-n"></script>
-<script src="vitrine-leads.js?v=20261021-r"></script>
+<script src="fotos.js?v=20261023-x"></script>
+<script src="simulacao.js?v=20261023-x"></script>
+<script src="datas.js?v=20261023-x"></script>
+<script src="app.js?v=20261023-x"></script>
+<script src="vitrine-leads.js?v=20261023-x"></script>
+<script src="video.js?v=20261023-x"></script>
+<script src="resultado.js?v=20261023-x"></script>
+<script src="crescimento.js?v=20261023-x"></script>
 </body>
 </html>

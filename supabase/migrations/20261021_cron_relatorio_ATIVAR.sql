@@ -1,0 +1,11 @@
+-- ATIVAR SÓ DEPOIS de publicar a edge function "relatorio-semanal" (verify_jwt desligado)
+-- e conferir BREVO_API_KEY / AVISOS_REMETENTE. Tudo comentado de propósito.
+-- Segunda-feira 11:17 UTC (08:17 em Fortaleza).
+--
+-- select cron.unschedule('relatorio-semanal') where exists (select 1 from cron.job where jobname = 'relatorio-semanal');
+-- select cron.schedule('relatorio-semanal', '17 11 * * 1', $$ select net.http_post(
+--   url := 'https://qbfmozumntequvecttfs.supabase.co/functions/v1/relatorio-semanal',
+--   headers := '{"Content-Type":"application/json"}'::jsonb,
+--   body := '{}'::jsonb,
+--   timeout_milliseconds := 120000
+-- ); $$);

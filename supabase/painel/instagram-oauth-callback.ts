@@ -2,7 +2,7 @@
 // Deploy com --no-verify-jwt (o GET vem do redirect do Instagram, sem token do Supabase).
 //
 //  POST (logado)  { acao: "iniciar" }      → { url }   URL de autorização do Instagram (com state anti-CSRF)
-//  POST (logado)  { acao: "desconectar" }  → { ok }
+//  POST (logado)  { acao: "desconectar", conta_id }  → { ok }   (desconecta só aquela conta)
 //  GET  ?code=…&state=…                     → troca code por token, salva, redireciona pro app
 //
 // Secrets: META_APP_ID, META_APP_SECRET (do produto "Instagram" no app da Meta), APP_URL
@@ -63,13 +63,29 @@ const REDIRECT = `${Deno.env.get("SUPABASE_URL")}/functions/v1/instagram-oauth-c
 const SCOPES = ["instagram_business_basic", "instagram_business_content_publish", "instagram_business_manage_comments"];
 const GRAPH = "https://graph.instagram.com/v21.0";
 
+/** Quantos Instagram o corretor pode conectar: Starter 1, Pro 3, plano de equipe 3, teste grátis 1. */
+async function limiteContas(db: SupabaseClient, uid: string): Promise<number> {
+  const { data: a } = await db.from("assinaturas").select("status, planos(slug, tipo)")
+    .eq("corretor_id", uid).eq("status", "ativa").order("created_at", { ascending: false }).limit(1).maybeSingle();
+  // deno-lint-ignore no-explicit-any
+  const pl = (Array.isArray((a as any)?.planos) ? (a as any).planos[0] : (a as any)?.planos) as { slug?: string; tipo?: string } | undefined;
+  if (!a || !pl) return 1;                       // teste grátis ou sem assinatura
+  if (pl.tipo === "equipe") return 3;
+  return pl.slug === "pro" ? 3 : 1;
+}
+
 Deno.serve(handle(async (req) => {
   const db = admin();
 
   if (req.method === "POST") {
     const uid = await requireUser(req);
-    const { acao } = await req.json();
+    const { acao, conta_id } = await req.json();
     if (acao === "iniciar") {
+      const limite = await limiteContas(db, uid);
+      const { count } = await db.from("instagram_contas").select("id", { count: "exact", head: true }).eq("corretor_id", uid).eq("status", "ativo");
+      if ((count ?? 0) >= limite) {
+        throw new HttpError(409, `Seu plano permite ${limite} ${limite === 1 ? "conta de Instagram" : "contas de Instagram"} e você já conectou ${count}. Desconecte uma ou mude de plano para conectar outra.`);
+      }
       const state = crypto.randomUUID();
       await db.from("instagram_oauth_states").insert({ state, corretor_id: uid });
       const u = new URL("https://www.instagram.com/oauth/authorize");
@@ -81,8 +97,13 @@ Deno.serve(handle(async (req) => {
       return json({ url: u.toString() });
     }
     if (acao === "desconectar") {
-      await db.from("instagram_tokens").delete().eq("corretor_id", uid);
-      await db.from("instagram_contas").update({ status: "inativo" }).eq("corretor_id", uid);
+      // sem conta_id (app antigo, de antes das várias contas): desconecta a conta principal (a mais antiga ativa)
+      const { data: c } = conta_id
+        ? await db.from("instagram_contas").select("id").eq("id", conta_id).eq("corretor_id", uid).maybeSingle()
+        : await db.from("instagram_contas").select("id").eq("corretor_id", uid).eq("status", "ativo").order("connected_at", { ascending: true }).limit(1).maybeSingle();
+      if (!c) throw new HttpError(404, "Conta não encontrada.");
+      await db.from("instagram_tokens").delete().eq("conta_id", c.id);
+      await db.from("instagram_contas").update({ status: "inativo" }).eq("id", c.id);
       return json({ ok: true });
     }
     throw new HttpError(400, "Ação inválida.");
@@ -119,15 +140,28 @@ Deno.serve(handle(async (req) => {
     const me = await r3.json();
     if (!r3.ok) throw new Error(JSON.stringify(me));
 
-    await db.from("instagram_tokens").upsert({ corretor_id: uid, access_token: t2.access_token, expires_at: expires, updated_at: new Date().toISOString() });
-    await db.from("instagram_contas").upsert({
+    const igId = String(me.user_id ?? t1.user_id);
+
+    // limite do plano (reconectar uma conta que já existe não conta como nova)
+    const { data: jaTem } = await db.from("instagram_contas").select("id, status").eq("corretor_id", uid).eq("instagram_business_id", igId).maybeSingle();
+    if (!jaTem || jaTem.status !== "ativo") {
+      const limite = await limiteContas(db, uid);
+      const { count } = await db.from("instagram_contas").select("id", { count: "exact", head: true }).eq("corretor_id", uid).eq("status", "ativo");
+      if ((count ?? 0) >= limite) return voltar("limite");
+    }
+
+    const { data: conta, error: eConta } = await db.from("instagram_contas").upsert({
       corretor_id: uid,
-      instagram_business_id: String(me.user_id ?? t1.user_id),
+      instagram_business_id: igId,
       username: me.username,
       status: "ativo",
       connected_at: new Date().toISOString(),
       token_expires_at: expires,
-    }, { onConflict: "corretor_id" });
+    }, { onConflict: "corretor_id,instagram_business_id" }).select("id").single();
+    if (eConta || !conta) throw eConta ?? new Error("Não salvou a conta.");
+    await db.from("instagram_tokens").upsert({
+      conta_id: conta.id, corretor_id: uid, access_token: t2.access_token, expires_at: expires, updated_at: new Date().toISOString(),
+    }, { onConflict: "conta_id" });
     return voltar("conectado");
   } catch (e) {
     console.error("oauth instagram:", e);

@@ -77,7 +77,7 @@ async function aguardarPronto(id: string, token: string, tentativas = 20, espera
 
 Deno.serve(handle(async (req) => {
   const uid = await requireUser(req);
-  const { carrossel_id, legenda, formato = "feed", urls, video_url } = await req.json();
+  const { carrossel_id, legenda, formato = "feed", urls, video_url, conta_ids } = await req.json();
   if (!["feed", "stories", "reels"].includes(formato)) throw new HttpError(400, "Formato inválido.");
   const pastaDoCorretor = `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/slides-render/${uid}/`;
   const daPasta = (u: unknown) => typeof u === "string" && u.startsWith(pastaDoCorretor);
@@ -85,9 +85,11 @@ Deno.serve(handle(async (req) => {
 
   const { data: car } = await db.from("carrosseis").select("*, slides(*)").eq("id", carrossel_id).eq("corretor_id", uid).single();
   if (!car) throw new HttpError(404, "Carrossel não encontrado.");
-  const { data: conta } = await db.from("instagram_contas").select("*").eq("corretor_id", uid).eq("status", "ativo").maybeSingle();
-  const { data: tok } = await db.from("instagram_tokens").select("*").eq("corretor_id", uid).maybeSingle();
-  if (!conta || !tok) throw new HttpError(400, "Conecte o Instagram antes de publicar.");
+  // contas de destino: as escolhidas (conta_ids) ou, sem escolha, as gravadas no carrossel, ou a principal (mais antiga ativa)
+  const pedidas: string[] = Array.isArray(conta_ids) && conta_ids.length ? conta_ids : (car.instagram_contas_ids ?? []);
+  const { data: todas } = await db.from("instagram_contas").select("*").eq("corretor_id", uid).eq("status", "ativo").order("connected_at", { ascending: true });
+  const contas = pedidas.length ? (todas ?? []).filter((c) => pedidas.includes(c.id)) : (todas ?? []).slice(0, 1);
+  if (!contas.length) throw new HttpError(400, "Conecte o Instagram antes de publicar.");
 
   // teste grátis: limite de publicações e link da Vitrine na legenda (a marca nas imagens é feita no app)
   const { data: assinTeste } = await db.from("assinaturas").select("status").eq("corretor_id", uid).in("status", ["trial", "ativa"]).maybeSingle();
@@ -101,19 +103,6 @@ Deno.serve(handle(async (req) => {
   }
   const LINK_TESTE = "\n\n✨ Criado com a Vitrine — vitrinecorretores.github.io";
 
-  // renova o token se faltar menos de 7 dias
-  let token = tok.access_token as string;
-  if (tok.expires_at && new Date(tok.expires_at).getTime() - Date.now() < 7 * 86_400_000) {
-    const r = await fetch(`https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${token}`);
-    const d = await r.json();
-    if (r.ok && d.access_token) {
-      token = d.access_token;
-      const exp = new Date(Date.now() + d.expires_in * 1000).toISOString();
-      await db.from("instagram_tokens").update({ access_token: token, expires_at: exp, updated_at: new Date().toISOString() }).eq("corretor_id", uid);
-      await db.from("instagram_contas").update({ token_expires_at: exp }).eq("corretor_id", uid);
-    }
-  }
-
   const slides = (car.slides ?? []).sort((a: { ordem: number }, b: { ordem: number }) => a.ordem - b.ordem);
   let imagens: string[];
   if (Array.isArray(urls) && urls.length) {
@@ -123,20 +112,27 @@ Deno.serve(handle(async (req) => {
     imagens = slides.map((s: { render_url?: string }) => s.render_url).filter(Boolean);
     if (imagens.length !== slides.length) throw new HttpError(400, "Os slides ainda não foram renderizados como imagem.");
   }
-  const igId = conta.instagram_business_id as string;
   let caption = String(legenda ?? car.legenda ?? "");
   if (emTeste && !caption.includes("vitrinecorretores.github.io")) caption = caption.slice(0, 2200 - LINK_TESTE.length) + LINK_TESTE;
   caption = caption.slice(0, 2200);
   const agora = () => new Date().toISOString();
-  const concluir = async (mediaId: string, permalink: string | null) => {
-    const quando = agora();
-    await db.from("carrosseis").update({
-      status: "publicado", data_publicada: quando, instagram_media_id: mediaId, instagram_permalink: permalink, erro_publicacao: null,
-    }).eq("id", carrossel_id);
-    return json({ media_id: mediaId, permalink, data_publicada: quando, formato });
-  };
-
-  try {
+  // publica numa conta; devolve { mediaId, permalink }
+  const publicarNaConta = async (conta: { id: string; instagram_business_id: string }) => {
+    const { data: tok } = await db.from("instagram_tokens").select("*").eq("conta_id", conta.id).maybeSingle();
+    if (!tok) throw new HttpError(400, "Essa conta precisa ser reconectada.");
+    // renova o token se faltar menos de 7 dias
+    let token = tok.access_token as string;
+    if (tok.expires_at && new Date(tok.expires_at).getTime() - Date.now() < 7 * 86_400_000) {
+      const r = await fetch(`https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${token}`);
+      const d = await r.json();
+      if (r.ok && d.access_token) {
+        token = d.access_token;
+        const exp = new Date(Date.now() + d.expires_in * 1000).toISOString();
+        await db.from("instagram_tokens").update({ access_token: token, expires_at: exp, updated_at: new Date().toISOString() }).eq("conta_id", conta.id);
+        await db.from("instagram_contas").update({ token_expires_at: exp }).eq("id", conta.id);
+      }
+    }
+    const igId = conta.instagram_business_id;
     if (formato === "stories") {
       if (imagens.length > 10) throw new HttpError(400, "No máximo 10 stories por vez.");
       let primeiro = "";
@@ -146,7 +142,7 @@ Deno.serve(handle(async (req) => {
         const pub = await ig(`${igId}/media_publish`, { creation_id: c.id, access_token: token });
         primeiro ||= pub.id;
       }
-      return await concluir(primeiro, null);
+      return { mediaId: primeiro, permalink: null as string | null };
     }
 
     if (formato === "reels") {
@@ -155,7 +151,7 @@ Deno.serve(handle(async (req) => {
       await aguardarPronto(c.id, token, 40, 3000);    // vídeo demora mais pra processar
       const pub = await ig(`${igId}/media_publish`, { creation_id: c.id, access_token: token });
       const info = await ig(pub.id, { fields: "permalink", access_token: token }, "GET");
-      return await concluir(pub.id, info.permalink ?? null);
+      return { mediaId: pub.id as string, permalink: (info.permalink ?? null) as string | null };
     }
 
     if (imagens.length < 2 || imagens.length > 10) throw new HttpError(400, "O carrossel do feed aceita de 2 a 10 slides.");
@@ -174,9 +170,29 @@ Deno.serve(handle(async (req) => {
     // 3) publica
     const pub = await ig(`${igId}/media_publish`, { creation_id: pai.id, access_token: token });
     const info = await ig(pub.id, { fields: "permalink", access_token: token }, "GET");
-    return await concluir(pub.id, info.permalink);
-  } catch (e) {
-    await db.from("carrosseis").update({ erro_publicacao: (e as Error).message }).eq("id", carrossel_id);
-    throw e;
+    return { mediaId: pub.id as string, permalink: (info.permalink ?? null) as string | null };
+  };
+
+  // publica em cada conta escolhida; se uma falhar, as outras continuam
+  const ok: { conta_id: string; username: string; media_id: string; permalink: string | null }[] = [];
+  const erros: { conta_id: string; username: string; erro: string }[] = [];
+  for (const conta of contas) {
+    try {
+      const r = await publicarNaConta(conta);
+      ok.push({ conta_id: conta.id, username: conta.username, media_id: r.mediaId, permalink: r.permalink });
+    } catch (e) {
+      erros.push({ conta_id: conta.id, username: conta.username, erro: (e as Error).message });
+    }
   }
+  const msgErro = erros.length ? erros.map((x) => `@${x.username}: ${x.erro}`).join(" | ") : null;
+  if (!ok.length) {
+    await db.from("carrosseis").update({ erro_publicacao: msgErro }).eq("id", carrossel_id);
+    throw new HttpError(502, msgErro ?? "Não foi possível publicar.");
+  }
+  const quando = agora();
+  await db.from("carrosseis").update({
+    status: "publicado", data_publicada: quando, instagram_media_id: ok[0].media_id, instagram_permalink: ok[0].permalink,
+    erro_publicacao: msgErro ? "Falhou em: " + msgErro : null,
+  }).eq("id", carrossel_id);
+  return json({ media_id: ok[0].media_id, permalink: ok[0].permalink, data_publicada: quando, formato, publicados: ok, erros });
 }));

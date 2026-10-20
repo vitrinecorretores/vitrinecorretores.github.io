@@ -629,6 +629,9 @@ body .auth-card{padding:22px;}
   .tema-livre textarea:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(139,92,255,0.25);}
   .tema-livre-acoes{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-top:12px;}
   .tema-livre-dica{font-size:12.5px; color:var(--ink-muted);}
+  .formatos-virais{display:flex; flex-wrap:wrap; gap:6px; margin:10px 0;}
+  .formatos-label{width:100%; font-size:12px; font-weight:600; color:var(--ink-muted);}
+  .formato-chip.on{background:var(--accent); border-color:var(--accent); color:#fff;}
   .ou-sep{display:flex; align-items:center; gap:12px; color:var(--ink-faint); font-size:12px; text-transform:uppercase; letter-spacing:.06em; margin:4px 0 16px;}
   .ou-sep::before,.ou-sep::after{content:""; flex:1; height:1px; background:var(--border);}
   @media (max-width:560px){ .tema-livre-acoes .btn{width:100%; justify-content:center;} }
@@ -1044,6 +1047,7 @@ body .auth-card{padding:22px;}
               <div class="tema-livre">
                 <label for="tema-livre-txt" class="tema-livre-titulo">✍️ Sobre o que você quer postar hoje?</label>
                 <textarea id="tema-livre-txt" rows="3" maxlength="400" placeholder="Escreva sua ideia do jeito que vier. Ex.: os 5 erros de quem compra apartamento na planta em Fortaleza"></textarea>
+                <div id="tema-livre-formatos"></div>
                 <div class="tema-livre-acoes">
                   <span class="tema-livre-dica">A IA transforma sua ideia num carrossel pronto pra viralizar.</span>
                   <button type="button" class="btn btn-primary" id="tema-livre-btn">✨ Criar carrossel com esse tema</button>
@@ -1170,6 +1174,6 @@ body .auth-card{padding:22px;}
   <div id="toast"></div>
 </div>
 
-<script src="app.js?v=20261020-multi"></script>
+<script src="app.js?v=20261020-formatos"></script>
 </body>
 </html>

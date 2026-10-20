@@ -94,6 +94,8 @@ Deno.serve(handle(async (req) => {
       u.searchParams.set("response_type", "code");
       u.searchParams.set("scope", SCOPES.join(","));
       u.searchParams.set("state", state);
+      // pede login de novo: sem isso o Instagram usa a conta que já está aberta no navegador e não deixa escolher outra
+      u.searchParams.set("force_reauth", "true");
       return json({ url: u.toString() });
     }
     if (acao === "desconectar") {
@@ -162,7 +164,7 @@ Deno.serve(handle(async (req) => {
     await db.from("instagram_tokens").upsert({
       conta_id: conta.id, corretor_id: uid, access_token: t2.access_token, expires_at: expires, updated_at: new Date().toISOString(),
     }, { onConflict: "conta_id" });
-    return voltar("conectado");
+    return voltar(jaTem && jaTem.status === "ativo" ? "ja_conectada" : "conectado");
   } catch (e) {
     console.error("oauth instagram:", e);
     return voltar("erro");

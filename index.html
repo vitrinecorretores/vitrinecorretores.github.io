@@ -526,6 +526,9 @@ body .auth-card{padding:22px;}
   .lp-step:hover, .lp-feat:hover{border-color:rgba(212,255,63,0.303); transform:translateY(-3px); box-shadow:0 22px 50px -28px rgba(212,255,63,0.495);}
   .lp-num{display:inline-flex; width:36px; height:36px; border-radius:10px; align-items:center; justify-content:center; font-family:"Space Grotesk",sans-serif; font-weight:700; background:var(--grad); box-shadow:0 0 18px -4px rgba(212,255,63,0.495);}
   .lp-step h3, .lp-feat h3{font-size:18px; margin:14px 0 8px;} .lp-step p, .lp-feat p{color:var(--ink-muted); margin:0; line-height:1.55;}
+  .lp-feat{position:relative;}
+  .lp-novo{position:absolute; top:16px; right:16px; font-family:"Geist Mono",monospace; font-size:10.5px; font-weight:600; letter-spacing:.08em; color:#0A0A0A; background:var(--accent); border-radius:6px; padding:3px 7px;}
+  .lp-sub-novo{text-align:center; color:var(--ink-muted); margin:10px auto 0; max-width:620px;}
   .lp-feats{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:30px;}
   .lp-feat > svg{width:26px; height:26px; color:var(--accent2); filter:drop-shadow(0 0 8px rgba(255,255,255,0.27));}
   .lp-plans{display:grid; grid-template-columns:repeat(2,minmax(0,360px)); gap:18px; justify-content:center;}
@@ -922,7 +925,7 @@ body .auth-card{padding:22px;}
   <div class="promo-bar" data-promo><span class="promo-tag">Oferta</span><span><b>30% off no 1º mês</b> do plano mensal para novos assinantes</span><button class="promo-btn" data-cta="signup">Garantir desconto →</button></div>
   <header class="lp-nav">
     <a class="lp-brand" href="#topo"><span class="brand-mark"><svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><defs><linearGradient id="vtg-lp1" x1="6" y1="10" x2="40" y2="44" gradientUnits="userSpaceOnUse"><stop stop-color="#D4FF3F"/><stop offset="1" stop-color="#F4F4F5"/></linearGradient></defs><path d="M7 15 L24 42 L41 15" stroke="url(#vtg-lp1)" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 7.5 H40" stroke="#fff" stroke-width="5.2" stroke-linecap="round"/><path d="M24 7.5 V29" stroke="#fff" stroke-width="5.2" stroke-linecap="round"/><circle cx="24" cy="42" r="3.4" fill="#F4F4F5"/></svg></span><span class="brand-name">Vitrine</span></a>
-    <nav class="lp-links"><a href="#como">Como funciona</a><a href="#recursos">Recursos</a><a href="#planos">Planos</a><a href="#duvidas">Dúvidas</a></nav>
+    <nav class="lp-links"><a href="#como">Como funciona</a><a href="#recursos">Recursos</a><a href="#novidades">Novidades</a><a href="#planos">Planos</a><a href="#duvidas">Dúvidas</a></nav>
     <div class="lp-nav-cta"><button class="btn btn-ghost btn-sm" data-cta="login">Entrar</button><button class="btn btn-primary btn-sm" data-cta="signup">Testar grátis</button></div>
   </header>
 
@@ -977,6 +980,22 @@ body .auth-card{padding:22px;}
       <div class="lp-feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="0.6" fill="currentColor"/></svg><h3>Feed, Reels ou Stories</h3><p>O mesmo conteúdo vira carrossel, vídeo ou sequência de stories — no tamanho certo pra cada formato.</p></div>
       <div class="lp-feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h16v2"/><path d="M9 19h6"/><path d="M12 5v14"/></svg><h3>Fontes e modelos com a sua cara</h3><p>6 fontes e 3 modelos visuais pra deixar o seu perfil com identidade própria.</p></div>
       <div class="lp-feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg><h3>Painel organizado</h3><p>Rascunhos, agendados e publicados num só lugar. Você sabe exatamente o que já foi ao ar.</p></div>
+    </div>
+  </section>
+
+  <section class="lp-sec" id="novidades">
+    <h2 class="lp-h2">Mais do que posts: <span class="lp-grad">ferramentas pra vender imóvel</span></h2>
+    <p class="lp-sub-novo">Já incluído nos planos, sem custo extra. E você testa grátis antes de assinar.</p>
+    <div class="lp-feats">
+      <div class="lp-feat"><span class="lp-novo">NOVO</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg><h3>Cole o link, ganhe o post</h3><p>Colou o anúncio do ZAP, VivaReal ou OLX? A IA puxa preço, metragem, bairro e até 30 fotos. Baixe todas no celular com um toque.</p></div>
+      <div class="lp-feat"><span class="lp-novo">NOVO</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M10 21v-6h4v6"/></svg><h3>Página do imóvel com WhatsApp</h3><p>Cada imóvel ganha uma página com fotos, dados e botão “Chamar no WhatsApp”. Você vê quantas visitas e cliques ela teve.</p></div>
+      <div class="lp-feat"><span class="lp-novo">NOVO</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><h3>Fotos que parecem de profissional</h3><p>Luz, cor e céu corrigidos automaticamente. Até a foto tirada no celular fica pronta pro feed.</p></div>
+      <div class="lp-feat"><span class="lp-novo">NOVO</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h2M14 10h2M8 14h2M14 14h2M8 18h8"/></svg><h3>Simulador que vira carrossel</h3><p>Financiamento (SAC e Price) e “Alugar ou comprar?” calculados na hora e transformados em post. Conteúdo que todo mundo salva.</p></div>
+      <div class="lp-feat"><span class="lp-novo">NOVO</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg><h3>3 ganchos pra você escolher</h3><p>A IA cria 3 capas diferentes pro mesmo assunto. Você escolhe a que mais para o scroll.</p></div>
+      <div class="lp-feat"><span class="lp-novo">NOVO</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M8 15h3"/></svg><h3>Datas que viram engajamento</h3><p>Dia das Mães, Natal, Black Friday, IR… a Vitrine avisa as próximas datas e cria o post com fotos do tema.</p></div>
+      <div class="lp-feat"><span class="lp-novo">NOVO</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-9M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg><h3>Sua marca em todo slide</h3><p>Logo, nome e CRECI no rodapé de cada imagem, com a cor da sua marca. Profissional e dentro da lei.</p></div>
+      <div class="lp-feat"><span class="lp-novo">NOVO</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><h3>Resumo da semana</h3><p>Toda segunda: seus melhores posts, novos seguidores e o que postar na próxima semana.</p></div>
+      <div class="lp-feat"><span class="lp-novo">NOVO</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg><h3>Imobiliárias: equipe no controle</h3><p>Convide corretores pelo WhatsApp ou e-mail em 1 clique e aprove os posts antes de irem ao ar.</p></div>
     </div>
   </section>
 
@@ -1258,12 +1277,19 @@ body .auth-card{padding:22px;}
 
         <!-- PLANO / PAGAMENTO -->
         <section class="screen" id="screen-plano" hidden>
+          <div id="plano-abas" hidden style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;">
+            <button class="mode-tab active" type="button" data-plano-aba="plano">Meu plano</button>
+            <button class="mode-tab" type="button" data-plano-aba="convites">👥 Convidar corretores</button>
+          </div>
+          <div id="plano-pane-convites" hidden></div>
+          <div id="plano-pane-plano">
           <div id="marca-box"></div>
           <div id="plan-status" style="margin-top:22px;"></div>
           <div class="section-head" style="margin-top:22px;"><h2>Planos</h2></div>
           <div class="plan-grid" id="plan-grid"></div>
           <div class="plan-grid equipe" id="plan-grid-equipe"></div>
           <div id="checkout-box" hidden></div>
+          </div>
         </section>
 
       </main>
@@ -1280,7 +1306,7 @@ body .auth-card{padding:22px;}
 <script src="fotos.js?v=20261021-r"></script>
 <script src="simulacao.js?v=20261021-r"></script>
 <script src="datas.js?v=20261022-d"></script>
-<script src="app.js?v=20261022-d"></script>
+<script src="app.js?v=20261022-n"></script>
 <script src="vitrine-leads.js?v=20261021-r"></script>
 </body>
 </html>

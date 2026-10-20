@@ -3146,7 +3146,83 @@
     };
   }
 
+  /* ---------------- ABA "CONVIDAR CORRETORES" (dono de plano de imobiliária) ---------------- */
+  var abaPlano = "plano";
+  async function renderAbasPlano() {
+    var abas = document.getElementById("plano-abas");
+    if (!abas) return;
+    if (!equipeInfo) { try { await carregarEquipe(); } catch (e) {} }
+    var dono = !!(equipeInfo && equipeInfo.papel === "dono");
+    abas.hidden = !dono;
+    if (!dono) abaPlano = "plano";
+    qsa("[data-plano-aba]", abas).forEach(function (b) {
+      b.classList.toggle("active", b.dataset.planoAba === abaPlano);
+      b.onclick = function () { abaPlano = b.dataset.planoAba; renderAbasPlano(); };
+    });
+    document.getElementById("plano-pane-plano").hidden = abaPlano !== "plano";
+    var pane = document.getElementById("plano-pane-convites");
+    pane.hidden = abaPlano !== "convites";
+    if (abaPlano === "convites") renderConvites(pane);
+  }
+  function msgConvite(link, email) {
+    var imob = (equipeInfo && equipeInfo.equipe && equipeInfo.equipe.nome) || "nossa imobiliária";
+    var quem = (state.profile && state.profile.nome) ? state.profile.nome.split(" ")[0] : "";
+    return "Oi! " + (quem ? quem + " aqui. " : "") + "Liberei pra você a Vitrine pelo plano da " + imob +
+      ": ela cria carrosséis e posts de imóveis pro Instagram em 2 minutos, com IA.\n\nÉ só criar sua conta (ou entrar) com o e-mail " + email + " por este link:\n" + link;
+  }
+  function botoesEnvio(link, email, zap) {
+    var msg = msgConvite(link, email);
+    var num = String(zap || "").replace(/\D/g, "");
+    if (num && num.length <= 11) num = "55" + num;
+    var hrefZap = "https://wa.me/" + (num.length >= 12 ? num : "") + "?text=" + encodeURIComponent(msg);
+    var hrefMail = "mailto:" + encodeURIComponent(email) + "?subject=" + encodeURIComponent("Seu acesso à Vitrine") + "&body=" + encodeURIComponent(msg);
+    return '<a class="btn btn-primary btn-xs" target="_blank" rel="noopener noreferrer" href="' + escapeHtml(hrefZap) + '">WhatsApp</a>' +
+      '<a class="btn btn-ghost btn-xs" href="' + escapeHtml(hrefMail) + '">E-mail</a>' +
+      '<button class="btn btn-ghost btn-xs" type="button" data-copiar="' + escapeHtml(link) + '">Copiar link</button>';
+  }
+  function renderConvites(pane) {
+    var d = equipeInfo || {}, eq = d.equipe || {}, membros = d.membros || [];
+    var pend = membros.filter(function (m) { return m.status !== "ativo" && m.link; });
+    var vagas = (eq.max || 0) - 1 - membros.length;
+    pane.innerHTML =
+      '<div class="eq-card"><h3 style="font-size:17px;margin:0 0 4px;">Convide um corretor da sua equipe</h3>' +
+      '<p style="margin:0 0 12px;color:var(--ink-muted);font-size:13px;">Digite o e-mail que ele vai usar pra entrar e, se quiser, o WhatsApp. O convite já sai pronto pra enviar. ' +
+      (vagas > 0 ? 'Você ainda tem <b>' + vagas + '</b> vaga' + (vagas > 1 ? "s" : "") + '.' : '<b>Todas as vagas estão ocupadas.</b>') + '</p>' +
+      (eq.ativa === false ? '<p style="color:#ff9aab;font-size:13px;margin:0;">A assinatura da imobiliária não está ativa.</p>' :
+      '<div class="form-grid"><label>E-mail do corretor<input type="email" id="cv-email" placeholder="corretor@email.com"></label>' +
+      '<label>WhatsApp (opcional)<input type="tel" id="cv-zap" placeholder="(85) 99999-9999"></label></div>' +
+      '<div style="display:flex;justify-content:flex-end;margin-top:12px;"><button class="btn btn-primary" id="cv-gerar"' + (vagas > 0 ? "" : " disabled") + '>Gerar convite</button></div>') +
+      '<div id="cv-novo" style="margin-top:12px;"></div></div>' +
+      '<div class="eq-card" style="margin-top:14px;"><h3 style="font-size:16px;margin:0 0 8px;">Convites aguardando</h3>' +
+      (pend.length ? pend.map(function (m) {
+        return '<div style="display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--border);">' +
+          '<span style="min-width:0;flex:1 1 200px;word-break:break-all;"><b>' + escapeHtml(m.email) + '</b></span>' +
+          '<span style="display:flex;gap:6px;flex-wrap:wrap;">' + botoesEnvio(m.link, m.email, "") + '</span></div>';
+      }).join("") : '<p style="margin:0;color:var(--ink-muted);font-size:13px;">Nenhum convite pendente.</p>') +
+      '<p style="margin:10px 0 0;font-size:12.5px;color:var(--ink-muted);">Para ver quem já entrou, remover ou exigir aprovação dos posts, use a aba <a href="#" id="cv-ir-equipe">Equipe</a>.</p></div>';
+    var g = document.getElementById("cv-gerar");
+    if (g) g.onclick = async function () {
+      var email = document.getElementById("cv-email").value.trim(), zap = document.getElementById("cv-zap").value.trim();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast("Digite um e-mail válido."); return; }
+      g.disabled = true; g.textContent = "Gerando…";
+      try {
+        var r = await callFunction("equipe", { acao: "convidar", email: email });
+        if (!r.link) { toast("Esse corretor já está na equipe."); g.disabled = false; g.textContent = "Gerar convite"; return; }
+        await carregarEquipe();
+        renderConvites(pane);
+        var box = document.getElementById("cv-novo");
+        box.innerHTML = '<div class="eq-link" style="flex-wrap:wrap;"><span style="flex:1 1 100%;">✅ Convite pronto para <b>' + escapeHtml(email) + '</b>. Escolha como enviar:</span>' +
+          '<span style="display:flex;gap:6px;flex-wrap:wrap;">' + botoesEnvio(r.link, email, zap) + '</span></div>';
+        qsa("[data-copiar]", box).forEach(function (b) { b.onclick = function () { copiarTexto(b.dataset.copiar); }; });
+      } catch (e) { toast(e.message); g.disabled = false; g.textContent = "Gerar convite"; }
+    };
+    qsa("[data-copiar]", pane).forEach(function (b) { b.onclick = function () { copiarTexto(b.dataset.copiar); }; });
+    var ir = document.getElementById("cv-ir-equipe");
+    if (ir) ir.onclick = function (e) { e.preventDefault(); showScreen("equipe"); };
+  }
+
   function renderPlano() {
+    renderAbasPlano();
     renderMarca();
     var statusEl = document.getElementById("plan-status");
     if (!state.assinatura || state.assinatura.status === "trial") {

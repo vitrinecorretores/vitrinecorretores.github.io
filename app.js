@@ -647,6 +647,23 @@
   // linha do rodapé: à esquerda do contador "1/7" (yBase = topo do contador)
   function rodapeMarcaLinha(ctx, W, pad, yBase, cor, family) { rodapeMarca(ctx, pad, yBase + 17, W - pad * 2 - 300, cor, family); }
 
+  // teste grátis: marca d'água no CENTRO de toda imagem (não dá pra cortar sem perder o post).
+  // Desenhada por último, por cima da foto e do texto, valendo pra foto da pessoa ou da plataforma.
+  function marcaDaguaTeste(ctx, W, H) {
+    if (!emTeste() || ehAdmin()) return;
+    ctx.save();
+    ctx.translate(W / 2, H / 2); ctx.rotate(-Math.PI / 9);
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = "800 118px Geist, Manrope, Arial, sans-serif";
+    ctx.lineWidth = 4; ctx.strokeStyle = "rgba(0,0,0,0.28)"; ctx.fillStyle = "rgba(255,255,255,0.36)";
+    ctx.strokeText("VITRINE", 0, -34); ctx.fillText("VITRINE", 0, -34);
+    ctx.font = "600 38px Geist, Manrope, Arial, sans-serif";
+    ctx.lineWidth = 3; ctx.strokeText(LINK_VITRINE, 0, 56); ctx.fillText(LINK_VITRINE, 0, 56);
+    ctx.font = "600 26px Geist, Manrope, Arial, sans-serif"; ctx.fillStyle = "rgba(255,255,255,0.26)";
+    ctx.strokeText("versão de teste grátis", 0, 104); ctx.fillText("versão de teste grátis", 0, 104);
+    ctx.restore();
+  }
+
   function faixaLinkVitrine(ctx, W, H, alto) {
     if (!comLinkVitrine()) return;
     var faixaH = 64, faixaY = H - (alto ? 250 : 0) - faixaH;
@@ -761,6 +778,7 @@
     var ctx = cv.getContext("2d");
     if (ESTILOS_VIRAIS[tplSlug]) {   // estilos virais têm layout próprio (ver desenharEstiloViral)
       desenharEstiloViral(ctx, tplSlug, slide, i, total, bgImg, alto, fonte, SLIDE_W, SLIDE_H);
+      marcaDaguaTeste(ctx, SLIDE_W, SLIDE_H);
       return new Promise(function (resolve, reject) {
         try { cv.toBlob(function (b) { b ? resolve(b) : reject(new Error("Falha ao gerar imagem.")); }, "image/jpeg", 0.9); } catch (e) { reject(e); }
       });
@@ -835,6 +853,7 @@
       ctx.fillText("Criado com Vitrine  ·  " + LINK_VITRINE, SLIDE_W / 2, faixaY + 42);
       ctx.textAlign = "left";
     }
+    marcaDaguaTeste(ctx, SLIDE_W, SLIDE_H);
 
     return new Promise(function (resolve, reject) {
       try { cv.toBlob(function (b) { b ? resolve(b) : reject(new Error("Falha ao gerar imagem.")); }, "image/jpeg", 0.9); }

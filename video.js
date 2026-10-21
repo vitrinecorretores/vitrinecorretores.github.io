@@ -1649,10 +1649,8 @@
   var anterior = V.aoMostrar;
   V.aoMostrar = function (nome) {
     if (anterior) anterior(nome);
-    if (nome === "painel") injetarPainel();
-    if (nome === "novo") injetarNovo();
     if (nome === "imoveis") injetarCards();
   };
-  injetarPainel(); injetarNovo();
-  V.video = { reels: abrirReels, roteiro: iniciarFluxo };
+  // "Gravar vídeo com roteiro" foi retirado da plataforma (a pedido do dono, 26/10/2026); fica só o Reels do imóvel.
+  V.video = { reels: abrirReels };
 })();

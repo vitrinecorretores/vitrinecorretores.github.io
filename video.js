@@ -827,7 +827,7 @@
   function salvarOpcao(o) { try { localStorage.setItem(OPCAO_KEY, o); } catch (e) {} }
   var PIP_OK = (function () {
     try {
-      if (!HTMLCanvasElement.prototype.captureStream) return false;
+      if (!HTMLCanvasElement.prototype.captureStream || typeof window.MediaRecorder !== "function") return false;
       var v = document.createElement("video");
       return !!((document.pictureInPictureEnabled && typeof v.requestPictureInPicture === "function") || typeof v.webkitSetPresentationMode === "function");
     } catch (e) { return false; }
@@ -939,14 +939,16 @@
     var fPx = function (v) { return v + "px"; }, fVel = function (v) { return (+v).toFixed(1).replace(".", ",") + "x"; };
     var opPip = PIP_OK
       ? card("pip", "📱 Teleprompter flutuante (gravar no app Câmera)",
-        '<p class="vd-hint">1. Toque em Iniciar teleprompter<br>2. A janelinha fica flutuando<br>3. Abra o app Câmera em Vídeo e grave lendo a janelinha (posicione-a perto da lente)</p>' +
+        '<p class="vd-hint">O app prepara um vídeo do roteiro rolando (leva cerca de 1 vez o tempo de leitura). Depois você abre esse vídeo numa janelinha flutuante e grava no app Câmera.</p>' +
         '<div id="pip-cfg">' + range("pp-fonte", "Letra", 22, 64, 1, prefs.fonte, fPx) + range("pp-vel", "Velocidade", 0.3, 2.5, 0.1, prefs.vel, fVel) +
-        '<label class="vd-rg"><span>Contagem 3-2-1</span><input type="checkbox" id="pp-cont"' + (prefs.contagem ? " checked" : "") + '></label>' +
-        '<label class="vd-rg"><span>Começar</span><select id="pp-atraso"><option value="0"' + (prefs.atraso === 0 ? " selected" : "") + '>Ao tocar ▶ na janelinha</option><option value="5"' + (prefs.atraso === 5 ? " selected" : "") + '>Sozinho em 5 s</option><option value="10"' + (prefs.atraso === 10 ? " selected" : "") + '>Sozinho em 10 s</option></select></label>' +
-        '<button class="vd-btn pri" id="pp-ini" style="flex:none;width:100%">Iniciar teleprompter</button></div>' +
-        '<div id="pip-ctl" hidden><p class="vd-hint" id="pp-st"></p><div class="vd-row"><button class="vd-btn" id="pp-pl">⏸ Pausar</button><button class="vd-btn" id="pp-ini0">⏮ Início</button></div>' +
-        '<div class="vd-row"><button class="vd-btn" id="pp-m">− Devagar</button><button class="vd-btn" id="pp-vv" disabled></button><button class="vd-btn" id="pp-p">+ Rápido</button></div>' +
-        '<button class="vd-btn" id="pp-fim" style="flex:none;width:100%">Fechar janelinha</button></div>')
+        '<button class="vd-btn pri" id="pp-ini" style="flex:none;width:100%">Preparar teleprompter</button></div>' +
+        '<div id="pip-prog" hidden><p class="vd-hint" id="pp-pr">Preparando teleprompter… 0%</p><div style="height:8px;border-radius:4px;background:rgba(255,255,255,.15);overflow:hidden"><div id="pp-bar" style="height:100%;width:0;background:#D4FF3F"></div></div>' +
+        '<p class="vd-hint"><b>Deixe esta página aberta e a tela ligada até terminar.</b></p><button class="vd-btn" id="pp-cancel" style="flex:none;width:100%">Cancelar</button></div>' +
+        '<div id="pip-res" hidden><div id="pp-vbox" style="text-align:center"></div>' +
+        '<button class="vd-btn pri" id="pp-abrir" style="flex:none;width:100%;font-size:18px;padding:16px">Abrir janelinha flutuante</button>' +
+        '<p class="vd-hint">Se a janelinha não abrir, toque no ícone de janelinha (⧉) no canto do vídeo.</p>' +
+        '<p class="vd-hint">Com a janelinha aberta, abra o app Câmera em Vídeo, posicione a janelinha perto da lente, toque ▶ na janelinha e grave.</p>' +
+        '<div class="vd-row"><button class="vd-btn" id="pp-baixar">Baixar vídeo do teleprompter</button><button class="vd-btn" id="pp-refaz">Refazer com outra velocidade</button></div></div>')
       : '<div class="vd-op" id="op-pip"><b>📱 Teleprompter flutuante</b><p class="vd-hint">Seu navegador não permite janela flutuante — use a opção 2.</p></div>';
     abrir(cab("Seu roteiro") + '<p class="vd-hint">Edite do seu jeito. Uma frase por linha.</p>' +
       '<textarea id="vd-rot" style="min-height:220px;font-size:17px;line-height:1.4">' + esc(fluxo.roteiro) + '</textarea>' +
@@ -969,67 +971,91 @@
     $("vd-wa").onclick = function () { if (!lerNaoVazio()) return; salvarOpcao("tela"); window.open("https://wa.me/?text=" + encodeURIComponent(fluxo.roteiro), "_blank", "noopener"); };
     $("vd-grav").onclick = function () { if (!lerNaoVazio()) return; salvarOpcao("cam"); telaGravacao(); };
     $("op-tela-go").onclick = function () { if (!lerNaoVazio()) return; salvarOpcao("tela"); telaLeitura(); };
-    if (PIP_OK) {
-      $("pp-fonte").oninput = function () { prefs.fonte = +this.value; $("pp-fonte-v").textContent = fPx(prefs.fonte); salvarPrefs(); if (pip) pip.m.layout(); };
-      $("pp-vel").oninput = function () { prefs.vel = +this.value; $("pp-vel-v").textContent = fVel(prefs.vel); salvarPrefs(); };
-      $("pp-cont").onchange = function () { prefs.contagem = this.checked; salvarPrefs(); };
-      $("pp-atraso").onchange = function () { prefs.atraso = +this.value; salvarPrefs(); };
-      $("pp-ini").onclick = function () { if (lerNaoVazio()) iniciarPip(); };
-      $("pp-fim").onclick = function () { pararPrevia(); };
-    }
-
     var pip = null;
-    function estado() {
-      if (!pip) return;
-      var f = pip.m.fase, t = f === "espera" ? "Começa em " + Math.ceil(pip.m.ft) + " s — abra o app Câmera e comece a gravar." : f === "contagem" ? "Contagem…" : f === "rodando" ? "Rolando." : f === "fim" ? "Terminou." : "Pausado. Toque ▶ na janelinha ou aqui para continuar.";
-      var s = $("pp-st"); if (s) s.textContent = t;
-      var b = $("pp-pl"); if (b) b.textContent = (f === "rodando" || f === "contagem" || f === "espera") ? "⏸ Pausar" : "▶ Continuar";
-      var v = $("pp-vv"); if (v) v.textContent = fVel(prefs.vel);
+    if (PIP_OK) {
+      $("pp-fonte").oninput = function () { prefs.fonte = +this.value; $("pp-fonte-v").textContent = fPx(prefs.fonte); salvarPrefs(); };
+      $("pp-vel").oninput = function () { prefs.vel = +this.value; $("pp-vel-v").textContent = fVel(prefs.vel); salvarPrefs(); };
+      $("pp-ini").onclick = function () { if (lerNaoVazio()) prepararPip(); };
+      $("pp-cancel").onclick = function () { pararPrevia(); };
+      $("pp-refaz").onclick = function () { pararPrevia(); };
     }
-    async function iniciarPip() {
+    function mostra(qual) {
+      ["pip-cfg", "pip-prog", "pip-res"].forEach(function (i) { var e = $(i); if (e) e.hidden = (i !== qual); });
+    }
+    function prepararPip() {
       salvarOpcao("pip");
       if (pip) pararPrevia();
       var cv = document.createElement("canvas"); cv.width = 720; cv.height = 1280;
-      var m = criarMotor(cv, { escala: 1.7, espelho: false, dica: "Toque o play da janelinha" });
-      m.desenhar();
-      var vid = document.createElement("video");
-      vid.muted = true; vid.defaultMuted = true; vid.playsInline = true; vid.setAttribute("playsinline", ""); vid.setAttribute("muted", "");
-      vid.style.cssText = "position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:.01;pointer-events:none";
-      root.appendChild(vid);
-      var forca = false;
-      pip = { m: m, vid: vid, parar: null, cv: cv };
-      var parar = criarRelogio(function (dt) { m.tick(dt); estado(); });
+      var m = criarMotor(cv, { escala: 1.7, espelho: false, dica: "" });
+      m.y = 0; m.fase = "contagem"; m.ft = 3; m.desenhar();
+      var durLeitura = m.total / (Math.max(12, Math.min(400, m.total / (fluxo.duracao || 30))) * prefs.vel);
+      var dur = 3 + durLeitura + 2;
+      var tipos = ["video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"], tipo = "";
+      for (var i = 0; i < tipos.length; i++) { try { if (MediaRecorder.isTypeSupported(tipos[i])) { tipo = tipos[i]; break; } } catch (e) {} }
+      var stream2, rec, chunks = [], ini = performance.now(), ult = ini, acabou = false, raf = 0, iv = 0, url = null, vid = null;
+      pip = { vid: null };
       function limpa() {
-        parar();
-        try { if (document.pictureInPictureElement === vid) document.exitPictureInPicture(); } catch (e) {}
-        try { if (vid.webkitPresentationMode === "picture-in-picture") vid.webkitSetPresentationMode("inline"); } catch (e) {}
-        try { vid.pause(); vid.srcObject = null; if (vid.parentNode) vid.parentNode.removeChild(vid); } catch (e) {}
+        acabou = true; if (raf) cancelAnimationFrame(raf); if (iv) clearInterval(iv);
+        try { if (rec && rec.state !== "inactive") { rec.onstop = null; rec.stop(); } } catch (e) {}
+        try { if (stream2) stream2.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+        try { if (vid) { if (document.pictureInPictureElement === vid) document.exitPictureInPicture(); if (vid.webkitPresentationMode === "picture-in-picture") vid.webkitSetPresentationMode("inline"); vid.pause(); } } catch (e) {}
+        if (url) { try { URL.revokeObjectURL(url); } catch (e) {} url = null; }
         pip = null; pararPrevia = function () {};
-        if ($("pip-cfg")) { $("pip-cfg").hidden = false; $("pip-ctl").hidden = true; }
+        if ($("pip-cfg")) { mostra("pip-cfg"); var b = $("pp-vbox"); if (b) b.innerHTML = ""; }
       }
       pararPrevia = limpa;
-      try {
-        vid.srcObject = cv.captureStream(30);
-        var pr = vid.play(); if (pr && pr.catch) pr.catch(function () {});
-        if (vid.readyState < 1) await new Promise(function (ok) { var t = setTimeout(ok, 1500); vid.addEventListener("loadedmetadata", function () { clearTimeout(t); ok(); }, { once: true }); });
-        if (document.pictureInPictureEnabled && typeof vid.requestPictureInPicture === "function") await vid.requestPictureInPicture();
-        else vid.webkitSetPresentationMode("picture-in-picture");
-      } catch (e) {
-        limpa();
-        V.toast("Não consegui abrir a janelinha. Use a opção 2 ou 3.");
-        return;
+      mostra("pip-prog");
+      function prog(p) {
+        p = Math.max(0, Math.min(100, Math.round(p)));
+        var t = $("pp-pr"), b = $("pp-bar"); if (t) t.textContent = "Preparando teleprompter… " + p + "%"; if (b) b.style.width = p + "%";
       }
-      // os botões play/pause da própria janelinha controlam o teleprompter (o vídeo nunca fica pausado, senão a imagem congelaria)
-      vid.addEventListener("pause", function () { if (forca) return; forca = true; var r = vid.play(); if (r && r.catch) r.catch(function () {}); setTimeout(function () { forca = false; }, 120); m.alternar(); estado(); });
-      vid.addEventListener("leavepictureinpicture", function () { if (pip) limpa(); });
-      vid.addEventListener("webkitpresentationmodechanged", function () { if (pip && vid.webkitPresentationMode !== "picture-in-picture") limpa(); });
-      $("pip-cfg").hidden = true; $("pip-ctl").hidden = false;
-      m.agendar(prefs.atraso);
-      estado();
-      $("pp-pl").onclick = function () { m.alternar(); estado(); };
-      $("pp-ini0").onclick = function () { m.inicio(); estado(); };
-      $("pp-m").onclick = function () { prefs.vel = Math.max(0.3, Math.round((prefs.vel - 0.1) * 10) / 10); salvarPrefs(); estado(); };
-      $("pp-p").onclick = function () { prefs.vel = Math.min(2.5, Math.round((prefs.vel + 0.1) * 10) / 10); salvarPrefs(); estado(); };
+      prog(0);
+      try {
+        stream2 = cv.captureStream(30);
+        rec = tipo ? new MediaRecorder(stream2, { mimeType: tipo, videoBitsPerSecond: 2500000 }) : new MediaRecorder(stream2);
+      } catch (e) { limpa(); V.toast("Não consegui preparar o vídeo. Use a opção 2 ou 3."); return; }
+      rec.ondataavailable = function (ev) { if (ev.data && ev.data.size) chunks.push(ev.data); };
+      rec.onerror = function () { if (!acabou) { limpa(); V.toast("Erro ao gravar o teleprompter. Tente de novo."); } };
+      rec.onstop = function () { pronto(); };
+      function passo() {
+        if (acabou) return;
+        var n = performance.now(), dt = Math.min(0.5, (n - ult) / 1000); ult = n;
+        m.tick(dt);
+        var el = (n - ini) / 1000; prog(el / dur * 100);
+        if (el >= dur) { acabou = true; if (raf) cancelAnimationFrame(raf); if (iv) clearInterval(iv); try { rec.stop(); } catch (e) { pronto(); } }
+      }
+      function quadro() { if (acabou) return; passo(); raf = requestAnimationFrame(quadro); }
+      rec.start(1000);
+      raf = requestAnimationFrame(quadro);
+      iv = setInterval(passo, 100);
+      function pronto() {
+        if (!pip) return;
+        var blob = new Blob(chunks, { type: rec.mimeType || tipo || "video/webm" });
+        if (!blob.size) { limpa(); V.toast("O vídeo saiu vazio. Tente de novo."); return; }
+        var ext = /mp4/.test(blob.type) ? "mp4" : "webm";
+        url = URL.createObjectURL(blob);
+        vid = document.createElement("video");
+        vid.muted = true; vid.defaultMuted = true; vid.playsInline = true; vid.controls = true; vid.preload = "auto";
+        vid.setAttribute("playsinline", ""); vid.setAttribute("webkit-playsinline", ""); vid.setAttribute("muted", ""); vid.setAttribute("autopictureinpicture", "");
+        vid.src = url;
+        vid.style.cssText = "width:100%;max-width:220px;aspect-ratio:9/16;background:#000;border-radius:10px;margin:8px auto;display:block";
+        pip.vid = vid;
+        $("pp-vbox").appendChild(vid);
+        try { vid.load(); } catch (e) {}
+        mostra("pip-res");
+        // tudo SÍNCRONO dentro do toque (o iOS exige o gesto do usuário)
+        $("pp-abrir").onclick = function () {
+          try { var pr = vid.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) {}
+          try {
+            if (vid.webkitSupportsPresentationMode && typeof vid.webkitSetPresentationMode === "function") vid.webkitSetPresentationMode("picture-in-picture");
+            else if (typeof vid.requestPictureInPicture === "function") { var q = vid.requestPictureInPicture(); if (q && q.catch) q.catch(function () { V.toast("Toque no ícone ⧉ no canto do vídeo."); }); }
+          } catch (e) { V.toast("Toque no ícone ⧉ no canto do vídeo."); }
+        };
+        $("pp-baixar").onclick = function () {
+          var a = document.createElement("a"); a.href = url; a.download = "teleprompter." + ext; document.body.appendChild(a); a.click();
+          setTimeout(function () { if (a.parentNode) a.parentNode.removeChild(a); }, 500);
+        };
+      }
     }
   }
 

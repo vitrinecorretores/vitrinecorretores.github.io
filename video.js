@@ -20,7 +20,7 @@
 
   /* ---------- preferências (localStorage com try/catch) ---------- */
   var PREF_KEY = "vd-prefs-v2";
-  var prefs = { v2: true, facing: "user", res: "1080", fonte: 34, vel: 1, larg: 100, fundo: 55, espTxt: false, grade: false, voz: false };
+  var prefs = { v2: true, facing: "user", res: "1080", fonte: 34, vel: 1, larg: 100, fundo: 55, espTxt: false, grade: false, voz: false, contagem: true, atraso: 0 };
   try { var salvo = JSON.parse(localStorage.getItem(PREF_KEY) || "{}"); if (salvo && !salvo.v2) { delete salvo.res; salvo.v2 = true; }   /* v2: padrão passou a 1080p */ if (salvo && typeof salvo === "object") Object.keys(prefs).forEach(function (k) { if (salvo[k] !== undefined && typeof salvo[k] === typeof prefs[k]) prefs[k] = salvo[k]; }); } catch (e) {}
   function salvarPrefs() { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch (e) {} }
 
@@ -46,6 +46,10 @@
     ".vd-bar{height:8px;background:#27272A;border-radius:6px;overflow:hidden}.vd-bar i{display:block;height:100%;width:0;background:" + LIMA + ";transition:width .2s}",
     ".vd-cta-painel{display:flex;gap:10px;align-items:center;justify-content:space-between;background:#111113;border:1px solid #27272A;border-radius:12px;padding:12px 14px;margin-bottom:14px;flex-wrap:wrap}",
     ".vd-cta-painel b{font-size:14px}.vd-cta-painel span{font-size:12px;color:#A1A1AA;display:block}",
+    ".vd-op{background:#111113;border:1px solid #27272A;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}.vd-op b{font-size:15px}.vd-op em{font-style:normal;font-size:11px;color:#0A0A0A;background:" + LIMA + ";border-radius:999px;padding:2px 8px;margin-left:6px;font-weight:700}",
+    ".vd-op.dest{border-color:" + LIMA + ";box-shadow:0 0 0 1px " + LIMA + " inset}",
+    ".vd-rg{display:flex;align-items:center;gap:10px;font-size:14px;margin:6px 0}.vd-rg span{width:104px;flex:none}.vd-rg input[type=range]{flex:1;accent-color:" + LIMA + "}.vd-rg em{background:none;color:#A1A1AA;font-weight:400;width:44px;text-align:right;padding:0;margin:0}.vd-rg select{flex:1}",
+    ".lt .cm-top{z-index:5}.lt-bar{position:absolute;left:0;right:0;bottom:0;display:flex;gap:8px;justify-content:center;align-items:center;padding:12px 12px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.75));z-index:5;flex-wrap:wrap}.lt-bar button{min-width:44px;height:44px;border-radius:12px;border:0;background:rgba(255,255,255,.16);font-size:18px;font-weight:700;cursor:pointer}.lt-bar button.on{background:" + LIMA + ";color:#0A0A0A}.lt-bar span{font-size:14px;font-weight:700;min-width:44px;text-align:center}",
     /* editor de Reels */
     ".rl-pv{align-self:center;height:min(52vh,560px);aspect-ratio:9/16;background:#000;border-radius:16px;overflow:hidden;position:relative;border:1px solid #27272A;flex:none}",
     ".rl-pv canvas{width:100%;height:100%;display:block}",
@@ -817,17 +821,259 @@
       telaRoteiro();
     } catch (e) { b.disabled = false; b.textContent = "Gerar roteiro"; V.toast(e.message); }
   }
-  function telaRoteiro() {
-    abrir(cab("Seu roteiro") + '<p class="vd-hint">Edite do seu jeito. Uma frase por linha.</p>' +
-      '<textarea id="vd-rot" style="min-height:260px;font-size:17px;line-height:1.4">' + esc(fluxo.roteiro) + '</textarea>' +
-      '<p class="vd-hint">Legenda do post (copie na hora de publicar):</p><textarea id="vd-leg" style="min-height:80px">' + esc(fluxo.legenda) + '</textarea>' +
-      '<div class="vd-row"><button class="vd-btn" id="vd-volta">Voltar</button><button class="vd-btn pri" id="vd-grav">Ir para a gravação</button></div>');
-    $("vd-volta").onclick = telaEscolha;
-    $("vd-grav").onclick = function () {
-      fluxo.roteiro = $("vd-rot").value.trim(); fluxo.legenda = $("vd-leg").value;
-      if (!fluxo.roteiro) { V.toast("O roteiro está vazio."); return; }
-      telaGravacao();
+  /* ---------- tela do roteiro: 3 jeitos de usar ---------- */
+  var OPCAO_KEY = "vd-opcao-v1";
+  function lerOpcao() { try { return localStorage.getItem(OPCAO_KEY) || "pip"; } catch (e) { return "pip"; } }
+  function salvarOpcao(o) { try { localStorage.setItem(OPCAO_KEY, o); } catch (e) {} }
+  var PIP_OK = (function () {
+    try {
+      if (!HTMLCanvasElement.prototype.captureStream) return false;
+      var v = document.createElement("video");
+      return !!((document.pictureInPictureEnabled && typeof v.requestPictureInPicture === "function") || typeof v.webkitSetPresentationMode === "function");
+    } catch (e) { return false; }
+  })();
+
+  function copiar(texto, msg) {
+    function ok() { V.toast(msg || "Copiado!"); }
+    function antigo() {
+      try {
+        var t = document.createElement("textarea"); t.value = texto; t.style.cssText = "position:fixed;left:-9999px;top:0"; document.body.appendChild(t);
+        t.select(); t.setSelectionRange(0, 999999); var r = document.execCommand("copy"); document.body.removeChild(t);
+        if (r) ok(); else V.toast("Não consegui copiar. Selecione o texto e copie.");
+      } catch (e) { V.toast("Não consegui copiar. Selecione o texto e copie."); }
+    }
+    try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(texto).then(ok, antigo); return; } } catch (e) {}
+    antigo();
+  }
+
+  /* relógio que continua com a aba em segundo plano: Web Worker (timers de worker não sofrem a limitação das abas ocultas);
+     se o navegador bloquear o worker, cai para setInterval(33ms) na própria página. */
+  function criarRelogio(fn) {
+    var w = null, iv = null, ult = performance.now(), vivo = true;
+    function bate() { if (!vivo) return; var n = performance.now(), dt = Math.min(0.5, (n - ult) / 1000); ult = n; fn(dt); }
+    try {
+      w = new Worker("relogio-worker.js");   // arquivo do próprio site (a CSP não permite worker de blob:)
+      w.onmessage = bate; w.onerror = function () { try { w.terminate(); } catch (e) {} w = null; if (!iv && vivo) iv = setInterval(bate, 33); };
+    } catch (e) { w = null; }
+    if (!w) iv = setInterval(bate, 33);
+    return function () { vivo = false; if (iv) clearInterval(iv); if (w) { try { w.postMessage(0); w.terminate(); } catch (e) {} } };
+  }
+
+  /* motor do teleprompter em canvas: rolagem por tempo (dt), frase atual em lima */
+  function criarMotor(cv, o) {
+    var ctx = cv.getContext("2d"), esc = o.escala || 1.7;
+    var paras = [], total = 0, base = 40, readY = 0, m = { y: 0, fase: "parado", ft: 0 };
+    function px() { return Math.round(prefs.fonte * esc); }
+    m.layout = function () {
+      var ratio = total > 0 ? m.y / total : 0, p = px(), lh = p * 1.38, gap = p * 0.55, maxW = cv.width - p * 1.2;
+      ctx.font = "800 " + p + "px " + FONTE;
+      paras = []; var t = 0;
+      fluxo.roteiro.split(/\n+/).filter(function (l) { return l.trim(); }).forEach(function (l) {
+        var ls = quebrar(ctx, l.trim(), maxW), h = ls.length * lh; paras.push({ ls: ls, top: t, h: h }); t += h + gap;
+      });
+      total = t; readY = cv.height * 0.34;
+      base = Math.max(12, Math.min(400, total / (fluxo.duracao || 30)));
+      m.y = ratio * total; m.total = total;
     };
+    m.tocar = function () {
+      if (m.fase === "rodando" || m.fase === "contagem") return;
+      if (m.fase === "fim") m.y = 0;
+      if (m.y < 1 && prefs.contagem) { m.fase = "contagem"; m.ft = 3; } else m.fase = "rodando";
+    };
+    m.pausar = function () { m.fase = "parado"; };
+    m.alternar = function () { if (m.fase === "parado" || m.fase === "fim") m.tocar(); else m.pausar(); };
+    m.inicio = function () { m.y = 0; m.fase = "parado"; };
+    m.agendar = function (s) { if (s > 0) { m.fase = "espera"; m.ft = s; } else m.tocar(); };
+    m.tick = function (dt) {
+      if (m.fase === "espera") { m.ft -= dt; if (m.ft <= 0) { m.fase = "parado"; m.tocar(); } }
+      else if (m.fase === "contagem") { m.ft -= dt; if (m.ft <= 0) m.fase = "rodando"; }
+      else if (m.fase === "rodando") { m.y += base * prefs.vel * dt; if (m.y >= total) { m.y = total; m.fase = "fim"; } }
+      m.desenhar();
+    };
+    m.desenhar = function () {
+      var W2 = cv.width, H2 = cv.height, p = px(), lh = p * 1.38;
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W2, H2);
+      ctx.save();
+      if (o.espelho && prefs.espTxt) { ctx.translate(W2, 0); ctx.scale(-1, 1); }
+      ctx.fillStyle = "rgba(212,255,63,.12)"; ctx.fillRect(0, readY - p * 0.2, W2, lh + p * 0.1);
+      ctx.fillStyle = LIMA; ctx.fillRect(0, readY - p * 0.2, Math.max(4, p * 0.1), lh + p * 0.1);
+      ctx.font = "800 " + p + "px " + FONTE; ctx.textAlign = "center"; ctx.textBaseline = "top";
+      var cur = -1;
+      paras.forEach(function (q, i) { if (m.y >= q.top && m.y < q.top + q.h + p * 0.55) cur = i; });
+      paras.forEach(function (q, i) {
+        var yy = readY + q.top - m.y; if (yy > H2 || yy + q.h < 0) return;
+        ctx.fillStyle = i === cur ? LIMA : "rgba(255,255,255,.62)";
+        q.ls.forEach(function (l, k) { ctx.fillText(l, W2 / 2, yy + k * lh); });
+      });
+      if (m.fase === "fim") { ctx.fillStyle = LIMA; ctx.fillText("FIM", W2 / 2, Math.min(H2 - lh * 2, readY + 40)); }
+      ctx.restore();
+      // máscara de fade em cima e embaixo
+      var g = ctx.createLinearGradient(0, 0, 0, H2); g.addColorStop(0, "rgba(0,0,0,.9)"); g.addColorStop(0.1, "rgba(0,0,0,0)"); g.addColorStop(0.9, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,.9)");
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W2, H2);
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      if (m.fase === "contagem") {
+        ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(0, 0, W2, H2);
+        ctx.fillStyle = LIMA; ctx.font = "900 " + Math.round(W2 * 0.5) + "px " + FONTE; ctx.fillText(String(Math.max(1, Math.ceil(m.ft))), W2 / 2, H2 / 2);
+      } else if (m.fase === "espera") {
+        ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(0, 0, W2, H2);
+        ctx.fillStyle = "#fff"; ctx.font = "800 " + Math.round(W2 * 0.07) + "px " + FONTE; ctx.fillText("Começa em", W2 / 2, H2 * 0.4);
+        ctx.fillStyle = LIMA; ctx.font = "900 " + Math.round(W2 * 0.3) + "px " + FONTE; ctx.fillText(String(Math.ceil(m.ft)), W2 / 2, H2 / 2);
+      } else if (m.fase === "parado") {
+        ctx.fillStyle = "rgba(0,0,0,.7)"; ctx.fillRect(0, H2 - H2 * 0.14, W2, H2 * 0.14);
+        ctx.fillStyle = "#fff"; ctx.font = "700 " + Math.round(W2 * 0.045) + "px " + FONTE;
+        ctx.fillText(m.y < 1 ? o.dica : "PAUSADO", W2 / 2, H2 - H2 * 0.07);
+      }
+    };
+    m.layout();
+    return m;
+  }
+
+  function telaRoteiro() {
+    var ult = lerOpcao(); if (ult === "pip" && !PIP_OK) ult = "tela";
+    function card(id, tit, corpo) {
+      return '<div class="vd-op' + (id === "pip" ? " dest" : "") + (ult === id ? " ult" : "") + '" id="op-' + id + '"><b>' + tit + (ult === id ? ' <em>última usada</em>' : '') + '</b>' + corpo + '</div>';
+    }
+    function range(id, rot, min, max, step, val, fmt) {
+      return '<label class="vd-rg"><span>' + rot + '</span><input type="range" id="' + id + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + val + '"><em id="' + id + '-v">' + fmt(val) + '</em></label>';
+    }
+    var fPx = function (v) { return v + "px"; }, fVel = function (v) { return (+v).toFixed(1).replace(".", ",") + "x"; };
+    var opPip = PIP_OK
+      ? card("pip", "📱 Teleprompter flutuante (gravar no app Câmera)",
+        '<p class="vd-hint">1. Toque em Iniciar teleprompter<br>2. A janelinha fica flutuando<br>3. Abra o app Câmera em Vídeo e grave lendo a janelinha (posicione-a perto da lente)</p>' +
+        '<div id="pip-cfg">' + range("pp-fonte", "Letra", 22, 64, 1, prefs.fonte, fPx) + range("pp-vel", "Velocidade", 0.3, 2.5, 0.1, prefs.vel, fVel) +
+        '<label class="vd-rg"><span>Contagem 3-2-1</span><input type="checkbox" id="pp-cont"' + (prefs.contagem ? " checked" : "") + '></label>' +
+        '<label class="vd-rg"><span>Começar</span><select id="pp-atraso"><option value="0"' + (prefs.atraso === 0 ? " selected" : "") + '>Ao tocar ▶ na janelinha</option><option value="5"' + (prefs.atraso === 5 ? " selected" : "") + '>Sozinho em 5 s</option><option value="10"' + (prefs.atraso === 10 ? " selected" : "") + '>Sozinho em 10 s</option></select></label>' +
+        '<button class="vd-btn pri" id="pp-ini" style="flex:none;width:100%">Iniciar teleprompter</button></div>' +
+        '<div id="pip-ctl" hidden><p class="vd-hint" id="pp-st"></p><div class="vd-row"><button class="vd-btn" id="pp-pl">⏸ Pausar</button><button class="vd-btn" id="pp-ini0">⏮ Início</button></div>' +
+        '<div class="vd-row"><button class="vd-btn" id="pp-m">− Devagar</button><button class="vd-btn" id="pp-vv" disabled></button><button class="vd-btn" id="pp-p">+ Rápido</button></div>' +
+        '<button class="vd-btn" id="pp-fim" style="flex:none;width:100%">Fechar janelinha</button></div>')
+      : '<div class="vd-op" id="op-pip"><b>📱 Teleprompter flutuante</b><p class="vd-hint">Seu navegador não permite janela flutuante — use a opção 2.</p></div>';
+    abrir(cab("Seu roteiro") + '<p class="vd-hint">Edite do seu jeito. Uma frase por linha.</p>' +
+      '<textarea id="vd-rot" style="min-height:220px;font-size:17px;line-height:1.4">' + esc(fluxo.roteiro) + '</textarea>' +
+      '<div class="vd-row"><button class="vd-btn" id="vd-cp-r">Copiar roteiro</button></div>' +
+      '<p class="vd-hint">Legenda do post (copie na hora de publicar):</p><textarea id="vd-leg" style="min-height:80px">' + esc(fluxo.legenda) + '</textarea>' +
+      '<div class="vd-row"><button class="vd-btn" id="vd-cp-l">Copiar legenda</button></div>' +
+      '<div class="rl-lb" style="margin-top:6px">Como você quer gravar?</div>' + opPip +
+      card("tela", "🖥️ Ler em outra tela",
+        '<p class="vd-hint">Teleprompter em tela cheia, sem câmera. Use num notebook, tablet ou outro celular apoiado atrás do celular que grava. Para abrir no outro aparelho, copie o roteiro ou mande por WhatsApp.</p>' +
+        '<button class="vd-btn' + (PIP_OK ? "" : " pri") + '" id="op-tela-go" style="flex:none;width:100%">Abrir em tela cheia</button>' +
+        '<div class="vd-row"><button class="vd-btn" id="vd-cp-r2">Copiar roteiro</button><button class="vd-btn" id="vd-wa">Enviar pro WhatsApp</button></div>') +
+      card("cam", "🎥 Gravar aqui mesmo", '<p class="vd-hint">Câmera do navegador com o texto rolando por cima. A qualidade é menor que a do app Câmera.</p><button class="vd-btn" id="vd-grav" style="flex:none;width:100%">Ir para a gravação</button>') +
+      '<div class="vd-row"><button class="vd-btn" id="vd-volta">Voltar</button></div>');
+    function ler() { fluxo.roteiro = $("vd-rot").value.trim(); fluxo.legenda = $("vd-leg").value; return fluxo.roteiro; }
+    function lerNaoVazio() { if (!ler()) { V.toast("O roteiro está vazio."); return false; } return true; }
+    $("vd-volta").onclick = function () { ler(); telaEscolha(); };
+    $("vd-cp-r").onclick = function () { if (lerNaoVazio()) copiar(fluxo.roteiro, "Roteiro copiado!"); };
+    $("vd-cp-r2").onclick = $("vd-cp-r").onclick;
+    $("vd-cp-l").onclick = function () { ler(); if (!fluxo.legenda.trim()) { V.toast("A legenda está vazia."); return; } copiar(fluxo.legenda, "Legenda copiada!"); };
+    $("vd-wa").onclick = function () { if (!lerNaoVazio()) return; salvarOpcao("tela"); window.open("https://wa.me/?text=" + encodeURIComponent(fluxo.roteiro), "_blank", "noopener"); };
+    $("vd-grav").onclick = function () { if (!lerNaoVazio()) return; salvarOpcao("cam"); telaGravacao(); };
+    $("op-tela-go").onclick = function () { if (!lerNaoVazio()) return; salvarOpcao("tela"); telaLeitura(); };
+    if (PIP_OK) {
+      $("pp-fonte").oninput = function () { prefs.fonte = +this.value; $("pp-fonte-v").textContent = fPx(prefs.fonte); salvarPrefs(); if (pip) pip.m.layout(); };
+      $("pp-vel").oninput = function () { prefs.vel = +this.value; $("pp-vel-v").textContent = fVel(prefs.vel); salvarPrefs(); };
+      $("pp-cont").onchange = function () { prefs.contagem = this.checked; salvarPrefs(); };
+      $("pp-atraso").onchange = function () { prefs.atraso = +this.value; salvarPrefs(); };
+      $("pp-ini").onclick = function () { if (lerNaoVazio()) iniciarPip(); };
+      $("pp-fim").onclick = function () { pararPrevia(); };
+    }
+
+    var pip = null;
+    function estado() {
+      if (!pip) return;
+      var f = pip.m.fase, t = f === "espera" ? "Começa em " + Math.ceil(pip.m.ft) + " s — abra o app Câmera e comece a gravar." : f === "contagem" ? "Contagem…" : f === "rodando" ? "Rolando." : f === "fim" ? "Terminou." : "Pausado. Toque ▶ na janelinha ou aqui para continuar.";
+      var s = $("pp-st"); if (s) s.textContent = t;
+      var b = $("pp-pl"); if (b) b.textContent = (f === "rodando" || f === "contagem" || f === "espera") ? "⏸ Pausar" : "▶ Continuar";
+      var v = $("pp-vv"); if (v) v.textContent = fVel(prefs.vel);
+    }
+    async function iniciarPip() {
+      salvarOpcao("pip");
+      if (pip) pararPrevia();
+      var cv = document.createElement("canvas"); cv.width = 720; cv.height = 1280;
+      var m = criarMotor(cv, { escala: 1.7, espelho: false, dica: "Toque o play da janelinha" });
+      m.desenhar();
+      var vid = document.createElement("video");
+      vid.muted = true; vid.defaultMuted = true; vid.playsInline = true; vid.setAttribute("playsinline", ""); vid.setAttribute("muted", "");
+      vid.style.cssText = "position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:.01;pointer-events:none";
+      root.appendChild(vid);
+      var forca = false;
+      pip = { m: m, vid: vid, parar: null, cv: cv };
+      var parar = criarRelogio(function (dt) { m.tick(dt); estado(); });
+      function limpa() {
+        parar();
+        try { if (document.pictureInPictureElement === vid) document.exitPictureInPicture(); } catch (e) {}
+        try { if (vid.webkitPresentationMode === "picture-in-picture") vid.webkitSetPresentationMode("inline"); } catch (e) {}
+        try { vid.pause(); vid.srcObject = null; if (vid.parentNode) vid.parentNode.removeChild(vid); } catch (e) {}
+        pip = null; pararPrevia = function () {};
+        if ($("pip-cfg")) { $("pip-cfg").hidden = false; $("pip-ctl").hidden = true; }
+      }
+      pararPrevia = limpa;
+      try {
+        vid.srcObject = cv.captureStream(30);
+        var pr = vid.play(); if (pr && pr.catch) pr.catch(function () {});
+        if (vid.readyState < 1) await new Promise(function (ok) { var t = setTimeout(ok, 1500); vid.addEventListener("loadedmetadata", function () { clearTimeout(t); ok(); }, { once: true }); });
+        if (document.pictureInPictureEnabled && typeof vid.requestPictureInPicture === "function") await vid.requestPictureInPicture();
+        else vid.webkitSetPresentationMode("picture-in-picture");
+      } catch (e) {
+        limpa();
+        V.toast("Não consegui abrir a janelinha. Use a opção 2 ou 3.");
+        return;
+      }
+      // os botões play/pause da própria janelinha controlam o teleprompter (o vídeo nunca fica pausado, senão a imagem congelaria)
+      vid.addEventListener("pause", function () { if (forca) return; forca = true; var r = vid.play(); if (r && r.catch) r.catch(function () {}); setTimeout(function () { forca = false; }, 120); m.alternar(); estado(); });
+      vid.addEventListener("leavepictureinpicture", function () { if (pip) limpa(); });
+      vid.addEventListener("webkitpresentationmodechanged", function () { if (pip && vid.webkitPresentationMode !== "picture-in-picture") limpa(); });
+      $("pip-cfg").hidden = true; $("pip-ctl").hidden = false;
+      m.agendar(prefs.atraso);
+      estado();
+      $("pp-pl").onclick = function () { m.alternar(); estado(); };
+      $("pp-ini0").onclick = function () { m.inicio(); estado(); };
+      $("pp-m").onclick = function () { prefs.vel = Math.max(0.3, Math.round((prefs.vel - 0.1) * 10) / 10); salvarPrefs(); estado(); };
+      $("pp-p").onclick = function () { prefs.vel = Math.min(2.5, Math.round((prefs.vel + 0.1) * 10) / 10); salvarPrefs(); estado(); };
+    }
+  }
+
+  /* opção 2: teleprompter em tela cheia, sem câmera */
+  function telaLeitura() {
+    abrirCheia('<div class="cm lt" id="lt"><canvas id="lt-cv" style="position:absolute;inset:0;width:100%;height:100%"></canvas>' +
+      '<div class="cm-top"><button class="cm-ic" id="lt-x" aria-label="Voltar">' + svg("x") + '</button><div class="vd-hint" style="color:#fff;font-size:12px">Toque na tela: pausa · espaço pausa · setas mudam a velocidade</div></div>' +
+      '<div class="lt-bar"><button id="lt-ini">⏮</button><button id="lt-pl">▶</button><button id="lt-m">−</button><span id="lt-v"></span><button id="lt-p">+</button><button id="lt-am">A−</button><button id="lt-ap">A+</button><button id="lt-esp" aria-label="Espelhar">⇋</button></div></div>');
+    var cv = $("lt-cv"), dpr = Math.min(2, window.devicePixelRatio || 1);
+    function tam() { cv.width = Math.round(cv.clientWidth * dpr); cv.height = Math.round(cv.clientHeight * dpr); }
+    tam();
+    var m = criarMotor(cv, { escala: 1.5 * dpr, espelho: true, dica: "Toque na tela para começar" });
+    m.desenhar();
+    function vel() { $("lt-v").textContent = prefs.vel.toFixed(1).replace(".", ",") + "x"; $("lt-pl").textContent = (m.fase === "rodando" || m.fase === "contagem") ? "⏸" : "▶"; $("lt-esp").classList.toggle("on", prefs.espTxt); }
+    function av(d) { prefs.vel = Math.max(0.3, Math.min(2.5, Math.round((prefs.vel + d) * 10) / 10)); salvarPrefs(); vel(); }
+    function af(d) { prefs.fonte = Math.max(22, Math.min(64, prefs.fonte + d)); salvarPrefs(); m.layout(); }
+    var parar = criarRelogio(function (dt) { m.tick(dt); vel(); });
+    var rs = function () { tam(); m.layout(); m.desenhar(); };
+    window.addEventListener("resize", rs);
+    function tecla(e) {
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || "")) return;
+      if (e.code === "Space") { e.preventDefault(); m.alternar(); }
+      else if (e.key === "ArrowUp" || e.key === "ArrowRight") { e.preventDefault(); av(0.1); }
+      else if (e.key === "ArrowDown" || e.key === "ArrowLeft") { e.preventDefault(); av(-0.1); }
+      else if (e.key === "Escape") telaRoteiro();
+      vel();
+    }
+    document.addEventListener("keydown", tecla);
+    var lock = null, vivo = true;
+    function trava() { try { if (vivo && navigator.wakeLock && document.visibilityState === "visible") navigator.wakeLock.request("screen").then(function (w) { if (!vivo) { w.release(); return; } lock = w; }).catch(function () {}); } catch (e) {} }
+    trava(); document.addEventListener("visibilitychange", trava);
+    pararPrevia = function () {
+      vivo = false; parar(); window.removeEventListener("resize", rs); document.removeEventListener("keydown", tecla); document.removeEventListener("visibilitychange", trava);
+      if (lock) { try { lock.release(); } catch (e) {} lock = null; }
+      pararPrevia = function () {};
+    };
+    cv.onclick = function () { m.alternar(); vel(); };
+    $("lt-x").onclick = telaRoteiro;
+    $("lt-pl").onclick = function () { m.alternar(); vel(); };
+    $("lt-ini").onclick = function () { m.inicio(); vel(); };
+    $("lt-m").onclick = function () { av(-0.1); }; $("lt-p").onclick = function () { av(0.1); };
+    $("lt-am").onclick = function () { af(-2); }; $("lt-ap").onclick = function () { af(2); };
+    $("lt-esp").onclick = function () { prefs.espTxt = !prefs.espTxt; salvarPrefs(); vel(); m.desenhar(); };
+    vel();
   }
 
   var IC = {

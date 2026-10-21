@@ -20,8 +20,8 @@
 
   /* ---------- preferências (localStorage com try/catch) ---------- */
   var PREF_KEY = "vd-prefs-v2";
-  var prefs = { facing: "user", res: "720", fonte: 34, vel: 1, larg: 100, fundo: 55, espTxt: false, grade: false, voz: false };
-  try { var salvo = JSON.parse(localStorage.getItem(PREF_KEY) || "{}"); if (salvo && typeof salvo === "object") Object.keys(prefs).forEach(function (k) { if (salvo[k] !== undefined && typeof salvo[k] === typeof prefs[k]) prefs[k] = salvo[k]; }); } catch (e) {}
+  var prefs = { v2: true, facing: "user", res: "1080", fonte: 34, vel: 1, larg: 100, fundo: 55, espTxt: false, grade: false, voz: false };
+  try { var salvo = JSON.parse(localStorage.getItem(PREF_KEY) || "{}"); if (salvo && !salvo.v2) { delete salvo.res; salvo.v2 = true; }   /* v2: padrão passou a 1080p */ if (salvo && typeof salvo === "object") Object.keys(prefs).forEach(function (k) { if (salvo[k] !== undefined && typeof salvo[k] === typeof prefs[k]) prefs[k] = salvo[k]; }); } catch (e) {}
   function salvarPrefs() { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch (e) {} }
 
   /* ---------- estilos ---------- */
@@ -143,7 +143,7 @@
     if (!window.MediaRecorder) return "";
     return lista.find(function (t) { return MediaRecorder.isTypeSupported(t); }) || "";
   }
-  var MIME_PRIORIDADE = ["video/mp4;codecs=avc1.42E01E,mp4a.40.2", "video/mp4", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"];
+  var MIME_PRIORIDADE = ["video/mp4;codecs=avc1.640028,mp4a.40.2", "video/mp4;codecs=avc1.4D401F,mp4a.40.2", "video/mp4", "video/webm;codecs=h264,opus", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"];
   function extDe(type) { return /mp4/.test(type) ? "mp4" : "webm"; }
   function tipoBase(mime, fallback) { return (mime || fallback || "video/webm").split(";")[0]; }
   function gravar(rec) {
@@ -843,8 +843,10 @@
 
   async function abrirStream(S) {
     if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+    // pede a imagem já em pé (9:16) e na maior resolução da opção; muitos celulares entregam deitado (16:9)
+    // mesmo assim — nesse caso a gravação passa pelo canvas 9:16 (ver iniciaCanvas), garantindo vídeo vertical.
     var alt = prefs.res === "1080" ? 1920 : 1280, lar = prefs.res === "1080" ? 1080 : 720;
-    var base = { width: { ideal: lar }, height: { ideal: alt }, frameRate: { ideal: 30 } };
+    var base = { width: { ideal: lar }, height: { ideal: alt }, aspectRatio: { ideal: 9 / 16 }, frameRate: { ideal: 30 }, resizeMode: "none" };
     try {
       stream = await navigator.mediaDevices.getUserMedia({ video: Object.assign({ facingMode: { ideal: prefs.facing } }, base), audio: { echoCancellation: true, noiseSuppression: true } });
     } catch (e) {
@@ -1134,6 +1136,7 @@
       var cam = $("cm-v"), CW = prefs.res === "1080" ? 1080 : 720, CH = CW * 16 / 9;
       var cv = document.createElement("canvas"); cv.width = CW; cv.height = Math.round(CH);
       var cx = cv.getContext("2d", { alpha: false });
+      cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = "high";
       cvRec = { cv: cv, ativo: true };
       function frame() {
         var vw = cam.videoWidth, vh = cam.videoHeight; if (!vw || !vh) return;
@@ -1159,8 +1162,12 @@
         $("cm-sheet").hidden = true;
         if (!(await contagem())) return;
         var fonte = stream;
-        if (S.digital) fonte = iniciaCanvas();   // zoom digital: grava o canvas recortado (+ áudio do mic)
-        rec = new MediaRecorder(fonte, mime ? { mimeType: mime, videoBitsPerSecond: prefs.res === "1080" ? 8000000 : 5000000 } : undefined);
+        // grava pelo canvas 9:16 quando: zoom digital OU a câmera entregou a imagem deitada/fora de 9:16
+        // (sem isso o arquivo saía horizontal mesmo com a prévia em pé)
+        var camEl = $("cm-v"), vw = camEl && camEl.videoWidth, vh = camEl && camEl.videoHeight;
+        var emPe = vw && vh && vh > vw && Math.abs(vw / vh - 9 / 16) < 0.04;
+        if (S.digital || !emPe) fonte = iniciaCanvas();
+        rec = new MediaRecorder(fonte, mime ? { mimeType: mime, videoBitsPerSecond: prefs.res === "1080" ? 12000000 : 6000000, audioBitsPerSecond: 128000 } : undefined);
         g = gravar(rec); rec.start(500); tIni = performance.now(); S.gravando = true; S.rodando = true; marcaPausa();
         btn.classList.add("on"); $("cm-tm").classList.add("on");
         timer = setInterval(function () { var s = Math.floor((performance.now() - tIni) / 1000); var el = $("cm-tm"); if (el) el.textContent = pad(Math.floor(s / 60)) + ":" + pad(s % 60); }, 400);

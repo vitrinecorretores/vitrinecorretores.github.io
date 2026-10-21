@@ -846,7 +846,10 @@
     // pede a imagem já em pé (9:16) e na maior resolução da opção; muitos celulares entregam deitado (16:9)
     // mesmo assim — nesse caso a gravação passa pelo canvas 9:16 (ver iniciaCanvas), garantindo vídeo vertical.
     var alt = prefs.res === "1080" ? 1920 : 1280, lar = prefs.res === "1080" ? 1080 : 720;
-    var base = { width: { ideal: lar }, height: { ideal: alt }, aspectRatio: { ideal: 9 / 16 }, frameRate: { ideal: 30 }, resizeMode: "none" };
+    // sem aspectRatio: no iPhone essa restrição faz o Safari RECORTAR o sensor (imagem com "zoom" e menos nítida).
+    // Pede a resolução na orientação em que a pessoa segura o celular; o recorte 9:16, se precisar, é feito por nós.
+    var emPeTela = (window.innerHeight || 0) >= (window.innerWidth || 0);
+    var base = { width: { ideal: emPeTela ? lar : alt }, height: { ideal: emPeTela ? alt : lar }, frameRate: { ideal: 30 } };
     try {
       stream = await navigator.mediaDevices.getUserMedia({ video: Object.assign({ facingMode: { ideal: prefs.facing } }, base), audio: { echoCancellation: true, noiseSuppression: true } });
     } catch (e) {
@@ -1018,6 +1021,8 @@
     }
     // imediato=true (pinça): o zoom acompanha os dedos sem atraso
     function defineZoom(v, imediato) {
+      // gravando direto da câmera (sem canvas) o zoom digital não iria pro arquivo: trava até parar
+      if (S.gravando && S.direto && S.digital) { if (window.Vitrine && window.Vitrine.toast) window.Vitrine.toast("Ajuste o zoom antes de começar a gravar."); return; }
       S.zAlvo = zLimita(v);
       if (imediato) { S.zAtual = S.zAlvo; aplicaZoom(S.zAtual); } else if (!zRaf) zRaf = requestAnimationFrame(function (t) { zTick(t, 0); });
       marcaBotoesZoom(); mostraZoomInd();
@@ -1077,6 +1082,7 @@
     }
     function montaFolha() {
       var sh = $("cm-sheet"), c = S.caps || {}, h = '<h4>Câmera</h4>';
+      var cv0 = $("cm-v"); if (cv0 && cv0.videoWidth) h += '<div style="font-size:12px;color:#A1A1AA;margin:-4px 0 8px">Imagem da câmera: ' + cv0.videoWidth + '×' + cv0.videoHeight + (cv0.videoHeight > cv0.videoWidth ? " (em pé)" : " (deitada)") + '</div>';
       h += chips("cfg-res", [["720", "720p"], ["1080", "1080p"]], prefs.res);
       h += chips("cfg-grade", [["1", "Grade 3×3 " + (prefs.grade ? "ligada" : "desligada")]], prefs.grade ? "1" : "x");
       var zf = zFaixa();
@@ -1134,6 +1140,9 @@
     var cvRec = null;
     function iniciaCanvas() {
       var cam = $("cm-v"), CW = prefs.res === "1080" ? 1080 : 720, CH = CW * 16 / 9;
+      // não aumenta além do que a câmera entrega (esticar só piora): limita pelo tamanho do recorte 9:16 da fonte
+      var fw = cam.videoWidth || CW, fh = cam.videoHeight || CH, recW = Math.min(fw, fh * 9 / 16);
+      if (recW < CW) { CW = Math.max(360, Math.round(recW / 2) * 2); CH = CW * 16 / 9; }
       var cv = document.createElement("canvas"); cv.width = CW; cv.height = Math.round(CH);
       var cx = cv.getContext("2d", { alpha: false });
       cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = "high";
@@ -1165,8 +1174,11 @@
         // grava pelo canvas 9:16 quando: zoom digital OU a câmera entregou a imagem deitada/fora de 9:16
         // (sem isso o arquivo saía horizontal mesmo com a prévia em pé)
         var camEl = $("cm-v"), vw = camEl && camEl.videoWidth, vh = camEl && camEl.videoHeight;
-        var emPe = vw && vh && vh > vw && Math.abs(vw / vh - 9 / 16) < 0.04;
-        if (S.digital || !emPe) fonte = iniciaCanvas();
+        var emPe = vw && vh && vh > vw;
+        // em pé e sem zoom digital: grava direto da câmera (máxima nitidez, sem recorte).
+        // deitada ou com zoom digital: passa pelo canvas 9:16.
+        if (!emPe || (S.digital && (S.zAlvo || 1) > 1.01)) fonte = iniciaCanvas();
+        S.direto = fonte === stream;
         rec = new MediaRecorder(fonte, mime ? { mimeType: mime, videoBitsPerSecond: prefs.res === "1080" ? 12000000 : 6000000, audioBitsPerSecond: 128000 } : undefined);
         g = gravar(rec); rec.start(500); tIni = performance.now(); S.gravando = true; S.rodando = true; marcaPausa();
         btn.classList.add("on"); $("cm-tm").classList.add("on");

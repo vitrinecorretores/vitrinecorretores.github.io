@@ -57,10 +57,12 @@
     ".rl-lb{font-size:12px;color:#A1A1AA;font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:-6px}",
     ".rl-sticky{position:sticky;bottom:0;background:linear-gradient(rgba(9,9,11,0),#09090B 30%);padding:14px 0 calc(6px + env(safe-area-inset-bottom));margin-top:auto}",
     /* câmera */
-    ".cm{position:fixed;inset:0;background:#000;color:#fff;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:manipulation}",
+    ".cm{position:fixed;inset:0;background:#000;color:#fff;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:none}",
     ".cm button{font-family:inherit;color:inherit;-webkit-tap-highlight-color:transparent}",
     ".cm-v{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}",
     ".cm-v.esp{transform:scaleX(-1)}",
+    ".cm-zi{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);background:rgba(0,0,0,.55);color:#fff;font-size:22px;font-weight:800;padding:8px 18px;border-radius:999px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:6}",
+    ".cm-zi.on{opacity:1}",
     ".cm-grade{position:absolute;inset:0;pointer-events:none;display:none;background:linear-gradient(90deg,transparent 33.2%,rgba(255,255,255,.35) 33.3%,transparent 33.5%,transparent 66.5%,rgba(255,255,255,.35) 66.6%,transparent 66.8%),linear-gradient(0deg,transparent 33.2%,rgba(255,255,255,.35) 33.3%,transparent 33.5%,transparent 66.5%,rgba(255,255,255,.35) 66.6%,transparent 66.8%)}",
     ".cm-grade.on{display:block}",
     ".cm-top{position:absolute;top:0;left:0;right:0;padding:calc(10px + env(safe-area-inset-top)) 12px 18px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,0));z-index:5}",
@@ -854,7 +856,7 @@
     S.torch = false;
     // a câmera frontal é espelhada só na tela; o arquivo gravado sai sem espelho
     var front = (S.set.facingMode ? S.set.facingMode === "user" : prefs.facing === "user");
-    var cam = $("cm-v"); if (cam) { cam.srcObject = stream; cam.classList.toggle("esp", front); cam.play().catch(function () {}); }
+    var cam = $("cm-v"); if (cam) { cam.srcObject = stream; cam.classList.toggle("esp", front); S.front = front; cam.play().catch(function () {}); }
   }
 
   async function telaGravacao() {
@@ -868,7 +870,7 @@
       '<div class="cm-top"><button class="cm-ic" id="cm-x" aria-label="Fechar">' + svg("x") + '</button><div class="cm-tm" id="cm-tm">00:00</div>' +
       '<div class="cm-tb"><button class="cm-ic" id="cm-flip" aria-label="Trocar câmera">' + svg("flip") + '</button><button class="cm-ic" id="cm-torch" aria-label="Lanterna" hidden>' + svg("raio") + '</button><button class="cm-ic" id="cm-cfg" aria-label="Configurações">' + svg("ajustes") + '</button></div></div>' +
       '<div class="cm-side"><button id="cm-mais" aria-label="Mais rápido">+</button><span id="cm-vel"></span><button id="cm-menos" aria-label="Mais devagar">−</button></div>' +
-      '<div class="cm-count" id="cm-ct"></div>' +
+      '<div class="cm-count" id="cm-ct"></div><div class="cm-zi" id="cm-zi"></div>' +
       '<div class="cm-bot"><div class="cm-zoom" id="cm-zoom"></div><div class="cm-shut"><button class="cm-ic" id="cm-txt" aria-label="Mostrar ou esconder o texto">' + svg("texto") + '</button><button class="cm-rec" id="cm-rec" aria-label="Gravar"><i></i></button>' +
       (VOZ_OK ? '<button class="cm-ic" id="cm-voz" aria-label="Rolagem pela voz">' + svg("mic") + '</button>' : '<span style="width:48px"></span>') + '</div></div>' +
       '<div class="cm-sheet" id="cm-sheet" hidden></div></div>');
@@ -917,11 +919,11 @@
     var arr = null;
     tp.onpointerdown = function (e) { arr = { y0: e.clientY, sy: S.y, mov: false }; try { tp.setPointerCapture(e.pointerId); } catch (x) {} };
     tp.onpointermove = function (e) {
-      if (!arr) return; var dy = e.clientY - arr.y0;
+      if (!arr || S.pinca) return; var dy = e.clientY - arr.y0;
       if (Math.abs(dy) > 6) { arr.mov = true; S.y = Math.max(0, Math.min(tpt.scrollHeight, arr.sy - dy)); if (S.vozAtiva) S.cur = achaPalavra(S.y); pos(); }
     };
     tp.onpointerup = function () {
-      if (arr && !arr.mov) { S.rodando = !S.rodando; marcaPausa(); if (!S.gravando) S.rodando = false; }
+      if (arr && !arr.mov && !S.pinca) { S.rodando = !S.rodando; marcaPausa(); if (!S.gravando) S.rodando = false; }
       arr = null;
     };
     function achaPalavra(y) { for (var i = 0; i < words.length; i++) if (words[i].el.offsetTop + 2 >= y) return i; return words.length - 1; }
@@ -961,19 +963,92 @@
 
     /* ----- controles da câmera ----- */
     async function aplicar(adv) { try { await S.vt.applyConstraints({ advanced: [adv] }); return true; } catch (e) { return false; } }
+    /* ----- zoom -----
+       Zoom SEMPRE disponível nas duas câmeras:
+       - Com zoom de hardware (track.getCapabilities().zoom): applyConstraints, faixa real da câmera (melhor qualidade).
+       - Sem hardware (frontal / iPhone): ZOOM DIGITAL de 1x a 3x. O <video> do preview recebe transform scale
+         centralizado (mantendo o espelho da frontal) e a GRAVAÇÃO sai de um canvas 9:16 (720p/1080p) onde o frame
+         do vídeo é recortado no centro conforme o zoom, SEM espelho, via captureStream(30) + a trilha de áudio do mic.
+         Como o usuário pode mexer no zoom durante a gravação, no modo digital gravamos SEMPRE pelo canvas (a fonte
+         nunca troca no meio; o modo é definido ao abrir a câmera e a gravação usa o modo vigente no início).
+       - Áudio/vídeo: a trilha de áudio é a original do getUserMedia (mesmo relógio da câmera); o canvas só desenha
+         um frame por frame de câmera (requestVideoFrameCallback quando existe), então o atraso é ~1 frame.
+       - O arquivo é um webm/mp4 normal do MediaRecorder, então a legenda automática (gerarLegenda) segue igual. */
+    var ZD_MAX = 3;
+    S.zAlvo = S.zAlvo || 1; S.zAtual = S.zAtual || 1; S.digital = false; S.hwUlt = 0; S.hwOcupado = false;
     function zoomRange() { var z = S.caps && S.caps.zoom; return z && typeof z.min === "number" && typeof z.max === "number" && z.max > z.min ? z : null; }
+    function zFaixa() { var z = S.digital ? null : zoomRange(); return z ? { min: z.min, max: z.max, step: z.step || 0.1 } : { min: 1, max: ZD_MAX, step: 0.1 }; }
+    function zLimita(v) { var f = zFaixa(); return Math.max(f.min, Math.min(f.max, v)); }
+    var zInd = 0;
+    function mostraZoomInd() {
+      var el = $("cm-zi"); if (!el) return;
+      el.textContent = (Math.round(S.zAlvo * 10) / 10).toFixed(1).replace(".", ",") + "×"; el.classList.add("on");
+      clearTimeout(zInd); zInd = setTimeout(function () { el.classList.remove("on"); }, 900);
+    }
+    function marcaBotoesZoom() {
+      var box = $("cm-zoom"); if (!box) return;
+      var bs = Array.prototype.slice.call(box.children), melhor = null;
+      bs.forEach(function (b) { if (!melhor || Math.abs(+b.dataset.v - S.zAlvo) < Math.abs(+melhor.dataset.v - S.zAlvo)) melhor = b; });
+      bs.forEach(function (b) { b.className = (b === melhor && Math.abs(+b.dataset.v - S.zAlvo) < 0.25) ? "on" : ""; });
+      var r = $("cfg-zoom"); if (r) { r.value = S.zAlvo; var rv = $("cfg-zoom-v"); if (rv) rv.textContent = S.zAlvo.toFixed(1) + "×"; }
+    }
+    function aplicaZoom(z) {
+      var cam = $("cm-v"); if (!cam) return;
+      if (S.digital) {
+        cam.style.transform = (S.front ? "scaleX(-1) " : "") + "scale(" + z.toFixed(4) + ")";
+      } else {
+        cam.style.transform = "";
+        var agora = performance.now();
+        if (!S.hwOcupado && agora - S.hwUlt > 60) {   // applyConstraints é assíncrono e pesado: limita a ~16/s
+          S.hwOcupado = true; S.hwUlt = agora; S.set.zoom = z;
+          aplicar({ zoom: z }).then(function () { S.hwOcupado = false; });
+        }
+      }
+    }
+    var zRaf = 0;
+    function zTick(ts, ant) {
+      zRaf = 0; var dt = Math.min(0.05, ant ? (ts - ant) / 1000 : 0.016);
+      var d = S.zAlvo - S.zAtual;
+      if (Math.abs(d) < 0.002) { S.zAtual = S.zAlvo; aplicaZoom(S.zAtual); return; }
+      S.zAtual += d * (1 - Math.exp(-dt / 0.05));   // constante ~50ms: assenta em ~150ms
+      aplicaZoom(S.zAtual);
+      zRaf = requestAnimationFrame(function (t) { zTick(t, ts); });
+    }
+    // imediato=true (pinça): o zoom acompanha os dedos sem atraso
+    function defineZoom(v, imediato) {
+      S.zAlvo = zLimita(v);
+      if (imediato) { S.zAtual = S.zAlvo; aplicaZoom(S.zAtual); } else if (!zRaf) zRaf = requestAnimationFrame(function (t) { zTick(t, 0); });
+      marcaBotoesZoom(); mostraZoomInd();
+    }
+    // chamado ao abrir/trocar de câmera: decide hardware x digital e reaplica o zoom escolhido (limitado à nova faixa)
+    async function iniciaZoom() {
+      S.digital = !zoomRange();
+      if (!S.digital) { var f = zFaixa(); if (!(await aplicar({ zoom: Math.max(f.min, Math.min(f.max, S.zAlvo)) }))) S.digital = true; }
+      S.zAlvo = zLimita(S.zAlvo); S.zAtual = S.zAlvo; S.set.zoom = S.zAlvo; aplicaZoom(S.zAtual);
+      montaZoom();
+    }
     function montaZoom() {
-      var z = zoomRange(), box = $("cm-zoom"); box.innerHTML = "";
-      if (!z) return;
-      var cur = +(S.set.zoom || 1), cand = [0.5, 1, 2].filter(function (v) { return v >= z.min - 0.01 && v <= z.max + 0.01; });
-      if (cand.length < 2) return;
-      var ativo = cand.reduce(function (a, b) { return Math.abs(b - cur) < Math.abs(a - cur) ? b : a; });
+      var box = $("cm-zoom"); box.innerHTML = "";
+      var f = zFaixa(), cand = [0.5, 1, 2, 3].filter(function (v) { return v >= f.min - 0.01 && v <= f.max + 0.01; });   // 0.5x só se o hardware tiver
       cand.forEach(function (v) {
-        var b = document.createElement("button"); b.textContent = String(v).replace(".", ",") + "×"; if (v === ativo) b.className = "on";
-        b.onclick = async function () { if (await aplicar({ zoom: v })) { S.set.zoom = v; montaZoom(); var r = $("cfg-zoom"); if (r) r.value = v; } };
+        var b = document.createElement("button"); b.textContent = String(v).replace(".", ",") + "×"; b.dataset.v = v;
+        b.onclick = function () { defineZoom(v); };
         box.appendChild(b);
       });
+      marcaBotoesZoom();
     }
+    // pinça com dois dedos na tela da câmera
+    (function () {
+      var cm = $("cm"), d0 = 0, z0 = 1;
+      function dist(t) { return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
+      cm.addEventListener("touchstart", function (e) { if (e.touches.length === 2) { S.pinca = true; arr = null; d0 = dist(e.touches); z0 = S.zAlvo; } }, { passive: true });
+      cm.addEventListener("touchmove", function (e) {
+        if (e.touches.length === 2 && S.pinca && d0 > 0) { e.preventDefault(); defineZoom(z0 * dist(e.touches) / d0, true); }
+      }, { passive: false });
+      cm.addEventListener("touchend", function (e) { if (e.touches.length < 2) setTimeout(function () { S.pinca = false; }, 80); });
+      cm.addEventListener("touchcancel", function () { S.pinca = false; });
+      ["gesturestart", "gesturechange"].forEach(function (n) { cm.addEventListener(n, function (e) { e.preventDefault(); }); });   // Safari: sem zoom da página
+    })();
     function atualizaTorch() {
       var b = $("cm-torch"); b.hidden = !(S.caps && S.caps.torch);
       b.classList.toggle("on", S.torch);
@@ -981,13 +1056,13 @@
     $("cm-torch").onclick = async function () { var novo = !S.torch; if (await aplicar({ torch: novo })) { S.torch = novo; atualizaTorch(); } };
     async function recomeca() {
       try { await abrirStream(S); } catch (e) { V.toast("Não consegui abrir a câmera."); return; }
-      montaZoom(); atualizaTorch(); montaFolha();
+      await iniciaZoom(); atualizaTorch(); montaFolha();
     }
     $("cm-flip").onclick = async function () {
       if (S.gravando || S.contando) { V.toast("Pare a gravação para trocar de câmera."); return; }
       prefs.facing = prefs.facing === "user" ? "environment" : "user"; salvarPrefs(); await recomeca();
     };
-    montaZoom(); atualizaTorch();
+    await iniciaZoom(); atualizaTorch();
     var voz = $("cm-voz");
     if (voz) { voz.classList.toggle("on", prefs.voz); voz.onclick = function () { prefs.voz = !prefs.voz; this.classList.toggle("on", prefs.voz); salvarPrefs(); if (prefs.voz) { S.cur = achaPalavra(S.y); S.marcado = S.cur; garantirFala(); } else if (!LEGENDA_OK && reco) { reco.parar(); reco = null; } montaFolha(); }; }
 
@@ -999,10 +1074,11 @@
       return '<label class="cm-rg"><span>' + rot + '</span><input type="range" id="' + id + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + val + '"><em id="' + id + '-v">' + fmt(val) + '</em></label>';
     }
     function montaFolha() {
-      var sh = $("cm-sheet"), c = S.caps || {}, z = zoomRange(), h = '<h4>Câmera</h4>';
+      var sh = $("cm-sheet"), c = S.caps || {}, h = '<h4>Câmera</h4>';
       h += chips("cfg-res", [["720", "720p"], ["1080", "1080p"]], prefs.res);
       h += chips("cfg-grade", [["1", "Grade 3×3 " + (prefs.grade ? "ligada" : "desligada")]], prefs.grade ? "1" : "x");
-      if (z) h += range("cfg-zoom", "Zoom", z.min, z.max, z.step || 0.1, S.set.zoom || 1, function (v) { return (+v).toFixed(1) + "×"; });
+      var zf = zFaixa();
+      h += range("cfg-zoom", S.digital ? "Zoom (digital)" : "Zoom", zf.min, zf.max, zf.step, S.zAlvo, function (v) { return (+v).toFixed(1) + "×"; });
       var ec = c.exposureCompensation;
       if (ec && typeof ec.min === "number" && ec.max > ec.min) h += range("cfg-exp", "Exposição", ec.min, ec.max, ec.step || 0.1, S.set.exposureCompensation || 0, function (v) { return (+v > 0 ? "+" : "") + (+v).toFixed(1); });
       var fm = Array.isArray(c.focusMode) ? c.focusMode.filter(function (m) { return m === "continuous" || m === "single-shot" || m === "manual"; }) : [];
@@ -1018,7 +1094,7 @@
       h += '<button class="vd-btn pri" id="cfg-ok" style="width:100%;margin-top:12px">Pronto</button>';
       sh.innerHTML = h;
       function on(id, fn) { var el = $(id); if (el) el.oninput = fn; }
-      on("cfg-zoom", async function () { var v = +this.value; $("cfg-zoom-v").textContent = v.toFixed(1) + "×"; if (await aplicar({ zoom: v })) { S.set.zoom = v; montaZoom(); } });
+      on("cfg-zoom", function () { defineZoom(+this.value, true); });
       on("cfg-exp", function () { var v = +this.value; $("cfg-exp-v").textContent = (v > 0 ? "+" : "") + v.toFixed(1); aplicar({ exposureCompensation: v }); S.set.exposureCompensation = v; });
       on("cfg-fonte", function () { prefs.fonte = +this.value; $("cfg-fonte-v").textContent = prefs.fonte + "px"; salvarPrefs(); layoutTp(); });
       on("cfg-larg", function () { prefs.larg = +this.value; $("cfg-larg-v").textContent = prefs.larg + "%"; salvarPrefs(); layoutTp(); });
@@ -1052,22 +1128,49 @@
         })();
       });
     }
+    // canvas de gravação (modo digital): 9:16 na resolução escolhida, recorte central conforme o zoom, sem espelho
+    var cvRec = null;
+    function iniciaCanvas() {
+      var cam = $("cm-v"), CW = prefs.res === "1080" ? 1080 : 720, CH = CW * 16 / 9;
+      var cv = document.createElement("canvas"); cv.width = CW; cv.height = Math.round(CH);
+      var cx = cv.getContext("2d", { alpha: false });
+      cvRec = { cv: cv, ativo: true };
+      function frame() {
+        var vw = cam.videoWidth, vh = cam.videoHeight; if (!vw || !vh) return;
+        var asp = CW / cv.height, cw, ch;                        // recorte "cover" no formato 9:16
+        if (vw / vh > asp) { ch = vh; cw = vh * asp; } else { cw = vw; ch = vw / asp; }
+        var z = S.zAtual || 1; cw /= z; ch /= z;                  // zoom = recorte menor, centralizado
+        cx.drawImage(cam, (vw - cw) / 2, (vh - ch) / 2, cw, ch, 0, 0, cv.width, cv.height);
+      }
+      function laco() {
+        if (!cvRec || !cvRec.ativo) return;
+        frame();
+        if (cam.requestVideoFrameCallback) cam.requestVideoFrameCallback(laco); else requestAnimationFrame(laco);
+      }
+      frame(); laco();
+      var saida = cv.captureStream(30).getVideoTracks().concat(stream.getAudioTracks());
+      return new MediaStream(saida);
+    }
+    function paraCanvas() { if (cvRec) { cvRec.ativo = false; cvRec = null; } }
     $("cm-rec").onclick = async function () {
       var btn = this;
       if (S.contando) { S.contando = false; return; }
       if (!S.gravando) {
         $("cm-sheet").hidden = true;
         if (!(await contagem())) return;
-        rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: prefs.res === "1080" ? 8000000 : 5000000 } : undefined);
+        var fonte = stream;
+        if (S.digital) fonte = iniciaCanvas();   // zoom digital: grava o canvas recortado (+ áudio do mic)
+        rec = new MediaRecorder(fonte, mime ? { mimeType: mime, videoBitsPerSecond: prefs.res === "1080" ? 8000000 : 5000000 } : undefined);
         g = gravar(rec); rec.start(500); tIni = performance.now(); S.gravando = true; S.rodando = true; marcaPausa();
         btn.classList.add("on"); $("cm-tm").classList.add("on");
         timer = setInterval(function () { var s = Math.floor((performance.now() - tIni) / 1000); var el = $("cm-tm"); if (el) el.textContent = pad(Math.floor(s / 60)) + ":" + pad(s % 60); }, 400);
         garantirFala();
-        cancelar = function () { S.gravando = false; clearInterval(timer); if (reco) reco.parar(); try { rec.stop(); } catch (e) {} };
+        cancelar = function () { S.gravando = false; paraCanvas(); clearInterval(timer); if (reco) reco.parar(); try { rec.stop(); } catch (e) {} };
       } else {
         S.gravando = false; S.rodando = false; clearInterval(timer); if (reco) reco.parar(); cancelar = null;
         btn.disabled = true;
         var blob = await g.parar(tipoBase(rec.mimeType, mime));
+        paraCanvas();
         var dur = (performance.now() - tIni) / 1000;
         stream.getTracks().forEach(function (t) { t.stop(); }); stream = null;
         if (destravarTela) { try { destravarTela(); } catch (e) {} destravarTela = null; }
@@ -1243,12 +1346,22 @@
     tela.insertBefore(d, tela.firstChild);
     $("vd-painel-btn").onclick = iniciarFluxo;
   }
+  // também na aba "Criar carrossel", logo abaixo da caixa "Sobre o que você quer postar hoje?"
+  function injetarNovo() {
+    var caixa = document.querySelector("#screen-novo .tema-livre");
+    if (!caixa || $("vd-novo-cta")) return;
+    var d = document.createElement("div"); d.id = "vd-novo-cta"; d.className = "vd-cta-painel";
+    d.innerHTML = '<div><b>🎥 Prefere vídeo? Grave com roteiro</b><span>A IA escreve o roteiro e você grava lendo no teleprompter, com zoom e câmera frontal ou traseira.</span></div><button class="btn btn-primary btn-sm" id="vd-novo-btn">Gravar vídeo</button>';
+    caixa.parentNode.insertBefore(d, caixa.nextSibling);
+    $("vd-novo-btn").onclick = iniciarFluxo;
+  }
   var anterior = V.aoMostrar;
   V.aoMostrar = function (nome) {
     if (anterior) anterior(nome);
     if (nome === "painel") injetarPainel();
+    if (nome === "novo") injetarNovo();
     if (nome === "imoveis") injetarCards();
   };
-  injetarPainel();
+  injetarPainel(); injetarNovo();
   V.video = { reels: abrirReels, roteiro: iniciarFluxo };
 })();

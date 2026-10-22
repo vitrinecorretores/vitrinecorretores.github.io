@@ -3022,7 +3022,7 @@
     var ativas = contasAtivas(), limite = limiteContasIg();
     var linhas = ativas.map(function (ct, i) {
       var sel = i === 0;
-      return '<div class="ig-linha' + (sel ? ' ig-selecionada' : '') + '"><div class="l"><div class="ig-icon">' + ICONS.ig + '</div><div><div style="font-weight:700;">@' + escapeHtml(ct.username) +
+      return '<div class="ig-linha' + (sel ? ' ig-selecionada' : ' ig-escolher" data-ig-row="' + ct.id + '" title="Clique para postar nesta conta') + '"><div class="l"><div class="ig-icon">' + ICONS.ig + '</div><div><div style="font-weight:700;">@' + escapeHtml(ct.username) +
         (sel ? ' <span class="ig-sel">✓ Selecionada para postar</span>' : '') + '</div>' +
         '<div style="font-size:12px;color:var(--status-pub-fg);font-weight:600;">Conectado' + (ct.token_expires_at ? ' · acesso válido até ' + fmtDate(ct.token_expires_at) : '') + '</div></div></div>' +
         '<div class="ig-acoes">' + (sel ? '' : '<button class="btn btn-primary btn-sm" data-ig-sel="' + ct.id + '">Postar nesta conta</button>') +
@@ -3036,17 +3036,25 @@
         (!podeMais && ativas.length ? ' — para conectar outra, desconecte uma' + (limite === 1 ? ' ou mude de plano' : '') + '.' : '') + '</div>' +
         '<button class="btn ' + (ativas.length ? 'btn-ghost' : 'btn-primary') + ' btn-sm" id="ig-toggle"' + (podeMais ? '' : ' disabled') + '>' + (ativas.length ? 'Conectar outro Instagram' : 'Conectar Instagram') + '</button></div>' +
       (emTeste() && ativas.length ? '<div style="flex-basis:100%;font-size:12.5px;color:var(--ink-muted);margin-top:10px;">Teste grátis: você pode agendar até ' + limitePublicacoesTeste() + ' carrosséis (' + Math.max(limitePublicacoesTeste() - publicadosNoInstagram(), 0) + ' restante' + (limitePublicacoesTeste() - publicadosNoInstagram() === 1 ? "" : "s") + '). As imagens e a legenda levam o link da Vitrine.</div>' : "");
-    qsa("[data-ig-sel]").forEach(function (b) {
-      b.addEventListener("click", async function () {
-        var id = b.dataset.igSel, orig = b.textContent;
-        b.disabled = true; b.textContent = "Trocando…";
-        try {
-          await rpc("definir_instagram_principal", { p_conta: id });
-          state.igContas = ordenarContas(contasAtivas().map(function (x) { x.principal = x.id === id; return x; }));
-          state.igConta = state.igContas[0] || null;
-          renderInstagram();
-          toast("Pronto! Os próximos posts vão sair em @" + state.igConta.username + ".");
-        } catch (err) { toast("Erro ao trocar a conta: " + err.message); b.disabled = false; b.textContent = orig; }
+    var trocando = false;
+    async function selecionarConta(id, linha) {
+      if (trocando) return;
+      trocando = true;
+      if (linha) linha.classList.add("ig-trocando");
+      try {
+        await rpc("definir_instagram_principal", { p_conta: id });
+        state.igContas = ordenarContas(contasAtivas().map(function (x) { x.principal = x.id === id; return x; }));
+        state.igConta = state.igContas[0] || null;
+        renderInstagram();
+        toast("Pronto! Os próximos posts vão sair em @" + state.igConta.username + ".");
+      } catch (err) { toast("Erro ao trocar a conta: " + err.message); if (linha) linha.classList.remove("ig-trocando"); }
+      finally { trocando = false; }
+    }
+    // clicar em qualquer parte da linha (ou no botão) seleciona a conta; "Desconectar" continua separado
+    qsa("[data-ig-row]").forEach(function (linha) {
+      linha.addEventListener("click", function (ev) {
+        if (ev.target.closest("[data-ig-desc]")) return;
+        selecionarConta(linha.dataset.igRow, linha);
       });
     });
     qsa("[data-ig-desc]").forEach(function (b) {

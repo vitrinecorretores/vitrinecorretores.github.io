@@ -867,16 +867,25 @@ body .auth-card{padding:22px;}
 .ag-chips .ag-dica{font-size:11.5px;color:var(--ink-faint);}
 .ag-contas{margin:14px 0 0;padding:12px 14px;border:1px solid var(--border);border-radius:12px;}
 .ag-contas-t{font-size:12.5px;font-weight:700;margin-bottom:8px;}
-.ag-conta{display:flex;align-items:center;gap:8px;font-size:13.5px;padding:4px 0;cursor:pointer;}
+.ag-conta{display:flex;align-items:center;gap:8px;font-size:13.5px;padding:9px 12px;margin-top:6px;cursor:pointer;border:1px solid var(--border);border-radius:10px;transition:background .15s,border-color .15s,box-shadow .15s;}
+.ag-conta:hover{background:rgba(212,255,63,0.05);}
+.ag-conta:has(input:checked){background:rgba(212,255,63,0.13);border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset,0 6px 18px -10px rgba(212,255,63,0.6);font-weight:700;}
+.ag-conta input{accent-color:var(--accent);}
 .ag-conta small{color:var(--ink-muted);}
 .ag-contas-uma{display:flex;align-items:center;gap:8px;font-size:13.5px;}
 .ag-contas-uma svg,.ig-pill svg{width:16px;height:16px;flex:none;}
 .topbar-pills{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .ig-pill{cursor:pointer;color:inherit;font:inherit;font-size:12.5px;font-weight:600;}
-.ig-pill b{color:var(--status-pub-fg);}
+.ig-pill b{color:var(--accent);}
 .ig-pill.off{border-color:#e5484d;color:#ff8a8a;}
-.ig-sel{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:700;background:rgba(61,255,176,0.14);color:var(--status-pub-fg);}
-.ig-connect .ig-selecionada{outline:2px solid rgba(61,255,176,0.35);outline-offset:-2px;border-radius:12px;padding-left:10px;padding-right:10px;}
+.ig-sel{display:inline-block;margin-left:6px;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:800;background:var(--accent);color:#0F0F11;}
+.ig-connect .ig-linha.ig-selecionada,.ig-connect .ig-linha.ig-escolher{border-radius:12px;padding-left:12px;padding-right:12px;margin:4px 0;}
+.ig-connect .ig-linha.ig-selecionada{background:rgba(212,255,63,0.13);box-shadow:0 0 0 2px var(--accent) inset,0 10px 28px -14px rgba(212,255,63,0.7);}
+.ig-connect .ig-linha.ig-escolher{cursor:pointer;border:1px dashed var(--border);transition:background .15s,box-shadow .15s;}
+.ig-connect .ig-linha.ig-escolher:hover{background:rgba(212,255,63,0.06);box-shadow:0 0 0 1px rgba(212,255,63,0.45) inset;}
+.ig-connect .ig-linha.ig-trocando{opacity:.6;pointer-events:none;}
+.ig-connect .ig-linha + .ig-linha.ig-escolher,.ig-connect .ig-linha.ig-selecionada + .ig-linha{border-top-color:transparent;}
+.ag-contas-uma{background:rgba(212,255,63,0.13);border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset;}
 .ig-acoes{display:flex;gap:8px;flex-wrap:wrap;}
 .ig-dest{color:var(--accent,#D4FF3F);font-weight:600;}
 .ig-connect .ig-linha{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;flex-basis:100%;padding:10px 0;}
@@ -1342,7 +1351,7 @@ body .auth-card{padding:22px;}
 <script src="fotos.js?v=20261023-x"></script>
 <script src="simulacao.js?v=20261023-x"></script>
 <script src="datas.js?v=20261023-x"></script>
-<script src="app.js?v=20261022-igsel"></script>
+<script src="app.js?v=20261022-igsel2"></script>
 <script src="vitrine-leads.js?v=20261023-x"></script>
 <script src="video.js?v=20261026-sr"></script>
 <script src="resultado.js?v=20261023-x"></script>

@@ -7,7 +7,7 @@
 // E aprende sozinho: cada post vira um experimento (pilar, estilo, cor, fonte, horário, fórmula do gancho);
 // as métricas do Instagram (ig_metricas_posts) decidem o que repetir e o que testar (bandit UCB1).
 //
-// Variáveis: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY
+// Variáveis: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (a IA usa a chave do servidor, via função agente-ia)
 // Opcionais: POSTS_POR_DIA (1), MODO=simular (não grava nada; só mostra o plano), VITRINE_SITE
 import { createClient } from "@supabase/supabase-js";
 import { renderizar } from "./render.mjs";
@@ -16,14 +16,13 @@ const UID = "f13c2703-8848-485a-ae60-97e139a2b0a6";          // conta @vitrineco
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://qbfmozumntequvecttfs.supabase.co";
 const ANON_KEY = process.env.SUPABASE_ANON_KEY || "sb_publishable_xXZFK2Pzq7MHsMv2f_iISw_yriYjMvv";   // chave pública do app
 const SERVICE = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
-const ANTHROPIC = (process.env.ANTHROPIC_API_KEY || "").trim().replace(/^["']|["']$/g, "");
 const MODELO = process.env.MODELO_IA || "claude-sonnet-4-5";
-const WORKSPACE = (process.env.ANTHROPIC_WORKSPACE_ID || "").trim();   // só para chaves criadas fora de um workspace
 const POSTS_POR_DIA = Math.max(1, Math.min(3, +(process.env.POSTS_POR_DIA || 1)));
 const SIMULAR = process.env.MODO === "simular";
 const TZ_OFFSET = -3;                                           // Fortaleza (sem horário de verão)
 
-if (!SERVICE || !ANTHROPIC) throw new Error("Faltam SUPABASE_SERVICE_ROLE_KEY e/ou ANTHROPIC_API_KEY.");
+if (!SERVICE) throw new Error("Falta SUPABASE_SERVICE_ROLE_KEY.");
+let TOKEN = null;   // sessão do usuário da Vitrine (preenchida no início); a IA passa pela função agente-ia do servidor
 const db = createClient(SUPABASE_URL, SERVICE, { auth: { persistSession: false } });
 
 // ---------------- opções que o agente testa ----------------
@@ -47,20 +46,21 @@ const horaLocal = (iso) => { const d = new Date(new Date(iso).getTime() + TZ_OFF
 const slotDe = (iso) => { const m = horaLocal(iso); let best = SLOTS[0], dif = 1e9; for (const s of SLOTS) { const [h, mm] = s.split(":").map(Number); const d = Math.abs(h * 60 + mm - m); if (d < dif) { dif = d; best = s; } } return best; };
 const semMarcas = (t) => String(t || "").replace(/\*/g, "");
 
+// a IA roda pela função agente-ia do Supabase, que usa a mesma chave da Claude que a Vitrine já usa
 async function ia(system, user, maxTokens = 3000) {
   for (let t = 0; t < 3; t++) {
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/agente-ia`, {
       method: "POST",
-      headers: { "content-type": "application/json", "x-api-key": ANTHROPIC, "anthropic-version": "2023-06-01", ...(WORKSPACE ? { "anthropic-workspace-id": WORKSPACE } : {}) },
-      body: JSON.stringify({ model: MODELO, max_tokens: maxTokens, system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages: [{ role: "user", content: user }] }),
+      headers: { "content-type": "application/json", apikey: ANON_KEY, authorization: `Bearer ${TOKEN}` },
+      body: JSON.stringify({ system, user, max_tokens: maxTokens, model: MODELO }),
     });
+    const j = await r.json().catch(() => ({}));
     if (r.ok) {
-      const j = await r.json();
-      const txt = j.content?.[0]?.text ?? "";
+      const txt = j.text || "";
       const m = txt.match(/\{[\s\S]*\}/);
       try { return JSON.parse(m ? m[0] : txt); } catch { log("IA devolveu JSON inválido, tentando de novo"); continue; }
     }
-    if (r.status < 500 && r.status !== 429) throw new Error(`API Anthropic ${r.status}: ${(await r.text()).slice(0, 300)}`);
+    if (r.status !== 503) throw new Error(`agente-ia ${r.status}: ${j.error || ""}`);
     await new Promise((ok) => setTimeout(ok, 5000 * (t + 1)));
   }
   throw new Error("A IA não respondeu depois de 3 tentativas.");
@@ -282,9 +282,10 @@ async function main() {
   // confere a chave antes de tudo: erro claro em vez de vários 401
   const { error: eChave } = await db.from("templates").select("id").limit(1);
   if (eChave) throw new Error(`O Supabase recusou a SUPABASE_SERVICE_ROLE_KEY (${eChave.message}). Cole de novo a chave "service_role" (ou a "Secret key" sb_secret_...) usando o botão de copiar.`);
-  const [obs, token, { data: tpls }, { data: profile }, { data: assin }, { data: conta }, { data: recentesCar }, { data: agendados }] = await Promise.all([
+  TOKEN = await sessaoDoUsuario();
+  const token = TOKEN;
+  const [obs, { data: tpls }, { data: profile }, { data: assin }, { data: conta }, { data: recentesCar }, { data: agendados }] = await Promise.all([
     historico(),
-    sessaoDoUsuario(),
     db.from("templates").select("id, slug").eq("ativo", true),
     db.from("profiles").select("id, nome, logo_url, cor_marca, marca_ativa, creci").eq("id", UID).single(),
     db.from("assinaturas").select("status").eq("corretor_id", UID).in("status", ["trial", "ativa"]).maybeSingle(),

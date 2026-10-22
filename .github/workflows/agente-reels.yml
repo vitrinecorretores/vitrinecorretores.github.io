@@ -1,0 +1,42 @@
+name: Agente de Reels (Vitrine)
+
+on:
+  schedule:
+    - cron: "10 15 * * 2,4,6"   # 12:10 em Fortaleza, ter/qui/sáb
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: "publicar = posta o Reels · simular = só gera o vídeo (baixe em Artifacts)"
+        default: "simular"
+        type: choice
+        options: [simular, publicar]
+
+concurrency: agente-reels
+
+jobs:
+  rodar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: automacao
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Rodar agente de Reels
+        env:
+          SUPABASE_URL: https://qbfmozumntequvecttfs.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MODO: ${{ github.event_name == 'schedule' && 'publicar' || inputs.modo }}
+        run: node marketing/reels.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reel
+          path: automacao/saida
+          if-no-files-found: ignore

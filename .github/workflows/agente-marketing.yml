@@ -1,0 +1,46 @@
+name: Agente de Marketing (Vitrine)
+
+on:
+  schedule:
+    - cron: "17 8 * * *"      # 05:17 em Fortaleza: prepara e agenda o(s) post(s) do dia
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: "publicar = agenda de verdade · simular = só gera as imagens (baixe em Artifacts)"
+        default: "simular"
+        type: choice
+        options: [simular, publicar]
+      posts:
+        description: "Quantos posts criar"
+        default: "1"
+
+concurrency: agente-marketing
+
+jobs:
+  rodar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: automacao
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Rodar agente
+        env:
+          SUPABASE_URL: https://qbfmozumntequvecttfs.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MODO: ${{ github.event_name == 'schedule' && 'publicar' || inputs.modo }}
+          POSTS_POR_DIA: ${{ inputs.posts || vars.POSTS_POR_DIA || '1' }}
+        run: node marketing/agente.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: simulacao
+          path: automacao/saida
+          if-no-files-found: ignore

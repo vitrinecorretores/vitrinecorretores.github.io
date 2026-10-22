@@ -3030,7 +3030,7 @@
       return '<div class="ig-linha' + (sel ? ' ig-selecionada' : ' ig-escolher" data-ig-row="' + ct.id + '" title="Clique para postar nesta conta') + '"><div class="l"><div class="ig-icon">' + ICONS.ig + '</div><div><div style="font-weight:700;">@' + escapeHtml(ct.username) +
         '</div>' +
         '<div style="font-size:12px;color:var(--status-pub-fg);font-weight:600;">Conectado' + (ct.token_expires_at ? ' · acesso válido até ' + fmtDate(ct.token_expires_at) : '') + '</div></div></div>' +
-        '<div class="ig-acoes">' + (sel ? '' : '<button class="btn btn-primary btn-sm" data-ig-sel="' + ct.id + '">Postar nesta conta</button>') +
+        '<div class="ig-acoes">' +
         '<button class="btn btn-ghost btn-sm" data-ig-desc="' + ct.id + '">Desconectar</button></div></div>';
     }).join("");
     var podeMais = ativas.length < limite;

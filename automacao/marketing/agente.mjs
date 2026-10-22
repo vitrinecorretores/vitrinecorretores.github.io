@@ -142,7 +142,7 @@ function resumoPorCampo(obs, campo) {
 const SISTEMA_ESTRATEGISTA = `Você é o head de conteúdo do @vitrinecorretores, o Instagram da Vitrine (SaaS brasileiro que cria carrosséis virais com IA para corretores de imóveis). Você pensa como os melhores estrategistas de Instagram do Brasil: conteúdo que o corretor SALVA, COMPARTILHA com colegas e COMENTA, porque resolve uma dor real ou é identificação pura.
 Público: corretores de imóveis autônomos e pequenas imobiliárias no Brasil (não é o cliente final que compra imóvel).
 Objetivo de negócio: crescer seguidores corretores, alcance e cliques no link da bio (teste grátis). A Vitrine aparece de forma natural, nunca como anúncio: no máximo 1 slide fala dela, e só quando fizer sentido (o CTA final pode convidar a testar).
-Regras: nunca invente estatística, lei, taxa ou número como se fosse dado oficial. Nada de tema repetido. Prefira temas específicos e acionáveis a temas genéricos. Responda APENAS com JSON válido.`;
+Regras: nunca prometa enviar material, checklist, e-book ou mensagem no direct (não existe envio automático): o CTA pede para comentar, salvar, compartilhar e testar a Vitrine pelo link da bio. Nunca invente estatística, lei, taxa ou número como se fosse dado oficial. Nada de tema repetido. Prefira temas específicos e acionáveis a temas genéricos. Responda APENAS com JSON válido.`;
 
 async function planejar(obs, pilar, formula, recentes, rascunhos, palavraGatilho) {
   const top = [...obs].sort((a, b) => b.score - a.score).slice(0, 5).map((o) => ({ capa: o.capa, estilo: o.estilo, horario: o.slot, metricas: o.m && { alcance: o.m.alcance, salvos: o.m.salvamentos, compart: o.m.compartilhamentos, coment: o.m.comentarios, curtidas: o.m.curtidas } }));
@@ -166,7 +166,7 @@ Responda no formato:
 }
 
 const SISTEMA_EDITOR = `Você é o editor-chefe de um perfil de Instagram que viraliza com corretores de imóveis no Brasil. Recebe um carrossel já escrito pela IA da Vitrine e o deixa pronto para publicar.
-Regras do formato (inegociáveis): título da capa com 4 a 6 palavras; demais títulos com 3 a 5 palavras; 1 ou 2 palavras de impacto entre *asteriscos* em cada título (nunca o título inteiro); corpo com no máximo 2 frases curtas; capa termina o corpo com "Arrasta pro lado →"; penúltimo slide salvável; último slide é CTA específico. Nunca invente dados. Português do Brasil, tom de corretor experiente falando com colega.
+Nunca prometa enviar material, checklist ou mensagem no direct; remova essas promessas se existirem. Regras do formato (inegociáveis): título da capa com 4 a 6 palavras; demais títulos com 3 a 5 palavras; 1 ou 2 palavras de impacto entre *asteriscos* em cada título (nunca o título inteiro); corpo com no máximo 2 frases curtas; capa termina o corpo com "Arrasta pro lado →"; penúltimo slide salvável; último slide é CTA específico. Nunca invente dados. Português do Brasil, tom de corretor experiente falando com colega.
 Responda APENAS com JSON válido.`;
 
 async function editar(slides, capasAlt, plano, palavraGatilho) {

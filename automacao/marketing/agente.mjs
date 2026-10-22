@@ -15,8 +15,8 @@ import { renderizar } from "./render.mjs";
 const UID = "f13c2703-8848-485a-ae60-97e139a2b0a6";          // conta @vitrinecorretores
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://qbfmozumntequvecttfs.supabase.co";
 const ANON_KEY = process.env.SUPABASE_ANON_KEY || "sb_publishable_xXZFK2Pzq7MHsMv2f_iISw_yriYjMvv";   // chave pública do app
-const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ANTHROPIC = process.env.ANTHROPIC_API_KEY;
+const SERVICE = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
+const ANTHROPIC = (process.env.ANTHROPIC_API_KEY || "").trim().replace(/^["']|["']$/g, "");
 const MODELO = process.env.MODELO_IA || "claude-sonnet-4-5";
 const POSTS_POR_DIA = Math.max(1, Math.min(3, +(process.env.POSTS_POR_DIA || 1)));
 const SIMULAR = process.env.MODO === "simular";
@@ -278,6 +278,9 @@ async function criarUmPost(ctx, horario) {
 }
 
 async function main() {
+  // confere a chave antes de tudo: erro claro em vez de vários 401
+  const { error: eChave } = await db.from("templates").select("id").limit(1);
+  if (eChave) throw new Error(`O Supabase recusou a SUPABASE_SERVICE_ROLE_KEY (${eChave.message}). Cole de novo a chave "service_role" (ou a "Secret key" sb_secret_...) usando o botão de copiar.`);
   const [obs, token, { data: tpls }, { data: profile }, { data: assin }, { data: conta }, { data: recentesCar }, { data: agendados }] = await Promise.all([
     historico(),
     sessaoDoUsuario(),

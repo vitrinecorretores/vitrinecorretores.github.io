@@ -18,6 +18,7 @@ const ANON_KEY = process.env.SUPABASE_ANON_KEY || "sb_publishable_xXZFK2Pzq7MHsM
 const SERVICE = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
 const ANTHROPIC = (process.env.ANTHROPIC_API_KEY || "").trim().replace(/^["']|["']$/g, "");
 const MODELO = process.env.MODELO_IA || "claude-sonnet-4-5";
+const WORKSPACE = (process.env.ANTHROPIC_WORKSPACE_ID || "").trim();   // só para chaves criadas fora de um workspace
 const POSTS_POR_DIA = Math.max(1, Math.min(3, +(process.env.POSTS_POR_DIA || 1)));
 const SIMULAR = process.env.MODO === "simular";
 const TZ_OFFSET = -3;                                           // Fortaleza (sem horário de verão)
@@ -50,7 +51,7 @@ async function ia(system, user, maxTokens = 3000) {
   for (let t = 0; t < 3; t++) {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: { "content-type": "application/json", "x-api-key": ANTHROPIC, "anthropic-version": "2023-06-01" },
+      headers: { "content-type": "application/json", "x-api-key": ANTHROPIC, "anthropic-version": "2023-06-01", ...(WORKSPACE ? { "anthropic-workspace-id": WORKSPACE } : {}) },
       body: JSON.stringify({ model: MODELO, max_tokens: maxTokens, system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages: [{ role: "user", content: user }] }),
     });
     if (r.ok) {
@@ -270,7 +271,7 @@ async function criarUmPost(ctx, horario) {
   }
   const { error: es } = await db.from("slides").insert(linhas);
   if (es) throw es;
-  const { error: ea } = await db.from("carrosseis").update({ status: "agendado", data_agendada: horario.iso, erro_publicacao: null }).eq("id", carrosselId);
+  const { error: ea } = await db.from("carrosseis").update({ status: "agendado", data_agendada: horario.iso, erro_publicacao: null, instagram_contas_ids: [ctx.contaId] }).eq("id", carrosselId);
   if (ea) throw ea;
   await db.from("marketing_experimentos").upsert({ carrossel_id: carrosselId, corretor_id: UID, pilar, formula, estilo, cor, fonte, slot: horario.slot, assunto: plano.assunto, por_que: plano.por_que }, { onConflict: "carrossel_id" });
   log(`agendado ${carrosselId} para ${horario.iso} — "${semMarcas(slides[0].titulo)}"`);
@@ -287,7 +288,7 @@ async function main() {
     db.from("templates").select("id, slug").eq("ativo", true),
     db.from("profiles").select("id, nome, logo_url, cor_marca, marca_ativa, creci").eq("id", UID).single(),
     db.from("assinaturas").select("status").eq("corretor_id", UID).in("status", ["trial", "ativa"]).maybeSingle(),
-    db.from("instagram_contas").select("id, status").eq("corretor_id", UID).eq("status", "ativo").order("connected_at").limit(1).maybeSingle(),
+    db.from("instagram_contas").select("id, status").eq("corretor_id", UID).eq("status", "ativo").order("principal", { ascending: false }).order("connected_at").limit(1).maybeSingle(),
     db.from("carrosseis").select("id, status, created_at, slides(ordem, titulo)").eq("corretor_id", UID).order("created_at", { ascending: false }).limit(80),
     db.from("carrosseis").select("data_agendada").eq("corretor_id", UID).eq("status", "agendado"),
   ]);
@@ -297,7 +298,7 @@ async function main() {
 
   const capa = (c) => semMarcas(((c.slides || []).sort((a, b) => a.ordem - b.ordem)[0] || {}).titulo);
   const ctx = {
-    obs, token, profile, assinaturaStatus: assin?.status || null,
+    obs, token, profile, assinaturaStatus: assin?.status || null, contaId: conta.id,
     templates: Object.fromEntries((tpls || []).map((t) => [t.slug, t.id])),
     palavraGatilho: regra?.palavra_gatilho || "QUERO",
     recentes: (recentesCar || []).filter((c) => c.status !== "rascunho").slice(0, 40).map(capa),

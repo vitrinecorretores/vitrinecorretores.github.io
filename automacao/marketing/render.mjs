@@ -26,8 +26,8 @@ export function extrairDesenho(appJs) {
 }
 
 /**
- * slides: [{tag, titulo, corpo, imagem_url}], opts: { slug, fonte, melhorar, profile, assinaturaStatus, igUsername }
- * Devolve Buffers JPEG (1080x1350) na ordem dos slides.
+ * slides: [{tag, titulo, corpo, imagem_url}], opts: { slug, fonte, melhorar, profile, assinaturaStatus, igUsername, alto }
+ * Devolve Buffers JPEG (1080x1350; com alto=true, 1080x1920 para Reels/Stories) na ordem dos slides.
  */
 export async function renderizar(slides, opts, local = {}) {
   const appJs = await baixar("app.js", local.appJs);
@@ -61,7 +61,7 @@ export async function renderizar(slides, opts, local = {}) {
         function escapeHtml(s){ return String(s == null ? "" : s); }
         function toast(){}
         ${trecho}
-        window.__renderVitrine = async function (slides, slug, fonte, melhorar) {
+        window.__renderVitrine = async function (slides, slug, fonte, melhorar, alto) {
           syncMarcaCor();
           await carregarFonte(fonte);
           try { await document.fonts.ready; } catch (e) {}
@@ -70,7 +70,7 @@ export async function renderizar(slides, opts, local = {}) {
           for (var i = 0; i < slides.length; i++) {
             var sl = slides[i];
             var img = (slug !== "bloco-cor" && slideImageUrl(sl)) ? await loadImage(slideImageUrl(sl), melhorar !== false) : null;
-            var blob = await renderSlideJpeg(sl, i, slides.length, slug, img, false, fonte);
+            var blob = await renderSlideJpeg(sl, i, slides.length, slug, img, !!alto, fonte);
             var b64 = await new Promise(function (ok) { var r = new FileReader(); r.onload = function () { ok(String(r.result).split(",")[1]); }; r.readAsDataURL(blob); });
             out.push(b64);
           }
@@ -78,8 +78,8 @@ export async function renderizar(slides, opts, local = {}) {
         };
       })();`,
     });
-    const b64 = await page.evaluate(([s, slug, fonte, melhorar]) => window.__renderVitrine(s, slug, fonte, melhorar),
-      [slides, opts.slug, opts.fonte, opts.melhorar]);
+    const b64 = await page.evaluate(([s, slug, fonte, melhorar, alto]) => window.__renderVitrine(s, slug, fonte, melhorar, alto),
+      [slides, opts.slug, opts.fonte, opts.melhorar, !!opts.alto]);
     return b64.map((x) => Buffer.from(x, "base64"));
   } finally {
     await browser.close();

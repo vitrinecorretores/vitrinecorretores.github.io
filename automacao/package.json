@@ -1,0 +1,10 @@
+{
+  "name": "vitrine-automacao",
+  "private": true,
+  "type": "module",
+  "description": "Agentes automáticos da Vitrine (marketing do @vitrinecorretores)",
+  "dependencies": {
+    "@supabase/supabase-js": "2.45.4",
+    "playwright": "1.48.2"
+  }
+}

@@ -3,6 +3,7 @@ name: Agente de Reels (Vitrine)
 on:
   schedule:
     - cron: "10 15 * * 2,4,6"   # 12:10 em Fortaleza, ter/qui/sáb
+    - cron: "40 17 * * 2,4,6"   # 14:40 — repescagem; não repete o mesmo carrossel
   workflow_dispatch:
     inputs:
       modo:

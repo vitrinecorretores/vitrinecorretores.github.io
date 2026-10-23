@@ -36,8 +36,6 @@ jobs:
         env:
           SUPABASE_URL: https://qbfmozumntequvecttfs.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
           MODO: ${{ github.event_name == 'schedule' && 'publicar' || inputs.modo }}
           POSTS_POR_DIA: ${{ inputs.posts || vars.POSTS_POR_DIA || '1' }}
         run: node marketing/agente.mjs

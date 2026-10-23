@@ -228,7 +228,15 @@ async function criarUmPost(ctx, horario) {
   slides = validarSlides(ed.slides || slides);
   const capaIdx = [0, 1, 2].includes(ed.capa_idx) ? ed.capa_idx : 0;
   if (capaIdx > 0 && capasAlt[capaIdx - 1]) slides[0].titulo = capasAlt[capaIdx - 1];
-  const legenda = String(ed.legenda || "").slice(0, 2100);
+  let legenda = String(ed.legenda || "").slice(0, 2100);
+  // trava contra número inventado (ex.: "80% das vendas", "7 em cada 10"): pede correção uma vez; se insistir, descarta
+  const inventado = (t) => /\d+\s?%|\d+\s+em\s+cada\s+\d+|\bmaioria\b/i.test(t);
+  const temNumero = () => slides.some((x) => inventado(x.titulo + " " + x.corpo)) || inventado(legenda);
+  if (temNumero()) {
+    const fix = await ia(SISTEMA_EDITOR, `Este carrossel tem porcentagem ou estatística sem fonte. Reescreva SÓ os trechos com número (títulos, corpo e legenda) sem nenhuma porcentagem, "X em cada Y" ou "a maioria", mantendo o resto igual e as regras de tamanho. JSON: {"slides":[...],"legenda":"..."}\n${JSON.stringify({ slides, legenda })}`, 3500);
+    slides = validarSlides(fix.slides || slides); legenda = String(fix.legenda || legenda).slice(0, 2100);
+    if (temNumero()) throw new Error("Carrossel descartado: insistiu em estatística sem fonte.");
+  }
 
   // fotos reais pela função da plataforma (estilo bloco-cor não usa foto)
   if (estilo !== "bloco-cor") {
@@ -284,8 +292,10 @@ async function main() {
   if (eChave) throw new Error(`O Supabase recusou a SUPABASE_SERVICE_ROLE_KEY (${eChave.message}). Cole de novo a chave "service_role" (ou a "Secret key" sb_secret_...) usando o botão de copiar.`);
   // várias tentativas por dia (o agendador do GitHub atrasa ou pula horários): só cria se ainda não criou hoje
   if (!SIMULAR) {
-    const { count: feitosHoje } = await db.from("marketing_experimentos").select("carrossel_id", { count: "exact", head: true })
-      .eq("corretor_id", UID).eq("formato", "feed").gte("created_at", new Date(Date.now() - 18 * 3600e3).toISOString());
+    const { data: hoje } = await db.from("marketing_experimentos").select("carrossel_id, carrosseis!inner(status)")
+      .eq("corretor_id", UID).eq("formato", "feed").gte("created_at", new Date(Date.now() - 18 * 3600e3).toISOString())
+      .neq("carrosseis.status", "rascunho");
+    const feitosHoje = (hoje || []).length;
     if ((feitosHoje ?? 0) >= POSTS_POR_DIA) { log("os posts de hoje já foram criados — nada a fazer."); return; }
   }
   TOKEN = await sessaoDoUsuario();

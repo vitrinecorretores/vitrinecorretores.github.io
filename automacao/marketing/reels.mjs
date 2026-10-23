@@ -60,6 +60,10 @@ async function main() {
   const { error: eChave } = await db.from("templates").select("id").limit(1);
   if (eChave) throw new Error("SUPABASE_SERVICE_ROLE_KEY recusada: " + eChave.message);
 
+  if (!SIMULAR) {   // repescagem do mesmo dia não publica um segundo Reels
+    const { count } = await db.from("reels_feitos").select("carrossel_origem_id", { count: "exact", head: true }).gte("created_at", new Date(Date.now() - 20 * 3600e3).toISOString());
+    if ((count ?? 0) > 0) { log("o Reels de hoje já foi feito — nada a fazer."); return; }
+  }
   const desde = new Date(Date.now() - 30 * 86400e3).toISOString();
   const [{ data: cars }, { data: feitos }, { data: tpls }, { data: profile }, { data: assin }, { data: conta }] = await Promise.all([
     db.from("carrosseis").select("*, slides(*)").eq("corretor_id", UID).eq("status", "publicado").gte("data_publicada", desde).order("data_publicada", { ascending: false }),

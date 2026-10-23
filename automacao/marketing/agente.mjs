@@ -282,6 +282,12 @@ async function main() {
   // confere a chave antes de tudo: erro claro em vez de vários 401
   const { error: eChave } = await db.from("templates").select("id").limit(1);
   if (eChave) throw new Error(`O Supabase recusou a SUPABASE_SERVICE_ROLE_KEY (${eChave.message}). Cole de novo a chave "service_role" (ou a "Secret key" sb_secret_...) usando o botão de copiar.`);
+  // várias tentativas por dia (o agendador do GitHub atrasa ou pula horários): só cria se ainda não criou hoje
+  if (!SIMULAR) {
+    const { count: feitosHoje } = await db.from("marketing_experimentos").select("carrossel_id", { count: "exact", head: true })
+      .eq("corretor_id", UID).eq("formato", "feed").gte("created_at", new Date(Date.now() - 18 * 3600e3).toISOString());
+    if ((feitosHoje ?? 0) >= POSTS_POR_DIA) { log("os posts de hoje já foram criados — nada a fazer."); return; }
+  }
   TOKEN = await sessaoDoUsuario();
   const token = TOKEN;
   const [obs, { data: tpls }, { data: profile }, { data: assin }, { data: conta }, { data: recentesCar }, { data: agendados }] = await Promise.all([

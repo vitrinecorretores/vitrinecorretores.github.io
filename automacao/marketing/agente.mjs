@@ -305,7 +305,7 @@ async function main() {
     db.from("templates").select("id, slug").eq("ativo", true),
     db.from("profiles").select("id, nome, logo_url, cor_marca, marca_ativa, creci").eq("id", UID).single(),
     db.from("assinaturas").select("status").eq("corretor_id", UID).in("status", ["trial", "ativa"]).maybeSingle(),
-    db.from("instagram_contas").select("id, status").eq("corretor_id", UID).eq("status", "ativo").order("principal", { ascending: false }).order("connected_at").limit(1).maybeSingle(),
+    db.from("instagram_contas").select("id, status").eq("corretor_id", UID).eq("status", "ativo").eq("username", "vitrinecorretores").maybeSingle(),
     db.from("carrosseis").select("id, status, created_at, slides(ordem, titulo)").eq("corretor_id", UID).order("created_at", { ascending: false }).limit(80),
     db.from("carrosseis").select("data_agendada").eq("corretor_id", UID).eq("status", "agendado"),
   ]);

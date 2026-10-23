@@ -71,7 +71,7 @@ async function main() {
     db.from("templates").select("id, slug"),
     db.from("profiles").select("id, nome, logo_url, cor_marca, marca_ativa, creci").eq("id", UID).single(),
     db.from("assinaturas").select("status").eq("corretor_id", UID).in("status", ["trial", "ativa"]).maybeSingle(),
-    db.from("instagram_contas").select("id, username").eq("corretor_id", UID).eq("status", "ativo").order("principal", { ascending: false }).order("connected_at").limit(1).maybeSingle(),
+    db.from("instagram_contas").select("id, username").eq("corretor_id", UID).eq("status", "ativo").eq("username", "vitrinecorretores").maybeSingle(),
   ]);
   if (!conta) throw new Error("Instagram da Vitrine desconectado.");
   const usados = new Set((feitos || []).flatMap((f) => [f.carrossel_origem_id, f.reel_carrossel_id]));

@@ -1567,17 +1567,23 @@
     var sel = ids.length ? ativas.filter(function (x) { return ids.indexOf(x.id) >= 0; }) : ativas.slice(0, 1);
     return sel.map(function (x) { return "@" + x.username; });
   }
-  // conta onde o post vai sair: sempre a selecionada na aba Instagram (uma só fonte de verdade, sem conflito)
-  function escolhaContasHtml() {
-    var ct = contaSelecionada();
-    if (!ct) return "";
-    return '<div class="ag-contas ag-contas-uma">' + ICONS.ig + '<span>Vai postar em <b>@' + escapeHtml(ct.username) + '</b></span>' +
-      (contasAtivas().length > 1 ? '<button type="button" class="ag-trocar" data-ir-instagram>Trocar conta</button>' : '') + '</div>';
+  // em qual Instagram ESTE post vai sair: uma conta por post, guardada no próprio agendamento.
+  // Vem marcada a conta já gravada no post; num post novo, a conta selecionada (padrão) da aba Instagram.
+  function escolhaContasHtml(selecionados) {
+    var ativas = contasAtivas();
+    if (!ativas.length) return "";
+    var marcada = (selecionados && selecionados.length && ativas.some(function (x) { return x.id === selecionados[0]; })) ? selecionados[0] : ativas[0].id;
+    if (ativas.length < 2) return '<div class="ag-contas ag-contas-uma">' + ICONS.ig + '<span>Vai postar em <b>@' + escapeHtml(ativas[0].username) + '</b></span></div>';
+    return '<div class="ag-contas"><div class="ag-contas-t">Postar em qual Instagram?</div>' +
+      ativas.map(function (x) {
+        return '<label class="ag-conta"><input type="radio" name="conta-ig" data-conta-ig="' + x.id + '"' + (x.id === marcada ? " checked" : "") + '> @' + escapeHtml(x.username) + '</label>';
+      }).join("") + '</div>';
   }
-  // ids de destino gravados no agendamento: a conta selecionada
-  function lerContasMarcadas() {
-    var ct = contaSelecionada();
-    return ct ? [ct.id] : [];
+  function lerContasMarcadas(root) {
+    var ativas = contasAtivas();
+    if (!ativas.length) return [];
+    var r = root && root.querySelector("[data-conta-ig]:checked");
+    return [r ? r.getAttribute("data-conta-ig") : ativas[0].id];
   }
   document.addEventListener("click", function (ev) {
     var b = ev.target.closest && ev.target.closest("[data-ir-instagram]");
@@ -1769,7 +1775,7 @@
       '<label>Horário<input type="time" id="ag-hora" value="' + tIni + '" step="300"></label></div>' +
       '<div class="ag-chips">' + HORARIOS_TOP.map(function (t) { return '<button type="button" class="cal-slot top" data-ag-hora="' + t + '">' + t + '</button>'; }).join("") +
       '<span class="ag-dica">horários de mais engajamento</span></div>' +
-      '<div id="ag-contas">' + escolhaContasHtml() + '</div>' +
+      '<div id="ag-contas">' + escolhaContasHtml(c.instagram_contas_ids) + '</div>' +
       (igOn ? '<p class="ag-info">Na hora marcada, a Vitrine publica sozinha no seu Instagram — mesmo com o app fechado.</p>'
             : '<p class="ag-info ag-warn">⚠ Seu Instagram ainda não está conectado. Conecte na aba Instagram até o horário, senão o post não sai sozinho.</p>') +
       '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">' +
@@ -2769,7 +2775,7 @@
     var boxContas = document.getElementById("sched-contas");
     if (boxContas) {
       if (wizard.dest !== "agendado") boxContas.innerHTML = "";
-      else boxContas.innerHTML = escolhaContasHtml();   // sempre a conta selecionada na aba Instagram
+      else if (!boxContas.innerHTML) boxContas.innerHTML = escolhaContasHtml([]);   // não redesenha: mantém a conta marcada
     }
   }
 
@@ -3050,9 +3056,8 @@
         await rpc("definir_instagram_principal", { p_conta: id });
         state.igContas = ordenarContas(contasAtivas().map(function (x) { x.principal = x.id === id; return x; }));
         state.igConta = state.igContas[0] || null;
-        state.carrosseis.forEach(function (c) { if (c.status === "agendado" || c.status === "aguardando_aprovacao") c.instagram_contas_ids = [id]; });
         renderInstagram();
-        toast("Pronto! Os posts agendados e os próximos vão sair em @" + state.igConta.username + ".");
+        toast("Pronto! @" + state.igConta.username + " agora vem marcada nos próximos agendamentos.");
       } catch (err) { toast("Erro ao trocar a conta: " + err.message); if (linha) linha.classList.remove("ig-trocando"); }
       finally { trocando = false; }
     }
@@ -3101,7 +3106,8 @@
       var slide0 = (c.slides && c.slides[0]) || { tag: "", titulo: meta.titulo, corpo: "" };
       var when = label === "Publica em" ? fmtDateTime(c.data_agendada) : fmtDate(c.data_publicada);
       return '<div class="qitem"><div class="thumb">' + slideTile(slide0, tpl && tpl.slug, true, 1, 1, null, c.fonte) + '</div>' +
-        '<div class="body"><h4>' + escapeHtml(meta.titulo) + '</h4><div class="when">' + label + ' ' + when + '</div></div></div>';
+        '<div class="body"><h4>' + escapeHtml(meta.titulo) + '</h4><div class="when">' + label + ' ' + when +
+        (destinosDoCarrossel(c).length ? ' · ' + escapeHtml(destinosDoCarrossel(c).join(", ")) : '') + '</div></div></div>';
     }
   }
 

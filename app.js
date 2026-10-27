@@ -470,7 +470,7 @@
     var extra = "";
     if (tplSlug === "post-social") {
       var a = nomeAutor();
-      extra = '<div class="ps-head"><i class="ps-av">' + escapeHtml(a.nome.slice(0, 1).toUpperCase()) + '</i><span class="ps-nm"><b>' + escapeHtml(a.nome) + '</b><u>✓</u><em>@' + escapeHtml(a.user) + '</em></span></div>';
+      extra = '<div class="ps-head"><i class="ps-av">' + escapeHtml(a.user.slice(0, 1).toUpperCase()) + '</i><span class="ps-nm"><b>@' + escapeHtml(a.user) + '</b><u>✓</u>' + (slide.tag ? '<em>' + escapeHtml(String(slide.tag).toLowerCase()) + '</em>' : '') + '</span></div>';
     } else if (tplSlug === "checklist") {
       extra = '<div class="ck-num">' + (index === 1 ? "✓" : (index - 1)) + '</div>';
     }
@@ -565,10 +565,20 @@
     "checklist": { tit: "#FFFFFF" },
     "bloco-cor": { tit: "#111111" },
     "ficha-imovel": { tit: "#0F1419" },
-    "isso-ou-aquilo": { tit: "#FFFFFF" }
+    "isso-ou-aquilo": { tit: "#FFFFFF" },
+    "notas": { tit: "#1C1C1E" },
+    "mito-verdade": { tit: "#FFFFFF" },
+    "antes-depois": { tit: "#FFFFFF" }
   };
   // modelos em teste: só a conta dona vê até serem liberados para todos
-  var TPL_BETA = ["ficha-imovel", "isso-ou-aquilo"];
+  var TPL_BETA = ["ficha-imovel", "isso-ou-aquilo", "notas", "mito-verdade", "antes-depois"];
+  // quebra o corpo em itens de lista (linhas, ";" ou frases)
+  function itensDoCorpo(t) {
+    var s = String(t || "").replace(/Arrasta pro lado\s*→?/i, "").trim();
+    var l = s.split(/\n+|;\s*/).map(function (x) { return x.replace(/^[-•✓✔\d.)\s]+/, "").trim(); }).filter(Boolean);
+    if (l.length < 2) l = s.split(/(?<=[.!?])\s+/).map(function (x) { return x.trim(); }).filter(Boolean);
+    return l.slice(0, 6);
+  }
   function tplVisivel(t) { return TPL_BETA.indexOf(t.slug) < 0 || ehAdmin(); }
   /* ficha-imovel: dados SÓ do cadastro do imóvel (nada estimado). isso-ou-aquilo: usa a foto do slide seguinte. */
   var FICHA = null, VIZINHOS = [];
@@ -596,9 +606,11 @@
     });
     return y + h;
   }
+  var AUTOR_IG = null;   // @ do Instagram onde ESTE carrossel vai sair (definido antes de gerar as imagens)
   function nomeAutor() {
     var p = (typeof state !== "undefined" && state.profile) || {};
-    var ig = (typeof state !== "undefined" && state.igConta && state.igConta.status === "ativo" && state.igConta.username) || "";
+    var sel = (typeof state !== "undefined" && state.igContas && state.igContas[0]) || null;
+    var ig = AUTOR_IG || (sel && sel.username) || (typeof state !== "undefined" && state.igConta && state.igConta.status === "ativo" && state.igConta.username) || "";
     var nome = p.nome || "Seu Nome";
     return { nome: nome, user: ig || nome.toLowerCase().replace(/[^a-z0-9]+/g, "") || "seuperfil" };
   }
@@ -727,13 +739,14 @@
       var x0 = cx + 56, w0 = cw - 112, a = nomeAutor(), y = cardT + 52;
       var ag = ctx.createLinearGradient(x0, y, x0 + 110, y + 110); ag.addColorStop(0, "#8B5CFF"); ag.addColorStop(1, COR.destaque);
       ctx.fillStyle = ag; ctx.beginPath(); ctx.arc(x0 + 55, y + 55, 55, 0, 7); ctx.fill();
-      ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.font = "800 56px " + fam; ctx.fillText(a.nome.slice(0, 1).toUpperCase(), x0 + 55, y + 28); ctx.textAlign = "left";
-      ctx.fillStyle = "#0F1419"; ctx.font = "800 40px " + fam; ctx.fillText(a.nome, x0 + 134, y + 6);
-      var nw = ctx.measureText(a.nome).width;
+      ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.font = "800 56px " + fam; ctx.fillText(a.user.slice(0, 1).toUpperCase(), x0 + 55, y + 28); ctx.textAlign = "left";
+      var arroba = "@" + a.user;   // só o Instagram onde o post sai (sem o nome completo do corretor)
+      ctx.fillStyle = "#0F1419"; ctx.font = "800 40px " + fam; ctx.fillText(arroba, x0 + 134, y + 6);
+      var nw = ctx.measureText(arroba).width;
       ctx.fillStyle = "#1D9BF0"; ctx.beginPath(); ctx.arc(x0 + 134 + nw + 30, y + 30, 18, 0, 7); ctx.fill();   // selo verificado
       ctx.strokeStyle = "#fff"; ctx.lineWidth = 5; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.beginPath();
       ctx.moveTo(x0 + 134 + nw + 21, y + 30); ctx.lineTo(x0 + 134 + nw + 28, y + 37); ctx.lineTo(x0 + 134 + nw + 40, y + 22); ctx.stroke();
-      ctx.fillStyle = "#536471"; ctx.font = "500 32px " + fam; ctx.fillText("@" + a.user + (slide.tag ? "  ·  " + String(slide.tag).toLowerCase() : ""), x0 + 134, y + 58);
+      if (slide.tag) { ctx.fillStyle = "#536471"; ctx.font = "500 32px " + fam; ctx.fillText(String(slide.tag).toLowerCase(), x0 + 134, y + 58); }
       var yTxt = y + 150, acaoY = cardB - 92, fotoH = bgImg ? (alto ? 560 : 360) : 0, fotoY = acaoY - 28 - fotoH;
       var area = (bgImg ? fotoY - 28 : acaoY - 20) - yTxt;
       var bodyH = Math.min(area * 0.34, 260);
@@ -817,6 +830,82 @@
         if (bgImg) { coverImg(ctx, bgImg, 0, 0, W, H); ctx.fillStyle = "rgba(8,8,12,0.8)"; ctx.fillRect(0, 0, W, H); }
         var b6 = corpoViral(ctx, slide, { x: pad, maxW: maxW, size: 40, maxH: 260, bottom: botLimit, cor: "rgba(255,255,255,0.92)", family: fam });
         tituloViral(ctx, slide, { x: pad, y: top, maxW: maxW, maxH: b6.y - 40 - top, size: i === 0 ? 140 : 120, weight: tp, family: disp, lh: 1.06, cor: "#FFFFFF", hl: COR.destaque });
+      }
+      rodapeViral(ctx, i, total, W, pad, botLimit + 26, "#fff", COR.destaque, fam);
+      rodapeMarcaLinha(ctx, W, pad, botLimit + 26, "#fff", fam);
+    }
+
+    else if (slug === "notas") {
+      // estética de app de notas genérico (sem marca de nenhum app real)
+      ctx.fillStyle = "#FBF7EC"; ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = "rgba(0,0,0,0.06)"; ctx.lineWidth = 2;
+      for (var ln2 = top + 260; ln2 < botLimit; ln2 += 64) { ctx.beginPath(); ctx.moveTo(pad, ln2); ctx.lineTo(W - pad, ln2); ctx.stroke(); }
+      ctx.fillStyle = "#E0A800"; ctx.font = "700 36px " + fam; ctx.fillText("‹  Anotações", pad - 10, top - (alto ? 0 : 30));
+      ctx.fillStyle = "#8E8E93"; ctx.font = "500 28px " + fam; ctx.textAlign = "right";
+      ctx.fillText(new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long" }), W - pad, top - (alto ? 0 : 26)); ctx.textAlign = "left";
+      var tN = tituloViral(ctx, slide, { x: pad, y: top + 70, maxW: maxW, maxH: 330, size: i === 0 ? 120 : 104, min: 52, weight: tp, family: disp, lh: 1.08, cor: "#1C1C1E", hl: "#1C1C1E", pill: { bg: COR.destaque, fg: "#111" } });
+      var yN = tN.y + tN.height + 50, itensN = itensDoCorpo(slide.corpo);
+      itensN.forEach(function (it) {
+        if (yN > botLimit - 60) return;
+        var fN = fitText(ctx, it, { size: 54, min: 32, weight: 600, family: fam, maxW: maxW - 80, maxH: 190, lh: 1.28 });
+        ctx.strokeStyle = "#E0A800"; ctx.lineWidth = 5; rrect(ctx, pad, yN + 8, 46, 46, 12); ctx.stroke();
+        ctx.fillStyle = "#1C1C1E"; ctx.font = "600 " + fN.size + "px " + fam;
+        fN.lines.forEach(function (l2, k2) { ctx.fillText(l2, pad + 80, yN + k2 * fN.size * 1.28); });
+        yN += fN.height + 40;
+      });
+      rodapeViral(ctx, i, total, W, pad, botLimit + 26, "#8E8E93", "#1C1C1E", fam);
+      rodapeMarcaLinha(ctx, W, pad, botLimit + 26, "#3A3A3C", fam);
+    }
+
+    else if (slug === "mito-verdade") {
+      ctx.fillStyle = "#0E0F14"; ctx.fillRect(0, 0, W, H);
+      if (bgImg) { coverImg(ctx, bgImg, 0, 0, W, H); ctx.fillStyle = "rgba(10,10,14,0.86)"; ctx.fillRect(0, 0, W, H); }
+      if (i > 0 && i < total - 1) {
+        // par: título = MITO (riscado), corpo = VERDADE
+        var cardH = (botLimit - top - 40) / 2;
+        [["MITO", "#E5484D", "✕"], ["VERDADE", "#30A46C", "✓"]].forEach(function (cfg, k) {
+          var yC = top + k * (cardH + 40);
+          ctx.fillStyle = k ? "rgba(48,164,108,0.14)" : "rgba(229,72,77,0.14)"; rrect(ctx, pad - 30, yC, maxW + 60, cardH, 36); ctx.fill();
+          ctx.fillStyle = cfg[1]; rrect(ctx, pad, yC + 34, 260, 66, 33); ctx.fill();
+          ctx.fillStyle = "#fff"; ctx.font = "800 34px " + fam; ctx.fillText(cfg[2] + "  " + cfg[0], pad + 30, yC + 50);
+          var txt2 = k ? String(slide.corpo || "") : semMarcas(slide.titulo);
+          var fM = fitText(ctx, txt2, { size: k ? 54 : 70, min: 30, weight: k ? 600 : tp, family: k ? fam : disp, maxW: maxW, maxH: cardH - 150, lh: 1.16 });
+          ctx.font = (k ? 600 : tp) + " " + fM.size + "px " + (k ? fam : disp); ctx.fillStyle = k ? "#FFFFFF" : "rgba(255,255,255,0.75)";
+          fM.lines.forEach(function (l3, k3) {
+            var yy3 = yC + 130 + k3 * fM.size * 1.16; ctx.fillText(l3, pad, yy3);
+            if (!k) { var w3 = ctx.measureText(l3).width; ctx.fillStyle = "#E5484D"; ctx.fillRect(pad, yy3 + fM.size * 0.52, w3, 6); ctx.fillStyle = "rgba(255,255,255,0.75)"; }
+          });
+        });
+      } else {
+        var b7 = corpoViral(ctx, slide, { x: pad, maxW: maxW, size: 40, maxH: 260, bottom: botLimit, cor: "rgba(255,255,255,0.9)", family: fam });
+        if (i === 0) { ctx.font = "800 36px " + fam; ctx.fillStyle = "#E5484D"; ctx.fillText("✕ MITO", pad, top); ctx.fillStyle = "#30A46C"; ctx.fillText("✓ VERDADE", pad + 200, top); }
+        tituloViral(ctx, slide, { x: pad, y: top + (i === 0 ? 90 : 0), maxW: maxW, maxH: b7.y - 40 - top - (i === 0 ? 90 : 0), size: i === 0 ? 136 : 116, weight: tp, family: disp, lh: 1.06, cor: "#FFFFFF", hl: COR.destaque });
+      }
+      rodapeViral(ctx, i, total, W, pad, botLimit + 26, "#fff", COR.destaque, fam);
+      rodapeMarcaLinha(ctx, W, pad, botLimit + 26, "#fff", fam);
+    }
+
+    else if (slug === "antes-depois") {
+      ctx.fillStyle = "#0B0B10"; ctx.fillRect(0, 0, W, H);
+      var depois = VIZINHOS.length > 1 ? VIZINHOS[(VIZINHOS.indexOf(bgImg) + 1) % VIZINHOS.length] : null;
+      if (i < total - 1 && bgImg && depois) {
+        var corte = Math.round(W * 0.5);
+        ctx.save(); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(corte + 90, 0); ctx.lineTo(corte - 90, H); ctx.lineTo(0, H); ctx.closePath(); ctx.clip();
+        coverImg(ctx, bgImg, 0, 0, W, H); ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.fillRect(0, 0, W, H); ctx.restore();
+        ctx.save(); ctx.beginPath(); ctx.moveTo(corte + 90, 0); ctx.lineTo(W, 0); ctx.lineTo(W, H); ctx.lineTo(corte - 90, H); ctx.closePath(); ctx.clip();
+        coverImg(ctx, depois, 0, 0, W, H); ctx.restore();
+        ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 10; ctx.beginPath(); ctx.moveTo(corte + 90, 0); ctx.lineTo(corte + 90 - 180 * 0.58, H * 0.58); ctx.stroke();
+        var vA = ctx.createLinearGradient(0, H * 0.45, 0, H); vA.addColorStop(0, "rgba(0,0,0,0)"); vA.addColorStop(1, "rgba(0,0,0,0.9)"); ctx.fillStyle = vA; ctx.fillRect(0, 0, W, H);
+        [["ANTES", pad, "rgba(20,20,24,0.85)", "#FFFFFF"], ["DEPOIS", W - pad - 230, COR.destaque, "#111111"]].forEach(function (r4) {
+          ctx.fillStyle = r4[2]; rrect(ctx, r4[1], top, 230, 72, 36); ctx.fill();
+          ctx.fillStyle = r4[3]; ctx.font = "800 34px " + fam; ctx.textAlign = "center"; ctx.fillText(r4[0], r4[1] + 115, top + 19); ctx.textAlign = "left";
+        });
+        var b8 = corpoViral(ctx, slide, { x: pad, maxW: maxW, size: 38, maxH: 180, bottom: botLimit, cor: "rgba(255,255,255,0.92)", family: fam });
+        tituloViral(ctx, slide, { x: pad, y: b8.y - 30, bottom: true, maxW: maxW, maxH: 330, size: i === 0 ? 112 : 96, min: 48, weight: tp, family: disp, lh: 1.06, cor: "#FFFFFF", hl: COR.destaque });
+      } else {
+        if (bgImg) { coverImg(ctx, bgImg, 0, 0, W, H); ctx.fillStyle = "rgba(8,8,12,0.78)"; ctx.fillRect(0, 0, W, H); }
+        var b9 = corpoViral(ctx, slide, { x: pad, maxW: maxW, size: 40, maxH: 260, bottom: botLimit, cor: "rgba(255,255,255,0.92)", family: fam });
+        tituloViral(ctx, slide, { x: pad, y: top, maxW: maxW, maxH: b9.y - 40 - top, size: i === 0 ? 140 : 120, weight: tp, family: disp, lh: 1.06, cor: "#FFFFFF", hl: COR.destaque });
       }
       rodapeViral(ctx, i, total, W, pad, botLimit + 26, "#fff", COR.destaque, fam);
       rodapeMarcaLinha(ctx, W, pad, botLimit + 26, "#fff", fam);
@@ -952,6 +1041,8 @@
     catch (e) { toast("Não consegui buscar as fotos: " + e.message); }
     var out = [];
     FICHA = c.origem === "imovel" ? (findProp(c.propriedade_id) || null) : null;   // ficha-imovel: só dados do cadastro
+    var idsIg = c.instagram_contas_ids || [], contaPost = contasAtivas().filter(function (x) { return idsIg.indexOf(x.id) >= 0; })[0] || contaSelecionada();
+    AUTOR_IG = contaPost && contaPost.username ? contaPost.username : null;   // post-social mostra o @ desta conta
     var imgs = [];
     for (var k = 0; k < c.slides.length; k++) imgs.push(slideImageUrl(c.slides[k]) ? await loadImage(slideImageUrl(c.slides[k]), melhorar) : null);
     VIZINHOS = imgs.filter(Boolean);

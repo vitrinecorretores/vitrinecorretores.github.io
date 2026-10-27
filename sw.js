@@ -1,5 +1,5 @@
 /* Service worker simples da Vitrine. Nunca toca em chamadas a outros domínios (Supabase etc.). */
-var CACHE = "vitrine-20261027-d";
+var CACHE = "vitrine-20261027-e";
 var ESTATICO = /\.(js|css|png|jpg|svg|webmanifest|woff2?)$/;
 
 self.addEventListener("install", function () { self.skipWaiting(); });

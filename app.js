@@ -837,24 +837,41 @@
     }
 
     else if (slug === "notas") {
-      // estética de app de notas genérico (sem marca de nenhum app real)
-      ctx.fillStyle = "#FBF7EC"; ctx.fillRect(0, 0, W, H);
-      ctx.strokeStyle = "rgba(0,0,0,0.06)"; ctx.lineWidth = 2;
-      for (var ln2 = top + 260; ln2 < botLimit; ln2 += 64) { ctx.beginPath(); ctx.moveTo(pad, ln2); ctx.lineTo(W - pad, ln2); ctx.stroke(); }
-      ctx.fillStyle = "#E0A800"; ctx.font = "700 36px " + fam; ctx.fillText("‹  Anotações", pad - 10, top - (alto ? 0 : 30));
-      ctx.fillStyle = "#8E8E93"; ctx.font = "500 28px " + fam; ctx.textAlign = "right";
-      ctx.fillText(new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long" }), W - pad, top - (alto ? 0 : 26)); ctx.textAlign = "left";
-      var tN = tituloViral(ctx, slide, { x: pad, y: top + 70, maxW: maxW, maxH: 330, size: i === 0 ? 120 : 104, min: 52, weight: tp, family: disp, lh: 1.08, cor: "#1C1C1E", hl: "#1C1C1E", pill: { bg: COR.destaque, fg: "#111" } });
-      var yN = tN.y + tN.height + 50, itensN = itensDoCorpo(slide.corpo);
+      // app de notas do celular (visual genérico, sem logo/marca de nenhum fabricante)
+      var sys = '-apple-system, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif', amb = "#E2A100";
+      ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, W, H);
+      var yb = alto ? top - 60 : 40;
+      ctx.fillStyle = "#111"; ctx.font = "600 34px " + sys; ctx.fillText(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }), pad - 20, yb);   // barra de status
+      ctx.fillRect(W - pad - 70, yb + 6, 54, 26); ctx.fillRect(W - pad - 14, yb + 13, 5, 12);
+      var yn = yb + 90;   // barra de navegação
+      ctx.strokeStyle = amb; ctx.lineWidth = 7; ctx.lineCap = "round"; ctx.lineJoin = "round";
+      ctx.beginPath(); ctx.moveTo(pad - 20, yn + 22); ctx.lineTo(pad - 40, yn + 2); ctx.lineTo(pad - 20, yn - 18); ctx.stroke();
+      ctx.fillStyle = amb; ctx.font = "500 44px " + sys; ctx.fillText("Notas", pad - 6, yn - 22);
+      ctx.beginPath(); ctx.arc(W - pad - 10, yn + 2, 26, 0, 7); ctx.lineWidth = 5; ctx.stroke();
+      [-12, 0, 12].forEach(function (dx) { ctx.beginPath(); ctx.arc(W - pad - 10 + dx, yn + 2, 3.5, 0, 7); ctx.fill(); });
+      ctx.lineWidth = 5; rrect(ctx, W - pad - 110, yn - 14, 34, 38, 4); ctx.stroke();   // compartilhar
+      ctx.beginPath(); ctx.moveTo(W - pad - 93, yn - 30); ctx.lineTo(W - pad - 93, yn + 4); ctx.stroke();
+      ctx.fillStyle = "#8E8E93"; ctx.font = "500 30px " + sys; ctx.textAlign = "center";   // data centralizada
+      var agora = new Date();
+      ctx.fillText(agora.toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" }) + " às " + agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }), W / 2, yn + 70); ctx.textAlign = "left";
+      var tN = tituloViral(ctx, slide, { x: pad, y: yn + 140, maxW: maxW, maxH: 340, size: i === 0 ? 112 : 96, min: 52, weight: 800, family: sys, lh: 1.1, cor: "#111111", hl: "#111111", pill: { bg: "#FFE066", fg: "#111" } });
+      var yN = tN.y + tN.height + 44, itensN = itensDoCorpo(slide.corpo), lista = itensN.length > 1;
       itensN.forEach(function (it) {
-        if (yN > botLimit - 60) return;
-        var fN = fitText(ctx, it, { size: 54, min: 32, weight: 600, family: fam, maxW: maxW - 80, maxH: 190, lh: 1.28 });
-        ctx.strokeStyle = "#E0A800"; ctx.lineWidth = 5; rrect(ctx, pad, yN + 8, 46, 46, 12); ctx.stroke();
-        ctx.fillStyle = "#1C1C1E"; ctx.font = "600 " + fN.size + "px " + fam;
-        fN.lines.forEach(function (l2, k2) { ctx.fillText(l2, pad + 80, yN + k2 * fN.size * 1.28); });
-        yN += fN.height + 40;
+        if (yN > botLimit - 110) return;
+        var fN = fitText(ctx, it, { size: 48, min: 30, weight: 400, family: sys, maxW: maxW - (lista ? 76 : 0), maxH: 190, lh: 1.3 });
+        if (lista) { ctx.strokeStyle = "#C7C7CC"; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(pad + 22, yN + fN.size * 0.62, 22, 0, 7); ctx.stroke(); }   // círculo de checklist
+        ctx.fillStyle = "#111111"; ctx.font = "400 " + fN.size + "px " + sys;
+        fN.lines.forEach(function (l2, k2) { ctx.fillText(l2, pad + (lista ? 76 : 0), yN + k2 * fN.size * 1.3); });
+        yN += fN.height + (lista ? 34 : 18);
       });
-      rodapeViral(ctx, i, total, W, pad, botLimit + 26, "#8E8E93", "#1C1C1E", fam);
+      var yt = botLimit - 34;   // barra de ferramentas embaixo (ícones genéricos)
+      ctx.strokeStyle = amb; ctx.lineWidth = 5;
+      [pad, W / 2 - 150, W / 2 + 90, W - pad - 50].forEach(function (x5, k5) {
+        if (k5 === 0) { [0, 16, 32].forEach(function (d) { ctx.beginPath(); ctx.arc(x5 + 6, yt + d, 4, 0, 7); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x5 + 20, yt + d); ctx.lineTo(x5 + 48, yt + d); ctx.stroke(); }); }
+        else if (k5 === 1) { rrect(ctx, x5, yt - 4, 54, 40, 8); ctx.stroke(); ctx.beginPath(); ctx.arc(x5 + 27, yt + 16, 10, 0, 7); ctx.stroke(); }
+        else if (k5 === 2) { ctx.beginPath(); ctx.moveTo(x5, yt + 36); ctx.lineTo(x5 + 40, yt - 4); ctx.lineTo(x5 + 48, yt + 4); ctx.lineTo(x5 + 8, yt + 44); ctx.closePath(); ctx.stroke(); }
+        else { rrect(ctx, x5, yt - 4, 40, 40, 8); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x5 + 18, yt + 22); ctx.lineTo(x5 + 46, yt - 10); ctx.stroke(); }
+      });
       rodapeMarcaLinha(ctx, W, pad, botLimit + 26, "#3A3A3C", fam);
     }
 
@@ -2762,10 +2779,11 @@
     { nome: "🔥 Gancho polêmico", txt: "Comece com uma afirmação forte e polêmica (sem mentir) que faça a pessoa parar de rolar; depois explique." },
     { nome: "❌ Erro comum", txt: "Formato 'erros que custam caro': cada slide é um erro comum e como evitar." },
     { nome: "🔢 Lista numerada", txt: "Lista numerada (ex.: 5 coisas que...), um item por slide, título curto e direto." },
-    { nome: "🆚 Antes x depois", txt: "Compare o jeito errado (antes) com o jeito certo (depois) em cada slide." },
-    { nome: "🧐 Mito x verdade", txt: "Formato mito x verdade: cada slide derruba um mito comum do mercado imobiliário." },
+    { nome: "🆚 Antes x depois", txt: "Formato antes e depois: em cada slide do meio, o título mostra a transformação (ex.: 'Sala escura *virou* clara') e o corpo explica o que mudou do antes para o depois." },
+    { nome: "🧐 Mito x verdade", txt: "Formato mito x verdade: em cada slide do meio, o TÍTULO é o mito (a frase errada que as pessoas acreditam, sem escrever a palavra mito) e o CORPO é a verdade que corrige, em até 2 frases." },
+    { nome: "⚖️ Isso ou aquilo", txt: "Formato enquete isso ou aquilo: em cada slide do meio, o título é uma pergunta com duas opções no formato 'X ou Y?' (ex.: 'Casa ou apê?') e o corpo provoca a escolha; o último slide pede para comentar A ou B." },
     { nome: "🤫 Ninguém te conta", txt: "Tom de bastidor: 'o que ninguém te conta sobre...', revelando algo que o cliente não sabe." },
-    { nome: "✅ Checklist", txt: "Checklist prático para salvar: itens objetivos que a pessoa possa conferir." },
+    { nome: "✅ Checklist", txt: "Checklist prático para salvar: no corpo de cada slide, liste itens curtos separados por ponto e vírgula, que a pessoa possa conferir." },
     { nome: "❓ Pergunta pro seguidor", txt: "Termine com uma pergunta direta pro seguidor responder nos comentários." },
     { nome: "💾 Salve e compartilhe", txt: "Conteúdo útil de referência e último slide pedindo para salvar e mandar pra quem precisa." },
     { nome: "⏱️ Em 30 segundos", txt: "Bem direto: frases curtíssimas, como uma dica rápida de 30 segundos." },
@@ -2949,15 +2967,46 @@
     }
   }
 
+  /* Modelos que dependem do formato do texto: só fazem sentido quando o texto gerado tem aquela estrutura. */
+  var TPL_ESTRUTURA = {
+    "isso-ou-aquilo": { formato: "⚖️ Isso ou aquilo", dica: "títulos no formato \"X ou Y?\"" },
+    "mito-verdade": { formato: "🧐 Mito x verdade", dica: "título = mito e texto = verdade" },
+    "antes-depois": { formato: "🆚 Antes x depois", dica: "texto de antes e depois e pelo menos 2 fotos" },
+    "ficha-imovel": { formato: null, dica: "carrossel criado a partir de um imóvel cadastrado" }
+  };
+  function textoCombina(slug) {
+    var sl = wizard.slides || [], meio = sl.slice(1, -1), dir = String(wizard.customPrompt || "");
+    var todo = sl.map(function (s) { return (s.tag || "") + " " + semMarcas(s.titulo) + " " + (s.corpo || ""); }).join(" ");
+    var fotos = sl.filter(function (s) { return slideImageUrl(s); }).length;
+    if (slug === "ficha-imovel") return wizard.subjectMode === "property" && !!findProp(wizard.propertyId);
+    if (slug === "isso-ou-aquilo") return meio.filter(function (s) { return /\S\s+ou\s+\S/i.test(semMarcas(s.titulo)); }).length >= Math.max(1, Math.ceil(meio.length / 2));
+    if (slug === "mito-verdade") return meio.length >= 2 && (dir.indexOf("mito x verdade") >= 0 || /\bmitos?\b/i.test(todo));
+    if (slug === "antes-depois") return fotos >= 2 && (dir.indexOf("antes e depois") >= 0 || /\breforma|\bvirou\b|\btransforma|\bantes e depois\b/i.test(todo));
+    return true;
+  }
   function renderTplStep() {
-    document.getElementById("tpl-grid").innerHTML = state.templates.filter(tplVisivel).map(function (t) {
-      return '<div class="tpl-card ' + (wizard.templateSlug === t.slug ? "selected" : "") + '" data-tpl="' + t.slug + '">' +
+    var visiveis = state.templates.filter(tplVisivel);
+    var combinam = visiveis.filter(function (t) { return TPL_ESTRUTURA[t.slug] && textoCombina(t.slug); });
+    var ordem = combinam.concat(visiveis.filter(function (t) { return combinam.indexOf(t) < 0; }));
+    if (TPL_ESTRUTURA[wizard.templateSlug] && !textoCombina(wizard.templateSlug)) wizard.templateSlug = "minimalista";   // modelo que não combina não fica escolhido
+    var sug = combinam.length ? '<div class="tpl-sugestao">💡 <b>Sugestão:</b> o texto gerado combina com o modelo <b>' + escapeHtml(combinam[0].nome) + '</b>' +
+      (wizard.templateSlug !== combinam[0].slug ? ' <button type="button" class="btn btn-primary btn-sm" data-usar-tpl="' + combinam[0].slug + '">Usar</button>' : ' ✓') + '</div>' : "";
+    document.getElementById("tpl-grid").innerHTML = sug + ordem.map(function (t) {
+      var est = TPL_ESTRUTURA[t.slug], ok = !est || textoCombina(t.slug);
+      return '<div class="tpl-card ' + (wizard.templateSlug === t.slug ? "selected" : "") + (ok ? "" : " tpl-off") + '" data-tpl="' + t.slug + '"' + (ok ? "" : ' aria-disabled="true"') + '>' +
+        (est && ok ? '<span class="tpl-combina">Combina com o texto</span>' : "") +
         '<div class="tpl-swatch tpl-' + t.slug + '"><span>Aa</span></div>' +
-        '<h4>' + escapeHtml(t.nome) + (TPL_BETA.indexOf(t.slug) >= 0 ? ' <small style="color:var(--ink-faint);font-weight:600;">(teste)</small>' : '') + '</h4><p>' + escapeHtml(t.descricao || "") + '</p></div>';
+        '<h4>' + escapeHtml(t.nome) + (TPL_BETA.indexOf(t.slug) >= 0 ? ' <small style="color:var(--ink-faint);font-weight:600;">(teste)</small>' : '') + '</h4><p>' +
+        (ok ? escapeHtml(t.descricao || "") : 'Precisa de ' + escapeHtml(est.dica) + '.' + (est.formato ? ' No passo 2, marque o formato <b>' + escapeHtml(est.formato) + '</b> e gere de novo.' : '')) + '</p></div>';
     }).join("");
     qsa("[data-tpl]").forEach(function (el) {
-      el.addEventListener("click", function () { wizard.templateSlug = el.dataset.tpl; renderTplStep(); });
+      el.addEventListener("click", function () {
+        var est = TPL_ESTRUTURA[el.dataset.tpl];
+        if (est && !textoCombina(el.dataset.tpl)) { toast("Esse modelo não combina com o texto gerado. Precisa de " + est.dica + "."); return; }
+        wizard.templateSlug = el.dataset.tpl; renderTplStep();
+      });
     });
+    qsa("[data-usar-tpl]").forEach(function (b) { b.addEventListener("click", function (e) { e.stopPropagation(); wizard.templateSlug = b.dataset.usarTpl; renderTplStep(); }); });
     var strip = document.getElementById("preview-strip");
     strip.innerHTML = slideStrip(wizard.slides || [], wizard.templateSlug, false, wizardArt(), wizard.fonte, wizard.melhorar);
     var fbox = document.getElementById("wiz-fontes");

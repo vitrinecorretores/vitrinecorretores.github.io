@@ -773,6 +773,12 @@ body .auth-card{padding:22px;}
   .tpl-antes-depois{background:#0B0B10; color:#fff; border-color:var(--hl);}
   .tpl-antes-depois.has-bg .tile-bg::after{background:linear-gradient(transparent 45%, rgba(0,0,0,.85));}
   .tpl-swatch.tpl-antes-depois{background:linear-gradient(100deg,#3a3a4a 0 48%,#fff 48% 52%,#8a7a5a 52%);}
+  .tpl-explicador{background:#EDE6D6; color:#1A1A1A; border-color:#D6CBB2;}
+  .tpl-explicador .stag, .tpl-explicador .sbody, .tpl-explicador .sindex{color:#3A3A3A;}
+  .tpl-explicador.has-bg .tile-bg{inset:8% 8% 55% 30%; transform:rotate(-3deg); border:4px solid #fff; box-shadow:0 6px 14px rgba(0,0,0,.25);}
+  .tpl-explicador.has-bg .tile-bg::after{background:none;}
+  .tpl-explicador .stitle{margin-top:auto;}
+  .tpl-swatch.tpl-explicador{background:#EDE6D6; border:1px solid #D6CBB2;}
   .tpl-bloco-cor{background:var(--hl); color:#111; border-color:var(--hl);}
   .tpl-bloco-cor .stag{align-self:flex-start; background:#111; color:var(--hl); border-radius:99px; padding:2px 8px; font-weight:800; opacity:1;}
   .tpl-bloco-cor .stag:empty{display:none;}
@@ -970,6 +976,13 @@ body .auth-card{padding:22px;}
   .nav-item.active, .nav-item[aria-current]{background:var(--surface-2) !important; box-shadow:inset 2px 0 0 var(--accent) !important;}
   .step.active .num, .step.on .num{background:var(--accent) !important; color:#0A0A0A !important;}
   ::selection{background:#D4FF3F; color:#0A0A0A;}
+
+/* ===== Escolhas sempre marcadas: fundo sombreado + borda lima + ✓ (27/10/2026) ===== */
+.prompt-chip.on, .formato-chip.on, .cat-chip.selected, .gancho-box .formato-chip.on{background:#D4FF3F !important; border-color:#D4FF3F !important; color:#0A0A0A !important; box-shadow:0 0 0 2px rgba(212,255,63,.35);}
+.prompt-chip.on::before, .formato-chip.on::before, .cat-chip.selected::before{content:"✓ "; font-weight:800;}
+.tpl-card.selected, .topic-card.selected, .pick-card.selected, .dest-card.selected, .font-opt.on, .cor-opt.on, .fmt-tab.on, .pay-method.selected{background:rgba(212,255,63,.16) !important; border-color:#D4FF3F !important; box-shadow:0 0 0 2px rgba(212,255,63,.55) !important; position:relative;}
+.tpl-card.selected::after, .topic-card.selected::after, .pick-card.selected::after, .dest-card.selected::after, .font-opt.on::after, .cor-opt.on::after, .fmt-tab.on::after, .pay-method.selected::after{content:"✓"; position:absolute; top:6px; right:6px; width:20px; height:20px; border-radius:50%; background:#D4FF3F; color:#0A0A0A; font:800 12px/20px "Manrope",sans-serif; text-align:center; z-index:2;}
+.font-opt.on::after, .cor-opt.on::after{top:-8px; right:-8px; width:18px; height:18px; line-height:18px; font-size:11px;}
 </style>
 </head>
 <body>
@@ -1387,7 +1400,7 @@ body .auth-card{padding:22px;}
 <script src="fotos.js?v=20261023-x"></script>
 <script src="simulacao.js?v=20261023-x"></script>
 <script src="datas.js?v=20261023-x"></script>
-<script src="app.js?v=20261027-modelos2"></script>
+<script src="app.js?v=20261027-modelos3"></script>
 <script src="vitrine-leads.js?v=20261023-x"></script>
 <script src="video.js?v=20261026-sr"></script>
 <script src="resultado.js?v=20261023-x"></script>

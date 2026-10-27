@@ -568,10 +568,11 @@
     "isso-ou-aquilo": { tit: "#FFFFFF" },
     "notas": { tit: "#1C1C1E" },
     "mito-verdade": { tit: "#FFFFFF" },
-    "antes-depois": { tit: "#FFFFFF" }
+    "antes-depois": { tit: "#FFFFFF" },
+    "explicador": { tit: "#1A1A1A" }
   };
   // modelos em teste: só a conta dona vê até serem liberados para todos
-  var TPL_BETA = ["ficha-imovel", "isso-ou-aquilo", "notas", "mito-verdade", "antes-depois"];
+  var TPL_BETA = ["ficha-imovel", "isso-ou-aquilo", "notas", "mito-verdade", "antes-depois", "explicador"];
   // quebra o corpo em itens de lista (linhas, ";" ou frases)
   function itensDoCorpo(t) {
     var s = String(t || "").replace(/Arrasta pro lado\s*→?/i, "").trim();
@@ -909,6 +910,39 @@
       }
       rodapeViral(ctx, i, total, W, pad, botLimit + 26, "#fff", COR.destaque, fam);
       rodapeMarcaLinha(ctx, W, pad, botLimit + 26, "#fff", fam);
+    }
+
+    else if (slug === "explicador") {
+      // estilo "explicador de jornal em vídeo": papel, foto recortada com borda branca, marca-texto e seta à mão
+      ctx.fillStyle = "#EDE6D6"; ctx.fillRect(0, 0, W, H);
+      var seed = 7 + i * 13; function rnd() { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }
+      for (var pz = 0; pz < 2600; pz++) { ctx.fillStyle = rnd() > 0.5 ? "rgba(0,0,0,0.035)" : "rgba(255,255,255,0.08)"; ctx.fillRect(rnd() * W, rnd() * H, 2, 2); }
+      var fw = Math.round(W * 0.6), fh = Math.round(H * (alto ? 0.3 : 0.34)), fx = W - pad - fw + 20, fy = top + 20;
+      if (bgImg) {
+        ctx.save(); ctx.translate(fx + fw / 2, fy + fh / 2); ctx.rotate(i % 2 ? 0.035 : -0.04);
+        ctx.shadowColor = "rgba(0,0,0,0.28)"; ctx.shadowBlur = 24; ctx.shadowOffsetY = 10;
+        ctx.fillStyle = "#FFFFFF"; ctx.fillRect(-fw / 2 - 16, -fh / 2 - 16, fw + 32, fh + 32);
+        ctx.shadowColor = "transparent"; coverImg(ctx, bgImg, -fw / 2, -fh / 2, fw, fh); ctx.restore();
+        ctx.fillStyle = "rgba(255,255,255,0.55)"; ctx.save(); ctx.translate(fx + fw / 2, fy - 6); ctx.rotate(-0.06); ctx.fillRect(-70, -18, 140, 36); ctx.restore();   // fita adesiva
+      }
+      // número da etapa (ou selo "ENTENDA" na capa)
+      ctx.fillStyle = "#1A1A1A";
+      if (i === 0) { ctx.save(); ctx.translate(pad + 10, top + 60); ctx.rotate(-0.08); ctx.strokeStyle = "#E5484D"; ctx.lineWidth = 6; rrect(ctx, 0, 0, 250, 84, 10); ctx.stroke(); ctx.fillStyle = "#E5484D"; ctx.font = "900 44px " + fam; ctx.fillText("ENTENDA", 26, 18); ctx.restore(); }
+      else if (i < total - 1) { ctx.font = "900 220px " + disp; ctx.textBaseline = "alphabetic"; ctx.fillStyle = "rgba(26,26,26,0.9)"; ctx.fillText(String(i), pad - 6, top + 220); ctx.textBaseline = "top"; }
+      var yE = fy + fh + 70;
+      var corpoE = fitText(ctx, slide.corpo, { size: 40, min: 26, weight: 500, family: fam, maxW: maxW, maxH: 220, lh: 1.36 });
+      var tE = tituloViral(ctx, slide, { x: pad, y: yE, maxW: maxW, maxH: Math.max(100, botLimit - yE - corpoE.height - 40), size: i === 0 ? 116 : 100, min: 48, weight: tp, family: disp, lh: 1.12, cor: "#1A1A1A", hl: "#1A1A1A", pill: { bg: "rgba(255,214,10,0.9)", fg: "#1A1A1A" } });
+      corpoViral(ctx, slide, { x: pad, maxW: maxW, size: 40, maxH: 220, bottom: Math.min(botLimit, tE.y + tE.height + 36 + corpoE.height), cor: "#3A3A3A", family: fam });
+      if (bgImg) {   // seta desenhada à mão do título até a foto
+        var ax = pad + 120, ay = yE - 18, bx = fx + 40, by = fy + fh - 10;
+        ctx.strokeStyle = "#E5484D"; ctx.lineWidth = 8; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(ax, ay);
+        ctx.quadraticCurveTo(ax - 40, by + 10, bx - 30, by - 20); ctx.stroke();
+        var ang = Math.atan2(-20 - 10, bx - 30 - (ax - 40));
+        ctx.beginPath(); ctx.moveTo(bx - 30, by - 20); ctx.lineTo(bx - 30 - 34 * Math.cos(ang - 0.5), by - 20 - 34 * Math.sin(ang - 0.5));
+        ctx.moveTo(bx - 30, by - 20); ctx.lineTo(bx - 30 - 34 * Math.cos(ang + 0.5), by - 20 - 34 * Math.sin(ang + 0.5)); ctx.stroke();
+      }
+      rodapeViral(ctx, i, total, W, pad, botLimit + 26, "#3A3A3A", "#1A1A1A", fam);
+      rodapeMarcaLinha(ctx, W, pad, botLimit + 26, "#3A3A3A", fam);
     }
 
     else {   // bloco-cor
@@ -2793,27 +2827,36 @@
     return '<div style="margin-bottom:16px;">' +
       '<label style="display:block; font-size:12px; font-weight:600; color:var(--ink-muted); margin-bottom:8px;">Direcionamento pra IA (opcional) — o que você, corretor, quer destacar</label>' +
       '<div class="prompt-suggestions" id="prompt-suggestions">' + PROMPT_SUGGESTIONS.map(function (s) {
-        return '<button type="button" class="prompt-chip" data-sugg="' + escapeHtml(s) + '">' + escapeHtml(s) + '</button>';
+        var on = String(wizard.customPrompt || "").indexOf(s) >= 0;
+        return '<button type="button" class="prompt-chip' + (on ? ' on' : '') + '" aria-pressed="' + on + '" data-sugg="' + escapeHtml(s) + '">' + escapeHtml(s) + '</button>';
       }).join("") + '</div>' +
       formatosHtml("formatos-wizard", wizard.customPrompt) +
       '<textarea id="custom-prompt" rows="2" placeholder="Sem ideia? Clique numa sugestão acima, ou escreva a sua — ex: destaque a vista pro mar" ' +
       'style="width:100%; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font-family:inherit; font-size:13px; padding:8px 10px; resize:vertical;">' + escapeHtml(wizard.customPrompt) + '</textarea></div>';
   }
+  // deixa marcado (sombreado) tudo que está escolhido no texto do direcionamento
+  function marcarEscolhidos() {
+    var t = String(wizard.customPrompt || "");
+    qsa("#prompt-suggestions .prompt-chip").forEach(function (b) { var on = t.indexOf(b.dataset.sugg) >= 0; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); });
+    qsa("#formatos-wizard .formato-chip").forEach(function (b) { var on = t.indexOf(FORMATOS_VIRAIS[+b.dataset.formato].txt) >= 0; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); });
+  }
   function wirePromptBox() {
-    document.getElementById("custom-prompt").addEventListener("input", function (e) { wizard.customPrompt = e.target.value; });
+    document.getElementById("custom-prompt").addEventListener("input", function (e) { wizard.customPrompt = e.target.value; marcarEscolhidos(); });
     qsa("#formatos-wizard .formato-chip").forEach(function (b) {
       b.addEventListener("click", function () {
         wizard.customPrompt = alternarFormato(document.getElementById("custom-prompt").value, FORMATOS_VIRAIS[+b.dataset.formato].txt);
         document.getElementById("custom-prompt").value = wizard.customPrompt;
-        b.classList.toggle("on");
+        marcarEscolhidos();
       });
     });
     qsa("#prompt-suggestions .prompt-chip").forEach(function (b) {
-      b.addEventListener("click", function () {
-        wizard.customPrompt = b.dataset.sugg;
+      b.addEventListener("click", function () {   // toque marca/desmarca; dá pra escolher mais de uma
+        wizard.customPrompt = alternarFormato(document.getElementById("custom-prompt").value, b.dataset.sugg);
         document.getElementById("custom-prompt").value = wizard.customPrompt;
+        marcarEscolhidos();
       });
     });
+    marcarEscolhidos();
   }
 
   function renderGenArea(errMsg) {

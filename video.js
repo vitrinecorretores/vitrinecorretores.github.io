@@ -58,6 +58,9 @@
     ".rl-e b{display:block;font-size:15px}.rl-e span{display:block;font-size:11px;color:#A1A1AA;margin-top:2px;line-height:1.3}",
     ".rl-e.on{border-color:" + LIMA + ";box-shadow:0 0 0 1px " + LIMA + " inset}.rl-e.on b{color:" + LIMA + "}",
     ".rl-ov{position:absolute;inset:0;background:rgba(0,0,0,.45);overflow:hidden}.rl-ovt{position:absolute;left:0;right:0;padding:0 14px;text-align:center;font-weight:900;font-size:21px;line-height:1.3;text-shadow:0 2px 6px #000;white-space:pre-line}.rl-ovc{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:120px;font-weight:900;color:" + LIMA + "}.rl-ovb{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:2}.rl-rec{display:inline-block;width:9px;height:9px;border-radius:50%;background:#FF3B30;margin-right:6px}",
+    ".rl-chips{display:flex;flex-wrap:wrap;gap:8px}.rl-c{background:#18181B;border:1px solid #27272A;color:#F4F4F5;border-radius:999px;padding:8px 13px;font-size:14px;cursor:pointer;font-family:inherit;line-height:1.1}",
+    ".rl-c.on{background:rgba(212,255,63,.14);border-color:" + LIMA + ";box-shadow:0 0 0 1px " + LIMA + " inset;color:" + LIMA + "}.rl-c.on::after{content:' ✓'}",
+    ".rl-cor{width:36px;height:36px;border-radius:50%;border:2px solid #27272A;cursor:pointer;position:relative;padding:0}.rl-cor.on{border-color:#fff;box-shadow:0 0 0 3px " + LIMA + "}.rl-cor.on::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:900;color:#0A0A0A;text-shadow:0 0 3px #fff}",
     ".rl-lb{font-size:12px;color:#A1A1AA;font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:-6px}",
     ".rl-sticky{position:sticky;bottom:0;background:linear-gradient(rgba(9,9,11,0),#09090B 30%);padding:14px 0 calc(6px + env(safe-area-inset-bottom));margin-top:auto}",
     /* câmera */
@@ -199,6 +202,47 @@
     oBack: function (t) { var c = 1.70158; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); }
   };
   var SERIF = "'Cormorant Garamond','Playfair Display',Georgia,'Times New Roman',serif";
+  // personalização do Reels (o corretor escolhe; vazio = o padrão do estilo)
+  var FONTES_RL = {
+    geist: { nome: "Geist", css: FONTE, peso: 900 },
+    anton: { nome: "Anton", css: "Anton, Impact, 'Arial Narrow', sans-serif", peso: 400 },
+    bricolage: { nome: "Bricolage", css: "'Bricolage Grotesque', Geist, sans-serif", peso: 800 },
+    playfair: { nome: "Playfair", css: "'Playfair Display', Georgia, serif", peso: 800 },
+    poppins: { nome: "Poppins", css: "Poppins, Geist, sans-serif", peso: 800 },
+    unbounded: { nome: "Unbounded", css: "Unbounded, Geist, sans-serif", peso: 700 },
+    space: { nome: "Space Grotesk", css: "'Space Grotesk', Geist, sans-serif", peso: 700 }
+  };
+  var CORES_RL = {
+    lima: { nome: "Lima", hex: "#D4FF3F", txt: "#0A0A0A" }, branco: { nome: "Branco", hex: "#FFFFFF", txt: "#0A0A0A" },
+    dourado: { nome: "Dourado", hex: "#E6C98F", txt: "#1A1408" }, rosa: { nome: "Rosa", hex: "#FF5FA2", txt: "#FFFFFF" },
+    azul: { nome: "Azul", hex: "#4FC3FF", txt: "#04121C" }, laranja: { nome: "Laranja", hex: "#FF8A3D", txt: "#160A02" },
+    verde: { nome: "Verde", hex: "#3DDC97", txt: "#04140C" }
+  };
+  var LAYOUTS_RL = {
+    padrao: { nome: "Do estilo", desc: "painéis com os dados" }, centro: { nome: "Centro", desc: "frase gigante no meio" },
+    faixa: { nome: "Faixa", desc: "faixa colorida na tela" }, caixa: { nome: "Marca-texto", desc: "frase em caixas" },
+    esquerda: { nome: "Topo", desc: "título grande à esquerda" }, legenda: { nome: "Legenda", desc: "palavra por palavra embaixo" }
+  };
+  // trilhas instrumentais próprias da Vitrine (compostas por código em trilhas.js): sem direitos autorais, sem crédito
+  var TRILHAS = [
+    { id: "leve", nome: "Leve e positiva", desc: "pop acústico" }, { id: "lofi", nome: "Lo-fi tranquilo", desc: "calma" },
+    { id: "house", nome: "House elegante", desc: "alto padrão" }, { id: "animada", nome: "Animada", desc: "anúncio com energia" },
+    { id: "cinema", nome: "Cinematográfica", desc: "lançamento, luxo" }, { id: "corporativa", nome: "Corporativa", desc: "institucional" }
+  ];
+  // arquivos gerados uma vez com trilhas.js (no repositório) e guardados no Storage público da Vitrine
+  var TRILHAS_URL = "https://qbfmozumntequvecttfs.supabase.co/storage/v1/object/public/slides-render/f13c2703-8848-485a-ae60-97e139a2b0a6/trilhas/";
+  var trilhaCache = {};
+  function carregarTrilha(id) {
+    if (!trilhaCache[id]) trilhaCache[id] = fetch(TRILHAS_URL + id + ".wav").then(function (r) {
+      if (!r.ok) throw new Error("Não consegui baixar a trilha.");
+      return r.blob();
+    }).then(function (b) { return new File([b], "trilha-" + id + ".wav", { type: "audio/wav" }); })
+      .catch(function (e) { delete trilhaCache[id]; throw e; });
+    return trilhaCache[id];
+  }
+  window.VitrineMusicas = { lista: TRILHAS, carregar: function (id) { return carregarTrilha(id); }, nome: function (id) { return nomeTrilha(id); } };
+  function nomeTrilha(id) { var x = TRILHAS.find(function (t) { return t.id === id; }); return x ? x.nome : ""; }
+  function carregarFonte(id) { var f = FONTES_RL[id]; if (!f || !document.fonts || !document.fonts.load) return Promise.resolve(); return document.fonts.load(f.peso + " 80px " + f.css.split(",")[0]).catch(function () {}); }
   var ESTILOS = {
     luxo: { nome: "Luxo", desc: "Lento e elegante, tons quentes", bpm: 80, beats: 4, tr: 0.9, trans: ["dissolve"], fonte: SERIF, peso: 500, acc: "#E6C98F", accTxt: "#1A1408", anim: "mask", grao: true, quente: 0.07, vig: 0.5, pulse: false, mov: EZ.io3, painel: "rgba(22,15,8,.58)" },
     moderno: { nome: "Moderno", desc: "Dinâmico, cortes no ritmo", bpm: 120, beats: 3, tr: 0.42, trans: ["slide", "zoom", "flash", "dissolve"], fonte: FONTE, peso: 900, acc: LIMA, accTxt: "#0A0A0A", anim: "words", grao: false, quente: 0, vig: 0.35, pulse: true, mov: EZ.o3, painel: "rgba(10,10,12,.68)" },
@@ -311,7 +355,12 @@
 
   /* d: {imgs[], logo, avatar, p, prof, hook, itens}. Devolve {total, draw(t)} — desenha em coordenadas 1080x1920 */
   function criarRenderer(ctx, d, key, escala) {
-    var E = ESTILOS[key], beat = 60 / E.bpm, shotDur = E.beats * beat, n = d.imgs.length;
+    var E = Object.assign({}, ESTILOS[key]), beat = 60 / E.bpm, shotDur = E.beats * beat, n = d.imgs.length;
+    var FX = (d.fonte && FONTES_RL[d.fonte]) || null, CX = (d.cor && CORES_RL[d.cor]) || null;
+    var FT = FX ? FX.css : FONTE, PE = FX ? FX.peso : 900, FS = FX ? FX.css : SERIF;
+    if (FX) E.fonte = FX.css;
+    if (CX) { E.acc = CX.hex; E.accTxt = CX.txt; }
+    var LAY = d.layout && LAYOUTS_RL[d.layout] && d.layout !== "padrao" ? d.layout : (key === "cinetico" ? "centro" : "");
     var outro = Math.ceil(3.2 / beat) * beat;
     function tot(k) { return k * shotDur + outro; }
     var nShots = n;
@@ -347,8 +396,8 @@
     if (p.banheiros && specs.length < 3) specs.push([String(p.banheiros), p.banheiros > 1 ? "banheiros" : "banheiro"]);
     var difs = (Array.isArray(p.diferenciais) ? p.diferenciais : []).map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 4);
     var itens = [];
-    if (key === "cinetico") {
-      // Motion: cada informação vira uma frase gigante animada palavra por palavra (só dados do cadastro)
+    if (LAY) {
+      // Motion / layouts de frase: cada informação vira uma frase animada (só dados do cadastro)
       var fr = specs.map(function (s) { return s[0] + " " + s[1]; }).concat(difs);
       if (+p.preco) fr.push(curto(p.preco) + (p.finalidade === "aluguel" ? "/mês" : ""));
       if (p.bairro) fr.push("Em " + String(p.bairro).trim());
@@ -356,7 +405,7 @@
     } else if (key === "direto") { if (+p.preco) itens.push({ t: "preco" }); if (specs.length) itens.push({ t: "specs" }); }
     else if (key === "luxo") { if (specs.length) itens.push({ t: "specs" }); }
     else { if (specs.length) itens.push({ t: "specs" }); if (+p.preco) itens.push({ t: "preco" }); }
-    if (key !== "cinetico") difs.forEach(function (x) { itens.push({ t: "dif", x: x }); });
+    if (!LAY) difs.forEach(function (x) { itens.push({ t: "dif", x: x }); });
     if (key === "luxo" && +p.preco) itens.push({ t: "preco" });
     var ini = HOOK_FIM + 0.15, fimInfo = tOutro - 0.15, slot = itens.length ? Math.max(1.5, Math.min(2.6, (fimInfo - ini) / itens.length)) : 0;
     itens = itens.filter(function (it, i) { return ini + (i + 1) * slot <= fimInfo + 0.6; });
@@ -417,21 +466,82 @@
       ctx.restore();
     }
     var PY = 1160, PX = 64, PW = W - 128;
+    /* frases animadas em 5 layouts (centro, faixa, caixa, esquerda, legenda) */
+    function frase(it, idx, t) {
+      var vis = c01((t - it.a) / 0.22) * c01((it.b - t) / 0.22), txt = String(it.x), r, lh;
+      var corAlt = idx % 2 ? E.acc : "#FFFFFF";
+      if (LAY === "faixa") {
+        ctx.fillStyle = "rgba(0,0,0," + (0.22 * vis) + ")"; ctx.fillRect(0, 0, W, H);
+        r = ajustar(ctx, txt.toUpperCase(), 920, 124, 64, 3, PE, FT); lh = r.tam * 1.08;
+        var hb = r.linhas.length * lh + 96, yb = 1200 - hb / 2;
+        var ent = EZ.o5(c01((t - it.a) / 0.42)), sai = EZ.io3(c01((t - (it.b - 0.32)) / 0.32));
+        ctx.save(); ctx.translate((ent - 1) * W + sai * W, 0);
+        ctx.fillStyle = E.acc; ctx.fillRect(0, yb, W, hb);
+        ctx.fillStyle = "rgba(0,0,0,.18)"; ctx.fillRect(0, yb + hb - 10, W, 10);
+        ctx.restore();
+        if (ent > 0.55 && sai < 0.5) bloco(ctx, r.linhas, { x: W / 2, y: yb + 48, tam: r.tam, peso: PE, fonte: FT, cor: E.accTxt, alin: "center", t: t, t0: it.a + 0.22, modo: "words", stag: 0.08, dur: 0.28, fim: it.b - 0.3, lh: 1.08, sombra: false });
+        return;
+      }
+      if (LAY === "caixa") {
+        ctx.fillStyle = "rgba(0,0,0," + (0.42 * vis) + ")"; ctx.fillRect(0, 0, W, H);
+        r = ajustar(ctx, txt.toUpperCase(), 860, 122, 62, 4, PE, FT); lh = r.tam * 1.34;
+        var y0 = 920 - r.linhas.length * lh / 2, out = c01((it.b - t) / 0.25);
+        ctx.save(); ctx.font = PE + " " + r.tam + "px " + FT; ctx.textBaseline = "top"; ctx.textAlign = "center";
+        r.linhas.forEach(function (l, i) {
+          var q = EZ.o5(c01((t - it.a - 0.08 - i * 0.13) / 0.34)); if (q <= 0 || out <= 0) return;
+          var w = ctx.measureText(l).width + 54, y = y0 + i * lh;
+          ctx.globalAlpha = out;
+          ctx.save(); ctx.translate(W / 2 - w / 2, 0); ctx.scale(q, 1); rr(ctx, 0, y - r.tam * 0.12, w, r.tam * 1.18, 16); ctx.fillStyle = E.acc; ctx.fill(); ctx.restore();
+          if (q > 0.65) { ctx.globalAlpha = out * c01((q - 0.65) / 0.35); ctx.fillStyle = E.accTxt; ctx.fillText(l, W / 2, y); }
+        });
+        ctx.restore();
+        return;
+      }
+      if (LAY === "esquerda") {
+        var g = ctx.createLinearGradient(0, 0, 0, 1100); g.addColorStop(0, "rgba(0,0,0," + (0.72 * vis) + ")"); g.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, 1100);
+        r = ajustar(ctx, txt, 870, 138, 72, 4, PE, FT);
+        var hE = r.linhas.length * r.tam * 1.04, eb = EZ.o5(c01((t - it.a) / 0.45)) * vis;
+        ctx.fillStyle = E.acc; ctx.fillRect(72, 250, 12, hE * eb);
+        bloco(ctx, r.linhas, { x: 112, y: 250, tam: r.tam, peso: PE, fonte: FT, cor: corAlt, alin: "left", t: t, t0: it.a + 0.08, modo: "words", stag: 0.09, dur: 0.32, fim: it.b - 0.12, lh: 1.04 });
+        return;
+      }
+      if (LAY === "legenda") {
+        r = ajustar(ctx, txt, 900, 96, 58, 3, PE, FT); lh = r.tam * 1.2;
+        var yL = 1450 - r.linhas.length * lh, k = 0, outL = c01((it.b - t) / 0.22), nPal = txt.split(/\s+/).length;
+        var atual = Math.min(nPal - 1, Math.floor((t - it.a - 0.05) / 0.16));
+        ctx.save(); ctx.font = PE + " " + r.tam + "px " + FT; ctx.textBaseline = "top"; ctx.textAlign = "left"; ctx.lineJoin = "round";
+        var sp = ctx.measureText(" ").width;
+        r.linhas.forEach(function (l, li) {
+          var ws = l.split(" "), larg = ws.map(function (w) { return ctx.measureText(w).width; });
+          var tw = larg.reduce(function (a, b) { return a + b; }, 0) + sp * (ws.length - 1), x = W / 2 - tw / 2, y = yL + li * lh;
+          ws.forEach(function (w, wi) {
+            var tk = it.a + 0.05 + k * 0.16, a = c01((t - tk) / 0.1) * outL;
+            if (a > 0) {
+              ctx.globalAlpha = a;
+              if (k === atual) { rr(ctx, x - 12, y - r.tam * 0.08, larg[wi] + 24, r.tam * 1.12, 12); ctx.fillStyle = E.acc; ctx.fill(); ctx.fillStyle = E.accTxt; ctx.fillText(w, x, y); }
+              else { ctx.lineWidth = Math.max(6, r.tam * 0.12); ctx.strokeStyle = "rgba(0,0,0,.85)"; ctx.strokeText(w, x, y); ctx.fillStyle = "#FFFFFF"; ctx.fillText(w, x, y); }
+            }
+            x += larg[wi] + sp; k++;
+          });
+        });
+        ctx.restore();
+        return;
+      }
+      // centro (Motion): tela escurece e a frase entra palavra por palavra, gigante e centralizada
+      ctx.fillStyle = "rgba(0,0,0," + (0.5 * vis) + ")"; ctx.fillRect(0, 0, W, H);
+      var rf = ajustar(ctx, txt.toUpperCase(), 940, 176, 84, 3, PE, FT), hf = rf.linhas.length * rf.tam * 1.02;
+      var pop = 1 + 0.06 * (1 - EZ.o5(c01((t - it.a) / 0.35)));
+      ctx.save(); ctx.translate(W / 2, 900); ctx.scale(pop, pop); ctx.translate(-W / 2, -900);
+      bloco(ctx, rf.linhas, { x: W / 2, y: 900 - hf / 2, tam: rf.tam, peso: PE, fonte: FT, cor: corAlt, alin: "center", t: t, t0: it.a + 0.05, modo: "words", stag: 0.09, dur: 0.32, fim: it.b - 0.12, lh: 1.02 });
+      ctx.restore();
+      var bw = 180 * EZ.io3(c01((t - it.a - 0.2) / 0.4)) * vis; ctx.fillStyle = E.acc; ctx.fillRect(W / 2 - bw / 2, 900 + hf / 2 + 30, bw, 10);
+    }
     function info(t) {
       itens.forEach(function (it, idx) {
         if (t < it.a || t > it.b + 0.1) return;
         var tl = t;
-        if (it.t === "frase") {   // Motion: tela escurece e a frase entra palavra por palavra, gigante e centralizada
-          var vis = c01((t - it.a) / 0.22) * c01((it.b - t) / 0.22);
-          ctx.fillStyle = "rgba(0,0,0," + (0.5 * vis) + ")"; ctx.fillRect(0, 0, W, H);
-          var rf = ajustar(ctx, String(it.x).toUpperCase(), 940, 176, 84, 3, 900, FONTE), hf = rf.linhas.length * rf.tam * 1.02;
-          var pop = 1 + 0.06 * (1 - EZ.o5(c01((t - it.a) / 0.35)));
-          ctx.save(); ctx.translate(W / 2, 900); ctx.scale(pop, pop); ctx.translate(-W / 2, -900);
-          bloco(ctx, rf.linhas, { x: W / 2, y: 900 - hf / 2, tam: rf.tam, peso: 900, fonte: FONTE, cor: idx % 2 ? E.acc : "#FFFFFF", alin: "center", t: tl, t0: it.a + 0.05, modo: "words", stag: 0.09, dur: 0.32, fim: it.b - 0.12, lh: 1.02 });
-          ctx.restore();
-          var bw = 180 * EZ.io3(c01((t - it.a - 0.2) / 0.4)) * vis; ctx.fillStyle = E.acc; ctx.fillRect(W / 2 - bw / 2, 900 + hf / 2 + 30, bw, 10);
-          return;
-        }
+        if (it.t === "frase") { frase(it, idx, t); return; }
         if (it.t === "preco") {
           painel(it, t, PX, PY, PW, 250, key === "direto", function (cor, sub) {
             bloco(ctx, [p.finalidade === "aluguel" ? "ALUGUEL" : "VALOR"], { x: PX + 56, y: PY + 28, tam: 32, peso: 700, fonte: FONTE, cor: sub, alin: "left", t: tl, t0: it.a + 0.1, modo: "fade", stag: 0, dur: 0.4, fim: it.b - 0.3, esp: 6, sombra: false });
@@ -469,16 +579,16 @@
       var cx = W / 2, t0 = 0.15, o = { t: t, fim: HOOK_FIM, alin: "center", x: cx };
       var main = hook.main || "", r, y;
       if (key === "luxo") {
-        r = ajustar(ctx, main, 900, 132, 76, 3, 500, SERIF);
+        r = ajustar(ctx, main, 900, 132, 76, 3, FX ? PE : 500, FS);
         var hTot = r.linhas.length * r.tam * 1.12 + (hook.kicker ? 90 : 0) + 40;
         y = 700 - hTot / 2;
         if (hook.kicker) { bloco(ctx, [hook.kicker.toUpperCase()], Object.assign({}, o, { y: y, tam: 38, peso: 600, fonte: FONTE, cor: E.acc, t0: t0, modo: "fade", stag: 0, dur: 0.7, esp: 10 })); y += 90; }
-        bloco(ctx, r.linhas, Object.assign({}, o, { y: y, tam: r.tam, peso: 500, fonte: SERIF, cor: "#FFF8EA", t0: t0 + 0.25, modo: "mask", stag: 0.22, dur: 0.9 }));
+        bloco(ctx, r.linhas, Object.assign({}, o, { y: y, tam: r.tam, peso: FX ? PE : 500, fonte: FS, cor: "#FFF8EA", t0: t0 + 0.25, modo: "mask", stag: 0.22, dur: 0.9 }));
         var lw = 220 * EZ.io3(c01((t - 1.0) / 0.8)) * c01((HOOK_FIM - t) / 0.28);
         ctx.fillStyle = E.acc; ctx.fillRect(cx - lw / 2, y + r.linhas.length * r.tam * 1.12 + 26, lw, 3);
         if (hook.sub) bloco(ctx, [hook.sub], Object.assign({}, o, { y: y + r.linhas.length * r.tam * 1.12 + 56, tam: 44, peso: 500, fonte: SERIF, cor: "#F3E3C3", t0: 1.0, modo: "fade", stag: 0, dur: 0.6 }));
       } else {
-        r = ajustar(ctx, main, 940, key === "direto" ? 150 : 128, 70, 4, 900, FONTE);
+        r = ajustar(ctx, main, 940, key === "direto" ? 150 : 128, 70, 4, PE, FT);
         var hh = r.linhas.length * r.tam * 1.08 + (hook.kicker ? 120 : 0) + (hook.sub ? 130 : 0);
         y = 720 - hh / 2;
         if (hook.kicker) {
@@ -489,8 +599,8 @@
           ctx.fillStyle = E.accTxt; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(kt, 0, 3); ctx.restore();
           y += 120;
         }
-        var h1 = bloco(ctx, r.linhas, Object.assign({}, o, { y: y, tam: r.tam, peso: 900, fonte: FONTE, cor: "#FFFFFF", t0: t0 + 0.2, modo: "words", stag: 0.12, dur: 0.5, lh: 1.08 }));
-        if (hook.sub) bloco(ctx, [hook.sub.toUpperCase()], Object.assign({}, o, { y: y + h1 + 18, tam: 96, peso: 900, fonte: FONTE, cor: E.acc, t0: t0 + 0.2 + r.linhas.join(" ").split(" ").length * 0.12 + 0.1, modo: "words", stag: 0.14, dur: 0.5 }));
+        var h1 = bloco(ctx, r.linhas, Object.assign({}, o, { y: y, tam: r.tam, peso: PE, fonte: FT, cor: "#FFFFFF", t0: t0 + 0.2, modo: "words", stag: 0.12, dur: 0.5, lh: 1.08 }));
+        if (hook.sub) bloco(ctx, [hook.sub.toUpperCase()], Object.assign({}, o, { y: y + h1 + 18, tam: 96, peso: PE, fonte: FT, cor: E.acc, t0: t0 + 0.2 + r.linhas.join(" ").split(" ").length * 0.12 + 0.1, modo: "words", stag: 0.14, dur: 0.5 }));
       }
     }
 
@@ -527,7 +637,7 @@
       ctx.save(); ctx.translate(cx, cy); ctx.scale(be * pulso, be * pulso); ctx.globalAlpha *= c01(be * 1.4);
       rr(ctx, -400, -78, 800, 156, key === "luxo" ? 14 : 78); ctx.fillStyle = E.acc; ctx.fill();
       ctx.fillStyle = E.accTxt; ctx.font = (key === "luxo" ? "600 " : "900 ") + "58px " + (key === "luxo" ? SERIF : FONTE); ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText("Chame no WhatsApp", 0, 4); ctx.restore();
+      ctx.fillText(d.cta || "Chame no WhatsApp", 0, 4); ctx.restore();
       var tel = telFmt(prof.telefone);
       if (tel) bloco(ctx, [tel], { x: cx, y: 1150, tam: 46, peso: 700, fonte: FONTE, cor: "#FFFFFF", alin: "center", t: lt, t0: 1.1, modo: "fade", stag: 0, dur: 0.5, sombra: false });
       // barra de progresso
@@ -720,6 +830,7 @@
       rs = await prepararReels(p);
       if (!root || root.hidden) return;
       rs.key = "moderno"; rs.hook = hookPadrao(p, rs.key); rs.hookEditado = false; rs.musica = null; rs.musicaNome = "";
+      rs.fonte = ""; rs.cor = ""; rs.layout = ""; rs.trilha = null; rs.musicaInsta = false;
       telaReels();
     } catch (e) {
       abrir(cab("🎬 Reels do imóvel") + '<p>' + esc(e.message || "Erro ao preparar o vídeo.") + '</p>');
@@ -733,8 +844,25 @@
       '<div class="rl-lb">Estilo</div><div class="rl-est">' + Object.keys(ESTILOS).map(function (k) {
         return '<button class="rl-e' + (k === rs.key ? " on" : "") + '" data-k="' + k + '"><b>' + ESTILOS[k].nome + '</b><span>' + ESTILOS[k].desc + '</span></button>';
       }).join("") + '</div>' +
+      '<div class="rl-lb">Layout das frases</div><div class="rl-est rl-lay">' + Object.keys(LAYOUTS_RL).map(function (k) {
+        var on = (rs.layout || "padrao") === k;
+        return '<button class="rl-e' + (on ? " on" : "") + '" data-layout="' + k + '"><b>' + LAYOUTS_RL[k].nome + '</b><span>' + LAYOUTS_RL[k].desc + '</span></button>';
+      }).join("") + '</div>' +
+      '<div class="rl-lb">Fonte</div><div class="rl-chips">' + [["", "Do estilo"]].concat(Object.keys(FONTES_RL).map(function (k) { return [k, FONTES_RL[k].nome]; })).map(function (f) {
+        var st = f[0] ? ' style="font-family:' + FONTES_RL[f[0]].css.replace(/"/g, "'") + ';font-weight:' + Math.min(FONTES_RL[f[0]].peso, 800) + '"' : "";
+        return '<button class="rl-c' + ((rs.fonte || "") === f[0] ? " on" : "") + '" data-fonte="' + f[0] + '"' + st + '>' + f[1] + '</button>';
+      }).join("") + '</div>' +
+      '<div class="rl-lb">Cor de destaque</div><div class="rl-chips"><button class="rl-c' + (!rs.cor ? " on" : "") + '" data-cor="">Do estilo</button>' + Object.keys(CORES_RL).map(function (k) {
+        return '<button class="rl-cor' + (rs.cor === k ? " on" : "") + '" data-cor="' + k + '" title="' + CORES_RL[k].nome + '" aria-label="' + CORES_RL[k].nome + '" style="background:' + CORES_RL[k].hex + '"></button>';
+      }).join("") + '</div>' +
       '<div class="rl-lb">Frase de abertura (primeiros 2 segundos)</div><input type="text" id="rl-hook" maxlength="90" value="' + esc(rs.hook) + '">' +
-      '<div class="rl-lb">Música</div><div class="vd-row"><button class="vd-btn" id="rl-mus" style="flex:1">' + (rs.musica ? "🎵 " + esc(rs.musicaNome) : "🎵 Adicionar música") + '</button>' + (rs.musica ? '<button class="vd-btn" id="rl-mus-x" style="flex:none;min-width:0">Tirar</button>' : "") + '</div>' +
+      '<div class="rl-lb">Música</div><div class="rl-chips" id="rl-mus-op">' +
+        '<button class="rl-c' + (!rs.musica && !rs.musicaInsta ? " on" : "") + '" data-mus="">Sem música</button>' +
+        TRILHAS.map(function (t) { return '<button class="rl-c' + (rs.trilha === t.id ? " on" : "") + '" data-mus="t:' + t.id + '" title="' + t.desc + '">▶ ' + t.nome + '</button>'; }).join("") +
+        '<button class="rl-c' + (rs.musica && !rs.trilha ? " on" : "") + '" data-mus="arquivo">📁 ' + (rs.musica && !rs.trilha ? esc(rs.musicaNome) : "Do aparelho") + '</button>' +
+        '<button class="rl-c' + (rs.musicaInsta ? " on" : "") + '" data-mus="insta">🎵 Escolher no Instagram</button></div>' +
+      '<p class="vd-hint">' + (rs.musicaInsta ? "O vídeo sai sem música. Na hora de postar, a Vitrine manda o vídeo para o app do Instagram e lá você escolhe a música da biblioteca deles."
+        : "As trilhas ▶ são da própria Vitrine: livres de direitos autorais e sem custo. Ou use um arquivo seu, ou escolha a música no Instagram.") + '</p>' +
       '<input type="file" id="rl-file" accept="audio/*" hidden>' +
       '<div class="rl-lb">Narração</div>' +
       (rs.narr
@@ -744,7 +872,6 @@
       '<textarea id="rl-nar-t" placeholder="Texto da narração (opcional, aparece grande sobre a prévia como guia de leitura)" style="min-height:70px">' + esc(rs.narrTexto || "") + '</textarea>' +
       '<button class="vd-btn" id="rl-nar-g" style="flex:none">Gerar texto da narração</button>' +
       '<p class="vd-hint">Use fone de ouvido para a música da prévia não entrar no microfone. Durante a gravação a prévia toca sem música.</p>' +
-      '<p class="vd-hint">Escolha um arquivo do aparelho (sem música embutida por direitos autorais). Se preferir, use músicas livres do Instagram depois de postar.</p>' +
       '<div class="rl-sticky"><button class="vd-btn pri" id="rl-exp" style="width:100%;flex:none">Exportar vídeo</button>' +
       '<p class="vd-hint" style="margin-top:8px;text-align:center">' + (mp4 ? "Sai em MP4, pronto para o Instagram." : "Seu navegador grava em WEBM (o Instagram pode recusar). Prefira Chrome atualizado ou Safari 17+ para MP4.") + '</p></div>');
     iniciarPrevia($("rl-cv"));
@@ -762,12 +889,33 @@
       rs.hook = this.value; rs.hookEditado = true; clearTimeout(deb);
       deb = setTimeout(reiniciar, 350);
     };
-    $("rl-mus").onclick = function () { $("rl-file").click(); };
+    Array.prototype.forEach.call(root.querySelectorAll("[data-layout]"), function (b) {
+      b.onclick = function () { rs.layout = b.dataset.layout === "padrao" ? "" : b.dataset.layout; Array.prototype.forEach.call(root.querySelectorAll("[data-layout]"), function (x) { x.classList.toggle("on", x === b); }); reiniciar(); };
+    });
+    Array.prototype.forEach.call(root.querySelectorAll("[data-fonte]"), function (b) {
+      b.onclick = function () { rs.fonte = b.dataset.fonte; Array.prototype.forEach.call(root.querySelectorAll("[data-fonte]"), function (x) { x.classList.toggle("on", x === b); }); carregarFonte(rs.fonte).then(reiniciar); };
+    });
+    Array.prototype.forEach.call(root.querySelectorAll("[data-cor]"), function (b) {
+      b.onclick = function () { rs.cor = b.dataset.cor; Array.prototype.forEach.call(root.querySelectorAll("[data-cor]"), function (x) { x.classList.toggle("on", x === b); }); reiniciar(); };
+    });
+    Array.prototype.forEach.call(root.querySelectorAll("[data-mus]"), function (b) {
+      b.onclick = async function () {
+        var v = b.dataset.mus;
+        if (v === "arquivo") { $("rl-file").click(); return; }
+        if (v === "insta") { rs.musica = null; rs.musicaUrl = null; rs.musicaNome = ""; rs.trilha = null; rs.musicaInsta = true; telaReels(); return; }
+        if (!v) { rs.musica = null; rs.musicaUrl = null; rs.musicaNome = ""; rs.trilha = null; rs.musicaInsta = false; telaReels(); return; }
+        var id = v.slice(2), txt = b.textContent; b.disabled = true; b.textContent = "Carregando…";
+        try {
+          var f = await carregarTrilha(id);
+          if (!root || root.hidden) return;
+          rs.musica = f; rs.musicaUrl = null; rs.musicaNome = nomeTrilha(id); rs.trilha = id; rs.musicaInsta = false; telaReels();
+        } catch (e) { b.disabled = false; b.textContent = txt; V.toast(e.message || "Não consegui carregar a trilha."); }
+      };
+    });
     $("rl-file").onchange = function () {
       var f = this.files && this.files[0]; if (!f) return;
-      rs.musica = f; rs.musicaUrl = null; rs.musicaNome = f.name.slice(0, 28); telaReels();
+      rs.musica = f; rs.musicaUrl = null; rs.musicaNome = f.name.slice(0, 28); rs.trilha = null; rs.musicaInsta = false; telaReels();
     };
-    if ($("rl-mus-x")) $("rl-mus-x").onclick = function () { rs.musica = null; rs.musicaNome = ""; telaReels(); };
     $("rl-nar-t").oninput = function () { rs.narrTexto = this.value; };
     $("rl-nar-rec").onclick = gravarNarracao;
     if ($("rl-nar-f")) $("rl-nar-f").onclick = function () { $("rl-nar-file").click(); };
@@ -797,7 +945,8 @@
         blob = await mp4Normal(blob);
         var nome = "reels-" + String(rs.p.titulo || "imovel").toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 30);
         abrir(cab("🎬 Reels pronto") + '<video class="vd-player" controls playsinline loop autoplay src="' + url(blob) + '"></video>' +
-          (podeAgendar(blob) ? '<button class="vd-btn pri" id="vd-ag" style="flex:none">📅 Agendar no Instagram</button>' : "") +
+          (rs.musicaInsta ? '<p class="vd-hint">🎵 Sem música, como você escolheu: poste pelo app do Instagram (botão Compartilhar no celular) e escolha a música lá. Se agendar, a Vitrine te avisa na hora de postar.</p>' : "") +
+          (podeAgendar(blob) ? '<button class="vd-btn pri" id="vd-ag" style="flex:none">' + (rs.musicaInsta ? "📅 Agendar para postar pelo app" : "📅 Agendar no Instagram") + '</button>' : "") +
           '<div class="vd-row"><button class="vd-btn' + (podeAgendar(blob) ? "" : " pri") + '" id="vd-dl">Baixar vídeo</button>' + (PODE_COMPARTILHAR ? '<button class="vd-btn" id="vd-sh">Compartilhar</button>' : "") + '</div>' +
           '<button class="vd-btn" id="rl-volta" style="flex:none">Editar de novo</button>' +
           '<p class="vd-hint">Formato ' + extDe(blob.type).toUpperCase() + ' 9:16. ' + (extDe(blob.type) === "webm" ? "Se o Instagram não aceitar o WEBM, gere pelo Chrome atualizado, que grava MP4." : "Pronto para postar no Instagram.") + '</p>');
@@ -807,7 +956,8 @@
           var p = rs.p || {};
           var leg = [rs.hook, "📲 Fotos e detalhes: link na bio"].filter(Boolean).join("\n\n");
           var ttl = rs.hook || p.titulo || "Reels do imóvel";
-          fechar(); V.agendarVideoNovo(blob, { titulo: ttl, legenda: leg, propriedade_id: p.id || null });
+          var manual = !!rs.musicaInsta;
+          fechar(); V.agendarVideoNovo(blob, { titulo: ttl, legenda: leg, propriedade_id: p.id || null, manual: manual });
         };
         $("rl-volta").onclick = telaReels;
       } catch (e) {
@@ -1695,5 +1845,5 @@
     if (nome === "imoveis") injetarCards();
   };
   // "Gravar vídeo com roteiro" foi retirado da plataforma (a pedido do dono, 26/10/2026); fica só o Reels do imóvel.
-  V.video = { reels: abrirReels };
+  V.video = { reels: abrirReels, criarRenderer: criarRenderer, estilos: ESTILOS, fontes: FONTES_RL, cores: CORES_RL, layouts: LAYOUTS_RL, trilhas: TRILHAS, carregarFonte: carregarFonte, carregarTrilha: carregarTrilha };
 })();

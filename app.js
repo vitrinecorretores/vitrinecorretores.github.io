@@ -1154,18 +1154,36 @@
   };
 
   // gera um MP4 9:16 no navegador: cada slide aparece 3 s, com transição suave
-  async function gerarVideoReels(blobs, onProgress) {
-    var tipos = ["video/mp4;codecs=avc1.42E01E", "video/mp4;codecs=avc1", "video/mp4"];
+  async function gerarVideoReels(blobs, onProgress, musica) {
+    var tipos = musica ? ["video/mp4;codecs=avc1.42E01E,mp4a.40.2", "video/mp4;codecs=avc1,mp4a.40.2", "video/mp4"] : ["video/mp4;codecs=avc1.42E01E", "video/mp4;codecs=avc1", "video/mp4"];
     var tipo = window.MediaRecorder && tipos.find(function (t) { return MediaRecorder.isTypeSupported(t); });
     if (!tipo) throw new Error("Seu navegador não consegue gerar vídeo MP4. Use o Google Chrome atualizado para publicar Reels.");
     var W = 1080, H = 1920, POR = 3000, FADE = 450;
     var imgs = await Promise.all(blobs.map(function (b) { return createImageBitmap(b.blob); }));
     var cv = document.createElement("canvas"); cv.width = W; cv.height = H;
     var ctx = cv.getContext("2d"); ctx.drawImage(imgs[0], 0, 0, W, H);
-    var rec = new MediaRecorder(cv.captureStream(30), { mimeType: tipo, videoBitsPerSecond: 8000000 });
-    var partes = []; rec.ondataavailable = function (e) { if (e.data && e.data.size) partes.push(e.data); };
     var total = imgs.length * POR;
+    // trilha (opcional): toca só para o gravador, com entrada e saída suaves
+    var ac = null, fonteAudio = null, faixasAudio = [];
+    if (musica) {
+      try {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        ac = new AC(); await ac.resume();
+        var buf = await ac.decodeAudioData(await musica.arrayBuffer());
+        var dest = ac.createMediaStreamDestination(), g = ac.createGain();
+        fonteAudio = ac.createBufferSource(); fonteAudio.buffer = buf; fonteAudio.loop = true;
+        fonteAudio.connect(g); g.connect(dest);
+        var agora = ac.currentTime, seg = total / 1000;
+        g.gain.setValueAtTime(0, agora); g.gain.linearRampToValueAtTime(0.9, agora + 0.8);
+        g.gain.setValueAtTime(0.9, agora + Math.max(1, seg - 1.6)); g.gain.linearRampToValueAtTime(0, agora + seg);
+        faixasAudio = dest.stream.getAudioTracks();
+      } catch (e) { console.warn("trilha:", e); toast("Não consegui usar a música; o vídeo sai sem música."); faixasAudio = []; }
+    }
+    var saida = new MediaStream(cv.captureStream(30).getVideoTracks().concat(faixasAudio));
+    var rec = new MediaRecorder(saida, faixasAudio.length ? { mimeType: tipo, videoBitsPerSecond: 8000000, audioBitsPerSecond: 128000 } : { mimeType: tipo, videoBitsPerSecond: 8000000 });
+    var partes = []; rec.ondataavailable = function (e) { if (e.data && e.data.size) partes.push(e.data); };
     rec.start(250);
+    if (fonteAudio) fonteAudio.start();
     var t0 = performance.now();
     await new Promise(function (fim) {
       (function quadro() {
@@ -1179,6 +1197,7 @@
       })();
     });
     await new Promise(function (r) { rec.onstop = r; rec.stop(); });
+    try { if (fonteAudio) fonteAudio.stop(); if (ac) ac.close(); } catch (e) { }
     var bruto = new Blob(partes, { type: "video/mp4" });
     try { return new Blob([remuxMp4(new Uint8Array(await bruto.arrayBuffer()))], { type: "video/mp4" }); } catch (e) { console.warn("remux:", e); return bruto; }
   }
@@ -1334,6 +1353,52 @@
     if (mp4.size > 50 * 1024 * 1024) throw new Error("O vídeo passou de 50 MB. Encurte o vídeo e tente de novo.");
     return uploadArquivo(mp4, state.profile.id + "/reels/" + Date.now() + "-" + Math.random().toString(36).slice(2, 8) + ".mp4", "video/mp4");
   }
+  // "Como publicar": automático pela Vitrine ou pelo app (para escolher a música da biblioteca do Instagram)
+  function comoPublicarHtml(manual) {
+    return '<div class="ag-formato"><div class="ag-contas-t">Como publicar</div><div class="ag-fmt">' +
+      '<button type="button" class="ag-fmt-b' + (manual ? "" : " on") + '" data-ag-modo="auto"><b>Automático</b><span>a Vitrine publica sozinha na hora</span></button>' +
+      '<button type="button" class="ag-fmt-b' + (manual ? " on" : "") + '" data-ag-modo="app"><b>🎵 Eu posto pelo app</b><span>para escolher a música do Instagram</span></button></div>' +
+      '<p class="ag-fmt-dica" id="ag-modo-dica"' + (manual ? "" : " hidden") + '>Na hora marcada você recebe um aviso no celular e no e-mail. Abra a Vitrine, toque em <b>Postar pelo app</b>: o vídeo vai para o Instagram com a legenda copiada, e lá você escolhe a música.</p></div>';
+  }
+  function ligarComoPublicar(root, aoMudar) {
+    function info(app) {
+      var inf = qs(".ag-info", root); if (!inf) return;
+      if (inf.dataset.orig == null) inf.dataset.orig = inf.innerHTML;
+      inf.innerHTML = app ? "🎵 Na hora marcada a Vitrine te avisa no celular e no e-mail para postar pelo app e escolher a música." : inf.dataset.orig;
+    }
+    qsa("[data-ag-modo]", root).forEach(function (b) {
+      b.onclick = function () {
+        qsa("[data-ag-modo]", root).forEach(function (x) { x.classList.toggle("on", x === b); });
+        var dica = qs("#ag-modo-dica", root); if (dica) dica.hidden = b.dataset.agModo !== "app";
+        info(b.dataset.agModo === "app");
+        if (aoMudar) aoMudar(b.dataset.agModo === "app");
+      };
+    });
+    var atual = qs('[data-ag-modo="app"].on', root); if (atual) info(true);
+  }
+  function musicaHtml() {
+    var L = (window.VitrineMusicas && window.VitrineMusicas.lista) || [];
+    if (!L.length) return "";
+    return '<div class="ag-formato"><div class="ag-contas-t">Música do vídeo</div><div class="ag-mus">' +
+      '<button type="button" class="ag-mus-b on" data-ag-mus="">Sem música</button>' +
+      L.map(function (t) { return '<button type="button" class="ag-mus-b" data-ag-mus="' + t.id + '" title="' + escapeHtml(t.desc) + '">▶ ' + escapeHtml(t.nome) + '</button>'; }).join("") +
+      '</div><audio id="ag-mus-ouvir" preload="none"></audio><p class="ag-fmt-dica">Trilhas da própria Vitrine: sem direitos autorais e sem custo. Toque para ouvir.</p></div>';
+  }
+  function ligarMusica(root, aoMudar) {
+    var player = qs("#ag-mus-ouvir", root);
+    qsa("[data-ag-mus]", root).forEach(function (b) {
+      b.onclick = async function () {
+        qsa("[data-ag-mus]", root).forEach(function (x) { x.classList.toggle("on", x === b); });
+        var id = b.dataset.agMus; aoMudar(id || null);
+        if (!player) return;
+        player.pause();
+        if (!id) return;
+        try { var f = await window.VitrineMusicas.carregar(id); if (player.dataset.url) URL.revokeObjectURL(player.dataset.url); player.dataset.url = URL.createObjectURL(f); player.src = player.dataset.url; player.currentTime = 0; player.play().catch(function () { }); }
+        catch (e) { toast("Não consegui carregar a trilha: " + e.message); }
+      };
+    });
+    return function () { if (player) player.pause(); };
+  }
   function usuarioDoPost(c) {
     var d = c ? destinosDoCarrossel(c) : [];
     var u = d[0] ? d[0].replace(/^@/, "") : ((contaSelecionada() && contaSelecionada().username) || (state.profile.nome || "seu_perfil").toLowerCase().replace(/\s+/g, ""));
@@ -1398,7 +1463,9 @@
   function openReelsModal(c) {
     var meta = getSubjectMeta(c), v = videoDe(c);
     var pillCls = c.status === "publicado" ? "pill-publicado" : c.status === "agendado" ? "pill-agendado" : "pill-draft";
-    var quando = c.status === "agendado" ? "Publica sozinho em " + fmtDateTime(c.data_agendada)
+    var horaDePostar = c.status === "agendado" && c.publicar_manual && new Date(c.data_agendada) <= new Date();
+    var quando = c.status === "agendado" && c.publicar_manual ? (horaDePostar ? "⏰ Hora de postar! Toque em Postar pelo app e escolha a música no Instagram" : "Você posta pelo app em " + fmtDateTime(c.data_agendada) + " — a Vitrine te avisa na hora")
+      : c.status === "agendado" ? "Publica sozinho em " + fmtDateTime(c.data_agendada)
       : c.status === "publicado" ? "Publicado " + fmtDate(c.data_publicada)
       : c.status === "aguardando_aprovacao" ? "Aguardando aprovação do gestor" + (c.data_agendada ? " · para " + fmtDateTime(c.data_agendada) : "")
       : "Rascunho — escolha o dia e o horário para publicar";
@@ -1408,7 +1475,7 @@
       : '<button class="btn btn-ghost btn-sm" id="rm-previa">' + ICONS.eye + ' Ver como fica</button>' +
         '<button class="btn btn-ghost btn-sm" id="rm-agendar">📅 ' + (c.status === "agendado" ? "Reagendar" : "Agendar") + '</button>' +
         (c.status === "agendado" ? '<button class="btn btn-ghost btn-sm" id="rm-publicado">' + ICONS.check + ' Marcar como publicado</button>' : "") +
-        '<button class="btn btn-primary btn-sm" id="rm-mao">📲 Postar pelo app</button>';
+        '<button class="btn btn-primary btn-sm" id="rm-mao">📲 Postar pelo app' + (c.publicar_manual ? " (escolher música)" : "") + '</button>';
     document.getElementById("modal-body").innerHTML =
       '<div class="modal-head"><div><h3 style="font-size:19px;">' + escapeHtml(meta.titulo) + '</h3>' +
       '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;"><span class="pill ' + pillCls + '">' + escapeHtml(c.status === "aguardando_aprovacao" ? "aguardando aprovação" : c.status) + '</span>' + tagReels() + '</div></div>' +
@@ -1417,7 +1484,7 @@
       (v ? '<video class="reels-player" src="' + escapeHtml(v) + '" controls playsinline preload="metadata"></video>'
          : '<div class="reels-player reels-sem">Vídeo não encontrado</div>') +
       '<div class="reels-info">' +
-      '<div class="reels-quando">' + escapeHtml(quando) + '</div>' +
+      '<div class="reels-quando' + (horaDePostar ? " agora" : "") + '">' + escapeHtml(quando) + '</div>' +
       (destinos.length ? '<div class="reels-dest">' + ICONS.ig + ' ' + escapeHtml(destinos.join(", ")) + '</div>' : "") +
       (c.erro_publicacao ? '<div class="meta erro-pub">⚠ ' + escapeHtml(c.erro_publicacao) + '</div>' : "") +
       '<label class="reels-leg-lb" for="rm-leg">Legenda</label>' +
@@ -1463,7 +1530,7 @@
     if (testeSemPublicacoes()) { avisoFimDoTeste(); return; }
     var previaUrl = URL.createObjectURL(blob);
     var igOn = contasAtivas().length > 0;
-    var legIni = info.legenda || "";
+    var legIni = info.legenda || "", manualSel = !!info.manual;
     document.getElementById("modal-body").innerHTML =
       '<div class="modal-head"><div><h3 style="font-size:19px;">📅 Agendar Reels</h3>' +
       '<div style="font-size:13px;color:var(--ink-muted);margin-top:4px;">' + escapeHtml(info.titulo || "Reels") + '</div></div>' +
@@ -1475,6 +1542,7 @@
       '<label>Horário<input type="time" id="ag-hora" value="18:00" step="300"></label></div>' +
       '<div class="ag-chips">' + HORARIOS_TOP.map(function (t) { return '<button type="button" class="cal-slot top" data-ag-hora="' + t + '">' + t + '</button>'; }).join("") + '</div>' +
       '<div id="ag-contas">' + escolhaContasHtml([]) + '</div>' +
+      comoPublicarHtml(manualSel) +
       '<label class="reels-leg-lb" for="ag-leg">Legenda</label>' +
       '<textarea id="ag-leg" class="reels-leg" maxlength="2200" placeholder="Escreva a legenda do Reels">' + escapeHtml(legIni) + '</textarea>' +
       (igOn ? '<p class="ag-info">Na hora marcada, a Vitrine publica sozinha no seu Instagram — mesmo com o app fechado.</p>'
@@ -1488,10 +1556,11 @@
     document.getElementById("modal-close").onclick = sair;
     document.getElementById("ag-cancelar").onclick = sair;
     qsa("[data-ag-hora]").forEach(function (b) { b.onclick = function () { document.getElementById("ag-hora").value = b.dataset.agHora; qsa("[data-ag-hora]").forEach(function (x) { x.classList.toggle("on", x === b); }); }; });
+    ligarComoPublicar(document.getElementById("modal-body"), function (m) { manualSel = m; });
     document.getElementById("ag-previa").onclick = function () {
       var guardado = { d: document.getElementById("ag-data").value, h: document.getElementById("ag-hora").value, l: document.getElementById("ag-leg").value, c: lerContasMarcadas(document.getElementById("ag-contas")) };
       previaReels(previaUrl, guardado.l, (contasAtivas().find(function (x) { return x.id === guardado.c[0]; }) || contaSelecionada() || { username: usuarioDoPost(null) }).username, function () {
-        agendarVideoNovo(blob, { titulo: info.titulo, legenda: guardado.l, propriedade_id: info.propriedade_id });
+        agendarVideoNovo(blob, { titulo: info.titulo, legenda: guardado.l, propriedade_id: info.propriedade_id, manual: manualSel });
         document.getElementById("ag-data").value = guardado.d; document.getElementById("ag-hora").value = guardado.h;
         if (guardado.c[0]) { var r = document.querySelector('[data-conta-ig="' + guardado.c[0] + '"]'); if (r) r.checked = true; }
       });
@@ -1512,7 +1581,7 @@
         var payload = {
           corretor_id: state.profile.id, origem: info.propriedade_id ? "imovel" : "custom", propriedade_id: info.propriedade_id || null,
           assunto_custom: (info.titulo || "Reels").slice(0, 200), categoria: "Reels", status: "agendado", data_agendada: quando.toISOString(),
-          legenda: leg || null, instagram_contas_ids: contasSel, formato: "reels", video_url: url, melhorar_fotos: false, fonte: "moderna"
+          legenda: leg || null, instagram_contas_ids: contasSel, formato: "reels", video_url: url, melhorar_fotos: false, fonte: "moderna", publicar_manual: manualSel
         };
         var rows = await DB.insert("carrosseis", payload);
         var novo = rows && rows[0];
@@ -1522,6 +1591,7 @@
         state.carrosseis.unshift(novo);
         sair(); renderPainel(); renderInstagram();
         if (novo.status === "aguardando_aprovacao") toast("Reels enviado para aprovação do gestor.");
+        else if (novo.publicar_manual) toast("Reels agendado para " + fmtDateTime(novo.data_agendada) + " — na hora a Vitrine te avisa para postar pelo app e escolher a música.");
         else toast("Reels agendado para " + fmtDateTime(novo.data_agendada) + (igOn ? " — vai ser publicado sozinho no Instagram." : ". Conecte o Instagram até lá pra publicar sozinho."));
       } catch (err) { toast("Não consegui agendar: " + err.message); btn.disabled = false; btn.textContent = orig; }
     };
@@ -2221,7 +2291,7 @@
         var tpl = findTemplateById(c.template_id);
         var slide0 = (c.slides && c.slides[0]) || { tag: "", titulo: meta.titulo, corpo: "" };
         var when = c.status === "aguardando_aprovacao" ? '<span class="selo-aprov">⏳ Aguardando aprovação do gestor</span>' + (c.data_agendada ? " · para " + fmtDateTime(c.data_agendada) : "")
-          : c.status === "agendado" ? "Agendado " + fmtDateTime(c.data_agendada)
+          : c.status === "agendado" ? (c.publicar_manual ? "Postar pelo app " : "Agendado ") + fmtDateTime(c.data_agendada)
           : c.status === "publicado" ? "Publicado " + fmtDate(c.data_publicada)
           : "Criado " + fmtDate(c.created_at);
         // agendados e publicados: card compacto (texto e botões na mesma linha), como os rascunhos enxutos
@@ -2346,7 +2416,7 @@
     var dIni = ini ? ymd(ini) : ymd(addDays(1));
     var tIni = ini ? pad2(ini.getHours()) + ":" + pad2(ini.getMinutes()) : "18:00";
     var igOn = state.igConta && state.igConta.status === "ativo";
-    var fmtSel = ehReels(c) ? "reels" : "feed";
+    var fmtSel = ehReels(c) ? "reels" : "feed", manualSel = !!c.publicar_manual, musSel = null;
     document.getElementById("modal-body").innerHTML =
       '<div class="modal-head"><div><h3 style="font-size:19px;">📅 ' + (c.status === "agendado" ? "Reagendar" : "Agendar") + ' publicação</h3>' +
       '<div style="font-size:13px;color:var(--ink-muted);margin-top:4px;">' + escapeHtml(meta.titulo) + '</div></div>' +
@@ -2357,6 +2427,7 @@
           '<button type="button" class="ag-fmt-b on" data-ag-fmt="feed"><b>Carrossel</b><span>no feed</span></button>' +
           '<button type="button" class="ag-fmt-b" data-ag-fmt="reels"><b>▶ Reels</b><span>vídeo 9:16 · 3 s por slide</span></button></div>' +
           '<p class="ag-fmt-dica" id="ag-fmt-dica" hidden>A Vitrine monta o vídeo agora, neste aparelho (leva uns segundos por slide). Mantenha esta tela aberta até terminar.</p></div>') +
+      '<div id="ag-reels-op"' + (ehReels(c) ? "" : " hidden") + '>' + (ehReels(c) ? "" : musicaHtml()) + comoPublicarHtml(manualSel) + '</div>' +
       '<div class="agendar-rapido">' +
       '<label>Dia<input type="date" id="ag-data" value="' + dIni + '" min="' + ymd(new Date()) + '" max="' + ymd(addDays(90)) + '"></label>' +
       '<label>Horário<input type="time" id="ag-hora" value="' + tIni + '" step="300"></label></div>' +
@@ -2371,14 +2442,19 @@
     document.getElementById("overlay").hidden = false;
     document.getElementById("modal-close").onclick = closeModal;
     document.getElementById("ag-cancelar").onclick = closeModal;
+    document.getElementById("modal-close").addEventListener("click", function () { var a = document.getElementById("ag-mus-ouvir"); if (a) a.pause(); });
+    document.getElementById("ag-cancelar").addEventListener("click", function () { var a = document.getElementById("ag-mus-ouvir"); if (a) a.pause(); });
     qsa("[data-ag-hora]").forEach(function (b) { b.onclick = function () { document.getElementById("ag-hora").value = b.dataset.agHora; }; });
     qsa("[data-ag-fmt]").forEach(function (b) {
       b.onclick = function () {
         fmtSel = b.dataset.agFmt;
         qsa("[data-ag-fmt]").forEach(function (x) { x.classList.toggle("on", x === b); });
         var dica = document.getElementById("ag-fmt-dica"); if (dica) dica.hidden = fmtSel !== "reels";
+        var op = document.getElementById("ag-reels-op"); if (op) op.hidden = fmtSel !== "reels";
       };
     });
+    var pararMus = ligarMusica(document.getElementById("modal-body"), function (id) { musSel = id; });
+    ligarComoPublicar(document.getElementById("modal-body"), function (m) { manualSel = m; });
     document.getElementById("ag-confirmar").onclick = async function () {
       var btn = this;
       var d = document.getElementById("ag-data").value, t = document.getElementById("ag-hora").value || "18:00";
@@ -2400,11 +2476,15 @@
         if (fmtSel === "reels" && !ehReels(c)) {
           // carrossel → Reels: monta o vídeo 9:16 com os slides e guarda no Storage pro servidor publicar
           var blRe = await renderCarouselBlobs(c, function (n, tot) { btn.textContent = "Preparando slide " + n + "/" + tot + "…"; }, "reels");
-          var vid = await gerarVideoReels(blRe, function (pc) { btn.textContent = "Gerando o vídeo " + pc + "%…"; });
+          if (pararMus) pararMus();
+          var musBlob = null;
+          if (musSel) { btn.textContent = "Carregando a música…"; try { musBlob = await window.VitrineMusicas.carregar(musSel); } catch (e) { toast("Não consegui carregar a música; o vídeo sai sem música."); } }
+          var vid = await gerarVideoReels(blRe, function (pc) { btn.textContent = "Gerando o vídeo " + pc + "%…"; }, musBlob);
           blRe.forEach(function (b) { setTimeout(function () { URL.revokeObjectURL(b.url); }, 30000); });
           btn.textContent = "Enviando o vídeo…";
           extra = { formato: "reels", video_url: await subirVideoReels(vid), legenda: c.legenda || legendaPadrao(c) };
         }
+        extra.publicar_manual = fmtSel === "reels" ? manualSel : false;
         var upd = await DB.update("carrosseis", "id=eq." + c.id, Object.assign({ status: "agendado", data_agendada: iso, erro_publicacao: null, instagram_contas_ids: contasSel }, extra));
         Object.assign(c, extra);
         // com a aprovação do gestor ligada, o banco troca 'agendado' por 'aguardando_aprovacao'
@@ -2418,6 +2498,7 @@
         }
         closeModal(); renderPainel(); renderInstagram();
         if (stFinal === "aguardando_aprovacao") toast("Enviado para aprovação do gestor.");
+        else if (c.publicar_manual) toast("Agendado para " + fmtDateTime(iso) + " — na hora a Vitrine te avisa para postar pelo app e escolher a música.");
         else toast("Agendado para " + fmtDateTime(iso) + (igOn ? " — vai ser publicado sozinho no Instagram." : ". Conecte o Instagram (aba Instagram) até lá pra publicar sozinho."));
       } catch (err) { toast("Erro ao agendar: " + err.message); btn.disabled = false; btn.textContent = orig; }
     };

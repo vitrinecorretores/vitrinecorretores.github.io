@@ -190,7 +190,8 @@
   var ESTILOS = {
     luxo: { nome: "Luxo", desc: "Lento e elegante, tons quentes", bpm: 80, beats: 4, tr: 0.9, trans: ["dissolve"], fonte: SERIF, peso: 500, acc: "#E6C98F", accTxt: "#1A1408", anim: "mask", grao: true, quente: 0.07, vig: 0.5, pulse: false, mov: EZ.io3, painel: "rgba(22,15,8,.58)" },
     moderno: { nome: "Moderno", desc: "Dinâmico, cortes no ritmo", bpm: 120, beats: 3, tr: 0.42, trans: ["slide", "zoom", "flash", "dissolve"], fonte: FONTE, peso: 900, acc: LIMA, accTxt: "#0A0A0A", anim: "words", grao: false, quente: 0, vig: 0.35, pulse: true, mov: EZ.o3, painel: "rgba(10,10,12,.68)" },
-    direto: { nome: "Direto", desc: "Rápido, preço em destaque", bpm: 100, beats: 2, tr: 0.2, trans: ["dissolve", "slide"], fonte: FONTE, peso: 900, acc: LIMA, accTxt: "#0A0A0A", anim: "words", grao: false, quente: 0, vig: 0.3, pulse: false, mov: EZ.o3, painel: "rgba(10,10,12,.7)" }
+    direto: { nome: "Direto", desc: "Rápido, preço em destaque", bpm: 100, beats: 2, tr: 0.2, trans: ["dissolve", "slide"], fonte: FONTE, peso: 900, acc: LIMA, accTxt: "#0A0A0A", anim: "words", grao: false, quente: 0, vig: 0.3, pulse: false, mov: EZ.o3, painel: "rgba(10,10,12,.7)" },
+    cinetico: { nome: "Motion", desc: "Texto gigante animado, frase por frase", bpm: 110, beats: 2, tr: 0.3, trans: ["zoom", "flash", "slide"], fonte: FONTE, peso: 900, acc: LIMA, accTxt: "#0A0A0A", anim: "words", grao: false, quente: 0, vig: 0.55, pulse: true, mov: EZ.o3, painel: "rgba(10,10,12,.7)" }
   };
   // movimentos de câmera nas fotos: z = [início, fim] de zoom; x/y = deslocamento (fração da sobra da foto)
   var MOV = [
@@ -284,6 +285,7 @@
     var preco = curto(p.preco) + (p.finalidade === "aluguel" ? "/mês" : "");
     if (key === "direto") return (preco ? preco : maiusc(tipo)) + local + " — olha isso";
     if (key === "luxo") return "Exclusividade: " + maiusc(tipo) + local;
+    if (key === "cinetico") return maiusc(tipo) + local + " — " + (dif ? dif.slice(5) : "olha isso");
     return "Acabou de entrar: " + tipo + local + dif;
   }
   function parseHook(h) {
@@ -333,10 +335,16 @@
     if (p.banheiros && specs.length < 3) specs.push([String(p.banheiros), p.banheiros > 1 ? "banheiros" : "banheiro"]);
     var difs = (Array.isArray(p.diferenciais) ? p.diferenciais : []).map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 4);
     var itens = [];
-    if (key === "direto") { if (+p.preco) itens.push({ t: "preco" }); if (specs.length) itens.push({ t: "specs" }); }
+    if (key === "cinetico") {
+      // Motion: cada informação vira uma frase gigante animada palavra por palavra (só dados do cadastro)
+      var fr = specs.map(function (s) { return s[0] + " " + s[1]; }).concat(difs);
+      if (+p.preco) fr.push(curto(p.preco) + (p.finalidade === "aluguel" ? "/mês" : ""));
+      if (p.bairro) fr.push("Em " + String(p.bairro).trim());
+      fr.filter(Boolean).forEach(function (x) { itens.push({ t: "frase", x: x }); });
+    } else if (key === "direto") { if (+p.preco) itens.push({ t: "preco" }); if (specs.length) itens.push({ t: "specs" }); }
     else if (key === "luxo") { if (specs.length) itens.push({ t: "specs" }); }
     else { if (specs.length) itens.push({ t: "specs" }); if (+p.preco) itens.push({ t: "preco" }); }
-    difs.forEach(function (x) { itens.push({ t: "dif", x: x }); });
+    if (key !== "cinetico") difs.forEach(function (x) { itens.push({ t: "dif", x: x }); });
     if (key === "luxo" && +p.preco) itens.push({ t: "preco" });
     var ini = HOOK_FIM + 0.15, fimInfo = tOutro - 0.15, slot = itens.length ? Math.max(1.5, Math.min(2.6, (fimInfo - ini) / itens.length)) : 0;
     itens = itens.filter(function (it, i) { return ini + (i + 1) * slot <= fimInfo + 0.6; });
@@ -398,9 +406,20 @@
     }
     var PY = 1160, PX = 64, PW = W - 128;
     function info(t) {
-      itens.forEach(function (it) {
+      itens.forEach(function (it, idx) {
         if (t < it.a || t > it.b + 0.1) return;
         var tl = t;
+        if (it.t === "frase") {   // Motion: tela escurece e a frase entra palavra por palavra, gigante e centralizada
+          var vis = c01((t - it.a) / 0.22) * c01((it.b - t) / 0.22);
+          ctx.fillStyle = "rgba(0,0,0," + (0.5 * vis) + ")"; ctx.fillRect(0, 0, W, H);
+          var rf = ajustar(ctx, String(it.x).toUpperCase(), 940, 176, 84, 3, 900, FONTE), hf = rf.linhas.length * rf.tam * 1.02;
+          var pop = 1 + 0.06 * (1 - EZ.o5(c01((t - it.a) / 0.35)));
+          ctx.save(); ctx.translate(W / 2, 900); ctx.scale(pop, pop); ctx.translate(-W / 2, -900);
+          bloco(ctx, rf.linhas, { x: W / 2, y: 900 - hf / 2, tam: rf.tam, peso: 900, fonte: FONTE, cor: idx % 2 ? E.acc : "#FFFFFF", alin: "center", t: tl, t0: it.a + 0.05, modo: "words", stag: 0.09, dur: 0.32, fim: it.b - 0.12, lh: 1.02 });
+          ctx.restore();
+          var bw = 180 * EZ.io3(c01((t - it.a - 0.2) / 0.4)) * vis; ctx.fillStyle = E.acc; ctx.fillRect(W / 2 - bw / 2, 900 + hf / 2 + 30, bw, 10);
+          return;
+        }
         if (it.t === "preco") {
           painel(it, t, PX, PY, PW, 250, key === "direto", function (cor, sub) {
             bloco(ctx, [p.finalidade === "aluguel" ? "ALUGUEL" : "VALOR"], { x: PX + 56, y: PY + 28, tam: 32, peso: 700, fonte: FONTE, cor: sub, alin: "left", t: tl, t0: it.a + 0.1, modo: "fade", stag: 0, dur: 0.4, fim: it.b - 0.3, esp: 6, sombra: false });

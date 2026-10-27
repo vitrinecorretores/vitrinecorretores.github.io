@@ -93,11 +93,51 @@
     });
   }
 
+  /* ============ 4) avisos no celular (Web Push): post publicado, falha e lembrete 1h antes ============ */
+  var VAPID_PUB = "BIfDKMRo9mA6c2aH3PJC9L6oFbLrAmbWjI0KgfHss_9hhBV-xBY3lpRCmfJysr1egFuuKOGBZJntwl82ttk4508";
+  function b64u(s) { var p = "=".repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(b, function (c) { return c.charCodeAt(0); }); }
+  var pushOk = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  async function inscricaoAtual() { try { var r = await navigator.serviceWorker.ready; return await r.pushManager.getSubscription(); } catch (e) { return null; } }
+  async function ativarAvisos() {
+    try {
+      var perm = await Notification.requestPermission();
+      if (perm !== "granted") { aviso("Sem permissão: libere as notificações da Vitrine nas configurações do navegador."); return; }
+      var reg = await navigator.serviceWorker.ready;
+      var sub = (await reg.pushManager.getSubscription()) || (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u(VAPID_PUB) }));
+      var j = sub.toJSON();
+      await V.DB.rest("push_inscricoes?on_conflict=endpoint", { method: "POST", headers: { Prefer: "resolution=ignore-duplicates,return=minimal" }, body: JSON.stringify({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }) });
+      lsSet("vitrine-push", "1");
+      aviso("Pronto! Você vai receber os avisos neste aparelho.");
+      desenharAvisosCelular();
+    } catch (e) { console.error(e); aviso("Não deu para ativar os avisos neste aparelho agora."); }
+  }
+  async function desenharAvisosCelular() {
+    var ancora = document.getElementById("resumo-semana");
+    if (!ancora || !V.state || !V.state.profile) return;
+    var box = document.getElementById("cresc-push");
+    if (!pushOk) { if (box) box.remove(); return; }
+    var sub = await inscricaoAtual();
+    var ativo = !!sub && Notification.permission === "granted";
+    if (ativo && lsGet("vitrine-push-ok-visto")) { if (box) box.remove(); return; }   // já ativo: não ocupa espaço no Painel
+    if (!box) { box = document.createElement("div"); box.id = "cresc-push"; box.className = "cresc-card"; ancora.parentNode.insertBefore(box, ancora); }
+    var ios = /iPad|iPhone|iPod/.test(navigator.userAgent), app = window.matchMedia && window.matchMedia("(display-mode: standalone)").matches;
+    if (ativo) {
+      box.innerHTML = '<h3>🔔 Avisos no celular ativados</h3><p>Você recebe aqui quando um post for publicado, se der falha, e 1 hora antes de cada post agendado.</p><button class="btn btn-ghost btn-sm" type="button" id="push-ok">Entendi</button>';
+      document.getElementById("push-ok").onclick = function () { lsSet("vitrine-push-ok-visto", "1"); box.remove(); };
+      return;
+    }
+    box.innerHTML = '<h3>🔔 Receba avisos no celular</h3><p>Saiba na hora quando seu post for publicado, se algo der errado, e receba um lembrete 1 hora antes de cada post agendado.</p>' +
+      (ios && !app ? '<p style="font-size:12.5px;color:var(--ink-muted);">No iPhone: toque em Compartilhar → "Adicionar à Tela de Início", abra a Vitrine pelo ícone e ative aqui.</p>' :
+        '<button class="btn btn-primary btn-sm" type="button" id="push-ativar">Ativar avisos neste aparelho</button>');
+    var bt = document.getElementById("push-ativar"); if (bt) bt.onclick = ativarAvisos;
+  }
+
   var aoMostrarAnterior = V.aoMostrar;
   V.aoMostrar = function (nome) {
     if (aoMostrarAnterior) aoMostrarAnterior(nome);
     tentarRegistrarIndicacao();
     if (nome === "plano" || nome === "painel") desenharIndique(nome);
+    if (nome === "painel") desenharAvisosCelular();
     if (nome === "admin") desenharAdminIndicacoes();
   };
 

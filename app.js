@@ -572,7 +572,7 @@
     "explicador": { tit: "#1A1A1A" }
   };
   // modelos em teste: só a conta dona vê até serem liberados para todos
-  var TPL_BETA = ["ficha-imovel", "isso-ou-aquilo", "notas", "mito-verdade", "antes-depois", "explicador"];
+  var TPL_BETA = [];   // 28/10/2026: os 6 modelos novos foram liberados para todos
   // quebra o corpo em itens de lista (linhas, ";" ou frases)
   function itensDoCorpo(t) {
     var s = String(t || "").replace(/Arrasta pro lado\s*→?/i, "").trim();

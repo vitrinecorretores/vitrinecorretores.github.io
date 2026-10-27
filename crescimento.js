@@ -35,16 +35,22 @@
     ssDel("vitrine-ref"); lsDel("vitrine-ref");   // tenta uma vez só; o servidor confere se a conta é nova
   }
 
-  async function desenharIndique() {
-    var st = document.getElementById("plan-status");
-    if (!st || !V.state || !V.state.profile) return;
+  async function desenharIndique(tela) {
+    // Plano: logo abaixo do status do plano · Painel: no topo da tela principal
+    var ancora = tela === "painel" ? document.getElementById("resumo-semana") : document.getElementById("plan-status");
+    if (!ancora || !V.state || !V.state.profile) return;
+    var antigo = document.getElementById("cresc-indique");
+    if (antigo && antigo.dataset.tela !== (tela || "plano")) antigo.remove();
     var box = document.getElementById("cresc-indique");
-    if (!box) { box = document.createElement("div"); box.id = "cresc-indique"; box.className = "cresc-card"; st.parentNode.insertBefore(box, st.nextSibling); }
+    if (!box) {
+      box = document.createElement("div"); box.id = "cresc-indique"; box.className = "cresc-card"; box.dataset.tela = tela || "plano";
+      if (tela === "painel") ancora.parentNode.insertBefore(box, ancora); else ancora.parentNode.insertBefore(box, ancora.nextSibling);
+    }
     var cod = V.state.profile.codigo_indicacao;
     if (!cod || !/^[A-Za-z0-9]+$/.test(cod)) { box.hidden = true; return; }
     box.hidden = false;
     var link = SITE + "?ref=" + cod;
-    box.innerHTML = '<h3>🎁 Indique e ganhe 1 mês grátis</h3><p>Quando seu indicado assinar, vocês dois ganham 1 mês grátis.</p>' +
+    box.innerHTML = '<h3>🎁 Indique e ganhe 1 mês grátis</h3><p>Mande seu link para um colega corretor. Quando ele assinar, <b>você ganha 1 mês grátis</b>.</p>' +
       '<div class="cresc-row"><input type="text" readonly id="cresc-link" value="' + esc(link) + '">' +
       '<a class="btn btn-primary btn-sm" id="cresc-wa" target="_blank" rel="noopener" href="' + esc("https://wa.me/?text=" + encodeURIComponent("Estou criando carrosséis de Instagram com IA na Vitrine, em 2 minutos. Testa grátis pelo meu link: " + link)) + '">Enviar no WhatsApp</a>' +
       '<button class="btn btn-ghost btn-sm" type="button" id="cresc-copiar">Copiar link</button></div>' +
@@ -91,7 +97,7 @@
   V.aoMostrar = function (nome) {
     if (aoMostrarAnterior) aoMostrarAnterior(nome);
     tentarRegistrarIndicacao();
-    if (nome === "plano") desenharIndique();
+    if (nome === "plano" || nome === "painel") desenharIndique(nome);
     if (nome === "admin") desenharAdminIndicacoes();
   };
 

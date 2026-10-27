@@ -225,8 +225,8 @@
       if (!res.ok) throw new Error(data.error_description || data.msg || data.error || "Falha na autenticação.");
       return data;
     }
-    async function signUp(email, password, nome) {
-      var data = await authFetch("signup", { email: email, password: password, data: { nome: nome } });
+    async function signUp(email, password, nome, telefone) {
+      var data = await authFetch("signup", { email: email, password: password, data: { nome: nome, telefone: telefone || "" } });
       if (data.access_token) setSession(data);
       return data;
     }
@@ -1161,7 +1161,8 @@
       (errorMsg ? '<div class="auth-error">' + escapeHtml(errorMsg) + "</div>" : "") +
       (noteMsg ? '<div class="auth-note">' + escapeHtml(noteMsg) + "</div>" : "") +
       '<form id="auth-form">' +
-      (authMode === "signup" ? '<label class="auth-field">Nome<input type="text" id="auth-nome" autocomplete="name" required></label>' : "") +
+      (authMode === "signup" ? '<label class="auth-field">Nome<input type="text" id="auth-nome" autocomplete="name" required></label>' +
+        '<label class="auth-field">Celular (WhatsApp)<input type="tel" id="auth-tel" autocomplete="tel" inputmode="tel" placeholder="(85) 99999-9999" required></label>' : "") +
       '<label class="auth-field">E-mail<input type="email" id="auth-email" autocomplete="email" required></label>' +
       '<label class="auth-field">Senha<input type="password" id="auth-pass" autocomplete="' + (authMode === "signup" ? "new-password" : "current-password") + '" minlength="6" required></label>' +
       '<button type="submit" class="btn btn-primary auth-submit" id="auth-submit">' + (authMode === "signup" ? "Criar conta grátis" : "Entrar") + "</button>" +
@@ -1179,12 +1180,17 @@
       var email = qs("#auth-email", view).value.trim();
       var pass = qs("#auth-pass", view).value;
       var nome = authMode === "signup" ? qs("#auth-nome", view).value.trim() : null;
+      var tel = null;
+      if (authMode === "signup") {
+        tel = qs("#auth-tel", view).value.replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, "");
+        if (!/^[1-9]{2}9?\d{8}$/.test(tel)) { renderAuthView("Informe um celular válido com DDD, ex.: (85) 99999-9999."); return; }
+      }
       btn.disabled = true;
       var originalTxt = btn.textContent;
       btn.innerHTML = '<div class="spin"></div> ' + (authMode === "signup" ? "Criando conta…" : "Entrando…");
       try {
         if (authMode === "signup") {
-          var data = await Auth.signUp(email, pass, nome || email.split("@")[0]);
+          var data = await Auth.signUp(email, pass, nome || email.split("@")[0], tel);
           if (!data.access_token) {
             renderAuthView(null, "Conta criada! Verifique seu e-mail (" + email + ") para confirmar o cadastro e depois faça login.");
             authMode = "login";

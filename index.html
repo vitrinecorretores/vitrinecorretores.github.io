@@ -485,6 +485,12 @@ body .auth-card{padding:22px;}
   .fonts-titulo{font-size:12px; font-weight:700; color:var(--ink-muted); text-transform:uppercase; letter-spacing:0.04em; margin:6px 0 8px;}
 
   /* ====== página de captação ====== */
+  .lp-indique{padding:8px 20px 28px; max-width:1080px; margin:0 auto;}
+  .lp-indique-box{display:flex; align-items:center; gap:18px; flex-wrap:wrap; padding:22px 24px; border-radius:18px; border:1px solid var(--border); background:linear-gradient(135deg, rgba(198,255,0,.10), rgba(139,92,255,.10));}
+  .lp-indique-box h2{margin:0 0 4px; font-size:clamp(20px,3.2vw,28px);}
+  .lp-indique-box p{margin:0; color:var(--ink-muted); max-width:560px;}
+  .lp-indique-box > div{flex:1 1 280px;}
+  .lp-indique-ico{font-size:34px; line-height:1;}
   #landing-view{position:relative; z-index:1; max-width:1180px; margin:0 auto; padding:0 24px;}
   .lp-nav{display:flex; align-items:center; gap:24px; padding:18px 0; position:sticky; top:0; z-index:10; background:rgba(5,6,13,0.6); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);}
   .lp-brand{display:flex; align-items:center; gap:10px; text-decoration:none;} .lp-brand .brand-name{font-size:22px;}
@@ -957,7 +963,7 @@ body .auth-card{padding:22px;}
   <div class="promo-bar" data-promo><span class="promo-tag">Oferta</span><span><b>30% off no 1º mês</b> do plano mensal para novos assinantes</span><button class="promo-btn" data-cta="signup">Garantir desconto →</button></div>
   <header class="lp-nav">
     <a class="lp-brand" href="#topo"><span class="brand-mark"><svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><defs><linearGradient id="vtg-lp1" x1="6" y1="10" x2="40" y2="44" gradientUnits="userSpaceOnUse"><stop stop-color="#D4FF3F"/><stop offset="1" stop-color="#F4F4F5"/></linearGradient></defs><path d="M7 15 L24 42 L41 15" stroke="url(#vtg-lp1)" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 7.5 H40" stroke="#fff" stroke-width="5.2" stroke-linecap="round"/><path d="M24 7.5 V29" stroke="#fff" stroke-width="5.2" stroke-linecap="round"/><circle cx="24" cy="42" r="3.4" fill="#F4F4F5"/></svg></span><span class="brand-name">Vitrine</span></a>
-    <nav class="lp-links"><a href="#como">Como funciona</a><a href="#recursos">Recursos</a><a href="#novidades">Novidades</a><a href="#planos">Planos</a><a href="#duvidas">Dúvidas</a></nav>
+    <nav class="lp-links"><a href="#como">Como funciona</a><a href="#recursos">Recursos</a><a href="#novidades">Novidades</a><a href="#planos">Planos</a><a href="#indique">Indique e ganhe</a><a href="#duvidas">Dúvidas</a></nav>
     <div class="lp-nav-cta"><button class="btn btn-ghost btn-sm" data-cta="login">Entrar</button><button class="btn btn-primary btn-sm" data-cta="signup">Testar grátis</button></div>
   </header>
 
@@ -1015,7 +1021,7 @@ body .auth-card{padding:22px;}
       <div class="lp-feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M21 17l-5-5-7 7"/></svg><h3>Fotos reais em alta resolução</h3><p>Cada slide ganha uma foto profissional relacionada ao assunto. Não gostou? Troque, busque outra ou envie a sua.</p></div>
       <div class="lp-feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg><h3>Prévia antes de postar</h3><p>Veja slide por slide como vai ficar no Instagram antes de publicar. Nada sai sem a sua confirmação.</p></div>
       <div class="lp-feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="0.6" fill="currentColor"/></svg><h3>Feed, Reels ou Stories</h3><p>O mesmo conteúdo vira carrossel, vídeo ou sequência de stories — no tamanho certo pra cada formato.</p></div>
-      <div class="lp-feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h16v2"/><path d="M9 19h6"/><path d="M12 5v14"/></svg><h3>Fontes e modelos com a sua cara</h3><p>6 fontes e 3 modelos visuais pra deixar o seu perfil com identidade própria.</p></div>
+      <div class="lp-feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h16v2"/><path d="M9 19h6"/><path d="M12 5v14"/></svg><h3>Fontes, cores e modelos com a sua cara</h3><p>6 fontes, 7 modelos visuais e paleta de cores do título pra deixar o seu perfil com identidade própria.</p></div>
       <div class="lp-feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg><h3>Painel organizado</h3><p>Rascunhos, agendados e publicados num só lugar. Você sabe exatamente o que já foi ao ar.</p></div>
     </div>
   </section>
@@ -1037,7 +1043,7 @@ body .auth-card{padding:22px;}
       <div class="lp-feat"><span class="lp-novo">NOVO</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg><h3>Imobiliárias: equipe no controle</h3><p>Convide corretores pelo WhatsApp ou e-mail em 1 clique e aprove os posts antes de irem ao ar.</p></div>
       <div class="lp-feat"><span class="lp-novo">NOVO</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 14l4-6 4 6"/></svg><h3>Logo grátis em 1 minuto</h3><p>Crie o logo do corretor ou da imobiliária direto na plataforma. Quer algo exclusivo? Logo profissional por R$ 99,90.</p></div>
       <div class="lp-feat"><span class="lp-novo">NOVO</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg><h3>App no seu celular</h3><p>Instale a Vitrine na tela inicial e crie posts de qualquer lugar, como um aplicativo.</p></div>
-      <div class="lp-feat"><span class="lp-novo">NOVO</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12v10H4V12"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg><h3>Indique e ganhe 1 mês grátis</h3><p>Indicou um colega e ele assinou? Vocês dois ganham 1 mês grátis.</p></div>
+      <div class="lp-feat"><span class="lp-novo">NOVO</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12v10H4V12"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg><h3>Indique e ganhe 1 mês grátis</h3><p>Indicou um colega e ele assinou? Você ganha 1 mês grátis.</p></div>
     </div>
   </section>
 
@@ -1051,6 +1057,15 @@ body .auth-card{padding:22px;}
       <div class="lp-proof"><b>Publicação com prévia</b><p>Você confere como o post vai aparecer no Instagram antes de publicar no feed, nos Reels ou nos Stories.</p></div>
       <div class="lp-proof"><b>Suporte humano por e-mail</b><p>O suporte responde em até 1 dia útil para ajudar na conta, assinatura ou publicação.</p></div>
       <div class="lp-proof"><b>Feita para o mercado brasileiro</b><p>Produto em português, com linguagem de corretor e operação formal de empresa brasileira.</p></div>
+    </div>
+  </section>
+
+  <section class="lp-indique" id="indique">
+    <div class="lp-indique-box">
+      <span class="lp-indique-ico" aria-hidden="true">🎁</span>
+      <div><h2>Indique e ganhe <span class="lp-grad">1 mês grátis</span></h2>
+      <p>Assinou a Vitrine? Você recebe um link só seu. Cada colega corretor que entrar por ele e assinar vale 1 mês grátis pra você.</p></div>
+      <button class="btn btn-primary" data-cta="signup">Criar conta e pegar meu link</button>
     </div>
   </section>
 
@@ -1093,7 +1108,7 @@ body .auth-card{padding:22px;}
       <details><summary>Como funciona a publicação no Instagram?</summary><p>Você conecta sua conta Profissional (Empresa ou Criador) uma vez. Depois, cada carrossel pode ir direto pro feed, Reels ou Stories, sempre com a prévia antes.</p></details>
       <details><summary>Posso cancelar quando quiser?</summary><p>Pode. O cancelamento é feito na própria Vitrine, sem multa e sem burocracia. Os detalhes estão na <a href="politica-de-cancelamento.html">Política de Cancelamento</a>.</p></details>
       <details><summary>Funciona no celular?</summary><p>Funciona. A Vitrine abre direto no navegador do celular e você pode adicionar à tela inicial para abrir como um app: no Android, pelo menu do Chrome em "Adicionar à tela inicial"; no iPhone, em "Compartilhar" e depois "Adicionar à Tela de Início".</p></details>
-      <details><summary>Tem programa de indicação?</summary><p>Tem. Na tela Plano você encontra seu link de indicação. Quando um colega que entrou pelo seu link assinar, vocês dois ganham 1 mês grátis.</p></details>
+      <details><summary>Tem programa de indicação?</summary><p>Tem. Na tela Plano você encontra seu link de indicação. Quando um colega que entrou pelo seu link assinar, você ganha 1 mês grátis.</p></details>
       <details><summary>Como falo com o suporte?</summary><p>É só mandar um e-mail para <a class="lp-mail" data-suporte href="mailto:vitrinecorretor@gmail.com">vitrinecorretor@gmail.com</a> — respondemos em até 1 dia útil.</p></details>
     </div>
   </section>
@@ -1353,10 +1368,10 @@ body .auth-card{padding:22px;}
 <script src="fotos.js?v=20261023-x"></script>
 <script src="simulacao.js?v=20261023-x"></script>
 <script src="datas.js?v=20261023-x"></script>
-<script src="app.js?v=20261023-contas"></script>
+<script src="app.js?v=20261027-tel"></script>
 <script src="vitrine-leads.js?v=20261023-x"></script>
 <script src="video.js?v=20261026-sr"></script>
 <script src="resultado.js?v=20261023-x"></script>
-<script src="crescimento.js?v=20261023-b2"></script>
+<script src="crescimento.js?v=20261027-indique"></script>
 </body>
 </html>

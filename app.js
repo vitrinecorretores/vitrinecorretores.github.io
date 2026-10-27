@@ -563,8 +563,39 @@
     "manchete": { tit: "#FFFFFF" },
     "post-social": { tit: "#14171A" },
     "checklist": { tit: "#FFFFFF" },
-    "bloco-cor": { tit: "#111111" }
+    "bloco-cor": { tit: "#111111" },
+    "ficha-imovel": { tit: "#0F1419" },
+    "isso-ou-aquilo": { tit: "#FFFFFF" }
   };
+  // modelos em teste: só a conta dona vê até serem liberados para todos
+  var TPL_BETA = ["ficha-imovel", "isso-ou-aquilo"];
+  function tplVisivel(t) { return TPL_BETA.indexOf(t.slug) < 0 || ehAdmin(); }
+  /* ficha-imovel: dados SÓ do cadastro do imóvel (nada estimado). isso-ou-aquilo: usa a foto do slide seguinte. */
+  var FICHA = null, VIZINHOS = [];
+  function chipsFicha() {
+    var p = FICHA; if (!p) return [];
+    var l = [], n = function (v) { return Number(v) > 0 ? Number(v) : 0; };
+    if (n(p.preco)) l.push({ t: "R$ " + n(p.preco).toLocaleString("pt-BR", { maximumFractionDigits: 0 }) + (p.finalidade === "aluguel" ? "/mês" : ""), forte: true });
+    if (n(p.area_m2)) l.push({ t: Math.round(n(p.area_m2)).toLocaleString("pt-BR") + " m²" });
+    if (n(p.quartos)) l.push({ t: n(p.quartos) + (n(p.quartos) === 1 ? " quarto" : " quartos") });
+    if (n(p.suites)) l.push({ t: n(p.suites) + (n(p.suites) === 1 ? " suíte" : " suítes") });
+    if (n(p.vagas)) l.push({ t: n(p.vagas) + (n(p.vagas) === 1 ? " vaga" : " vagas") });
+    if (p.bairro && String(p.bairro).trim()) l.push({ t: String(p.bairro).trim() });
+    return l;
+  }
+  function desenharChips(ctx, chips, x0, y0, maxW, fam, COR) {
+    var x = x0, y = y0, h = 70, gap = 14;
+    chips.forEach(function (c) {
+      ctx.font = (c.forte ? "800" : "700") + " 34px " + fam;
+      var w = ctx.measureText(c.t).width + 52;
+      if (x + w > x0 + maxW && x > x0) { x = x0; y += h + gap; }
+      ctx.fillStyle = c.forte ? COR.destaque : "#FFFFFF"; rrect(ctx, x, y, w, h, 35); ctx.fill();
+      if (!c.forte) { ctx.strokeStyle = "#D9DDE1"; ctx.lineWidth = 2; rrect(ctx, x, y, w, h, 35); ctx.stroke(); }
+      ctx.fillStyle = "#0F1419"; ctx.textBaseline = "top"; ctx.fillText(c.t, x + 26, y + 17);
+      x += w + gap;
+    });
+    return y + h;
+  }
   function nomeAutor() {
     var p = (typeof state !== "undefined" && state.profile) || {};
     var ig = (typeof state !== "undefined" && state.igConta && state.igConta.status === "ativo" && state.igConta.username) || "";
@@ -711,7 +742,7 @@
       ctx.font = "500 " + bd.size + "px " + fam; ctx.fillStyle = "#536471";
       bd.lines.forEach(function (l, k) { ctx.fillText(l, x0, yTxt + t2.height + 28 + k * bd.size * 1.36); });
       if (bgImg) { ctx.save(); rrect(ctx, x0, fotoY, w0, fotoH, 32); ctx.clip(); coverImg(ctx, bgImg, x0, fotoY, w0, fotoH); ctx.restore(); ctx.strokeStyle = "#CFD9DE"; ctx.lineWidth = 2; rrect(ctx, x0, fotoY, w0, fotoH, 32); ctx.stroke(); }
-      ctx.fillStyle = "#536471"; ctx.font = "600 32px " + fam; ctx.fillText("♥ 18,2 mil     Salvar     Enviar", x0, acaoY + 14);
+      ctx.fillStyle = "#536471"; ctx.font = "600 32px " + fam; ctx.fillText("♥ Curtir     Comentar     Salvar", x0, acaoY + 14);
       rodapeViral(ctx, i, total, W, cx + 56, acaoY + 14, "#536471", "#0F1419", fam);
       if (!comLinkVitrine()) rodapeMarca(ctx, cx + 20, cardB + 40, cw - 40, "#3B4650", fam);   // fora do cartão, embaixo
     }
@@ -736,6 +767,57 @@
       var b3 = corpoViral(ctx, slide, { x: pad, maxW: maxW, size: 40, maxH: 260, bottom: botLimit, cor: "rgba(255,255,255,0.9)", family: fam });
       var yT = top + numH + 44;
       tituloViral(ctx, slide, { x: pad, y: yT, maxW: maxW, maxH: b3.y - 36 - yT, size: i === 0 ? 140 : 112, weight: tp, family: disp, lh: 1.08, cor: "#fff", hl: COR.destaque });
+      rodapeViral(ctx, i, total, W, pad, botLimit + 26, "#fff", COR.destaque, fam);
+      rodapeMarcaLinha(ctx, W, pad, botLimit + 26, "#fff", fam);
+    }
+
+    else if (slug === "ficha-imovel") {
+      ctx.fillStyle = "#F5F5F2"; ctx.fillRect(0, 0, W, H);
+      var fH = Math.round(H * 0.5);
+      if (bgImg) coverImg(ctx, bgImg, 0, 0, W, fH);
+      else { var gf = ctx.createLinearGradient(0, 0, W, fH); gf.addColorStop(0, "#1c1c26"); gf.addColorStop(1, "#3a3a4a"); ctx.fillStyle = gf; ctx.fillRect(0, 0, W, fH); }
+      if (slide.tag) {
+        ctx.font = "800 32px " + fam; var tgf = String(slide.tag).toUpperCase(), twf = ctx.measureText(tgf).width + 56;
+        ctx.fillStyle = "rgba(255,255,255,0.94)"; rrect(ctx, pad, top, twf, 68, 34); ctx.fill(); ctx.fillStyle = "#0F1419"; ctx.fillText(tgf, pad + 28, top + 17);
+      }
+      var yF = fH + 48, chips = (i === 0 || i === total - 1) ? chipsFicha() : [];
+      if (chips.length) yF = desenharChips(ctx, chips, pad, yF, maxW, fam, COR) + 34;
+      var corpoF = fitText(ctx, slide.corpo, { size: 38, min: 26, weight: 500, family: fam, maxW: maxW, maxH: 200, lh: 1.36 });
+      var tF = tituloViral(ctx, slide, { x: pad, y: yF, maxW: maxW, maxH: Math.max(90, botLimit - yF - corpoF.height - 30), size: i === 0 ? 112 : 96, min: 44, weight: tp, family: disp, lh: 1.08, cor: "#0F1419", hl: "#0F1419", pill: { bg: COR.destaque, fg: "#111" } });
+      corpoViral(ctx, slide, { x: pad, maxW: maxW, size: 38, maxH: 200, bottom: Math.min(botLimit, tF.y + tF.height + 30 + corpoF.height), cor: "#3B4650", family: fam });
+      rodapeViral(ctx, i, total, W, pad, botLimit + 26, "#3B4650", "#0F1419", fam);
+      rodapeMarcaLinha(ctx, W, pad, botLimit + 26, "#3B4650", fam);
+    }
+
+    else if (slug === "isso-ou-aquilo") {
+      ctx.fillStyle = "#0B0B10"; ctx.fillRect(0, 0, W, H);
+      var partes = semMarcas(slide.titulo).split(/\s+ou\s+/i);
+      if (partes.length === 2 && i < total - 1) {
+        var meio = W / 2, outra = VIZINHOS.length > 1 ? VIZINHOS[(i + 1) % VIZINHOS.length] : null;
+        [bgImg, outra].forEach(function (im, k) {
+          var xx = k * meio;
+          if (im) { ctx.save(); ctx.beginPath(); ctx.rect(xx, 0, meio, H); ctx.clip(); coverImg(ctx, im, xx, 0, meio, H); ctx.restore(); }
+          else { ctx.fillStyle = k ? "#2a2a38" : "#1a1a24"; ctx.fillRect(xx, 0, meio, H); }
+        });
+        var vo = ctx.createLinearGradient(0, 0, 0, H); vo.addColorStop(0, "rgba(0,0,0,0.62)"); vo.addColorStop(0.45, "rgba(0,0,0,0.2)"); vo.addColorStop(1, "rgba(0,0,0,0.88)");
+        ctx.fillStyle = vo; ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = "#FFFFFF"; ctx.fillRect(meio - 3, 0, 6, Math.round(H * 0.68));
+        ["A", "B"].forEach(function (L, k) {
+          var cxo = k ? meio + meio / 2 : meio / 2, txo = partes[k].replace(/[?!.]+$/, "").trim().toUpperCase();
+          ctx.font = "800 38px " + fam; ctx.textAlign = "center"; ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.fillText(L, cxo, top + 10);
+          var to = fitText(ctx, txo, { size: 84, min: 40, weight: tp, family: disp, maxW: meio - 90, maxH: 300, lh: 1.05 });
+          ctx.font = tp + " " + to.size + "px " + disp; ctx.fillStyle = k ? COR.destaque : "#FFFFFF";
+          to.lines.forEach(function (ln, j) { ctx.fillText(ln, cxo, top + 70 + j * to.size * 1.05); });
+        });
+        ctx.fillStyle = COR.destaque; ctx.beginPath(); ctx.arc(meio, H * 0.5, 92, 0, 7); ctx.fill();
+        ctx.fillStyle = "#111"; ctx.font = "900 70px " + disp; ctx.textBaseline = "middle"; ctx.fillText("OU", meio, H * 0.5 + 4);
+        ctx.textAlign = "left"; ctx.textBaseline = "top";
+        corpoViral(ctx, slide, { x: pad, maxW: maxW, size: 38, maxH: 200, bottom: botLimit, cor: "#FFFFFF", family: fam });
+      } else {
+        if (bgImg) { coverImg(ctx, bgImg, 0, 0, W, H); ctx.fillStyle = "rgba(8,8,12,0.8)"; ctx.fillRect(0, 0, W, H); }
+        var b6 = corpoViral(ctx, slide, { x: pad, maxW: maxW, size: 40, maxH: 260, bottom: botLimit, cor: "rgba(255,255,255,0.92)", family: fam });
+        tituloViral(ctx, slide, { x: pad, y: top, maxW: maxW, maxH: b6.y - 40 - top, size: i === 0 ? 140 : 120, weight: tp, family: disp, lh: 1.06, cor: "#FFFFFF", hl: COR.destaque });
+      }
       rodapeViral(ctx, i, total, W, pad, botLimit + 26, "#fff", COR.destaque, fam);
       rodapeMarcaLinha(ctx, W, pad, botLimit + 26, "#fff", fam);
     }
@@ -869,10 +951,14 @@
     try { await garantirFotosReais(c.slides, contextoDoCarrossel(c), true); }
     catch (e) { toast("Não consegui buscar as fotos: " + e.message); }
     var out = [];
+    FICHA = c.origem === "imovel" ? (findProp(c.propriedade_id) || null) : null;   // ficha-imovel: só dados do cadastro
+    var imgs = [];
+    for (var k = 0; k < c.slides.length; k++) imgs.push(slideImageUrl(c.slides[k]) ? await loadImage(slideImageUrl(c.slides[k]), melhorar) : null);
+    VIZINHOS = imgs.filter(Boolean);
     for (var i = 0; i < c.slides.length; i++) {
       var sl = c.slides[i];
       if (onProgress) onProgress(i + 1, c.slides.length);
-      var img = slideImageUrl(sl) ? await loadImage(slideImageUrl(sl), melhorar) : null;
+      var img = imgs[i];
       var blob = await renderSlideJpeg(sl, i, c.slides.length, slug, img, alto, c.fonte);
       out.push({ blob: blob, url: URL.createObjectURL(blob) });
     }
@@ -2730,10 +2816,10 @@
   }
 
   function renderTplStep() {
-    document.getElementById("tpl-grid").innerHTML = state.templates.map(function (t) {
+    document.getElementById("tpl-grid").innerHTML = state.templates.filter(tplVisivel).map(function (t) {
       return '<div class="tpl-card ' + (wizard.templateSlug === t.slug ? "selected" : "") + '" data-tpl="' + t.slug + '">' +
         '<div class="tpl-swatch tpl-' + t.slug + '"><span>Aa</span></div>' +
-        '<h4>' + escapeHtml(t.nome) + '</h4><p>' + escapeHtml(t.descricao || "") + '</p></div>';
+        '<h4>' + escapeHtml(t.nome) + (TPL_BETA.indexOf(t.slug) >= 0 ? ' <small style="color:var(--ink-faint);font-weight:600;">(teste)</small>' : '') + '</h4><p>' + escapeHtml(t.descricao || "") + '</p></div>';
     }).join("");
     qsa("[data-tpl]").forEach(function (el) {
       el.addEventListener("click", function () { wizard.templateSlug = el.dataset.tpl; renderTplStep(); });

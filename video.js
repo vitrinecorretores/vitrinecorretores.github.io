@@ -175,6 +175,18 @@
     } catch (e) { if (e && e.name !== "AbortError") V.toast("Não consegui compartilhar: " + e.message); }
   }
   var PODE_COMPARTILHAR = !!(navigator.share && navigator.canShare);
+  // Instagram só aceita MP4 normal: reorganiza o MP4 fragmentado do gravador (sem recomprimir)
+  async function mp4Normal(blob) {
+    if (!/mp4/i.test(blob.type || "") || !V.remuxMp4) return blob;
+    try { return new Blob([V.remuxMp4(new Uint8Array(await blob.arrayBuffer()))], { type: "video/mp4" }); }
+    catch (e) { console.warn("remux:", e); return blob; }
+  }
+  function podeAgendar(blob) { return !!(V.agendarVideoNovo && /mp4/i.test((blob && blob.type) || "")); }
+  async function agendarGravado(blob) {
+    var b = await mp4Normal(blob);
+    var ttl = fluxo.modo === "imovel" ? ((state.propriedades || []).find(function (x) { return x.id === fluxo.propId; }) || {}).titulo : fluxo.assunto;
+    fechar(); V.agendarVideoNovo(b, { titulo: (ttl || "Vídeo").slice(0, 120), legenda: fluxo.legenda || "", propriedade_id: fluxo.modo === "imovel" ? (fluxo.propId || null) : null });
+  }
 
   /* ============================================================
      1) REELS DO IMÓVEL — motor de renderização
@@ -782,13 +794,21 @@
       try {
         var blob = await exportarReels(function (n) { var b = $("vd-pb"); if (b) { b.style.width = n + "%"; $("vd-pt").textContent = "Exportando… " + n + "%"; } });
         if (!blob || !root || root.hidden) return;
+        blob = await mp4Normal(blob);
         var nome = "reels-" + String(rs.p.titulo || "imovel").toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 30);
         abrir(cab("🎬 Reels pronto") + '<video class="vd-player" controls playsinline loop autoplay src="' + url(blob) + '"></video>' +
-          '<div class="vd-row"><button class="vd-btn pri" id="vd-dl">Baixar vídeo</button>' + (PODE_COMPARTILHAR ? '<button class="vd-btn" id="vd-sh">Compartilhar</button>' : "") + '</div>' +
+          (podeAgendar(blob) ? '<button class="vd-btn pri" id="vd-ag" style="flex:none">📅 Agendar no Instagram</button>' : "") +
+          '<div class="vd-row"><button class="vd-btn' + (podeAgendar(blob) ? "" : " pri") + '" id="vd-dl">Baixar vídeo</button>' + (PODE_COMPARTILHAR ? '<button class="vd-btn" id="vd-sh">Compartilhar</button>' : "") + '</div>' +
           '<button class="vd-btn" id="rl-volta" style="flex:none">Editar de novo</button>' +
           '<p class="vd-hint">Formato ' + extDe(blob.type).toUpperCase() + ' 9:16. ' + (extDe(blob.type) === "webm" ? "Se o Instagram não aceitar o WEBM, gere pelo Chrome atualizado, que grava MP4." : "Pronto para postar no Instagram.") + '</p>');
         $("vd-dl").onclick = function () { baixar(blob, nome); };
         if ($("vd-sh")) $("vd-sh").onclick = function () { compartilhar(blob, nome, ""); };
+        if ($("vd-ag")) $("vd-ag").onclick = function () {
+          var p = rs.p || {};
+          var leg = [rs.hook, "📲 Fotos e detalhes: link na bio"].filter(Boolean).join("\n\n");
+          var ttl = rs.hook || p.titulo || "Reels do imóvel";
+          fechar(); V.agendarVideoNovo(blob, { titulo: ttl, legenda: leg, propriedade_id: p.id || null });
+        };
         $("rl-volta").onclick = telaReels;
       } catch (e) {
         abrir(cab("🎬 Reels do imóvel") + '<p>' + esc(e.message || "Erro ao gerar o vídeo.") + '</p><button class="vd-btn" id="rl-volta" style="flex:none">Voltar</button>');
@@ -1520,7 +1540,8 @@
   function telaPrevia(blob, palavras, dur) {
     var nome = "video-vitrine";
     abrir(cab("Seu vídeo") + '<video class="vd-player" controls playsinline src="' + url(blob) + '"></video>' +
-      '<div class="vd-row"><button class="vd-btn pri" id="vd-dl">Baixar</button>' + (PODE_COMPARTILHAR ? '<button class="vd-btn" id="vd-sh">Compartilhar</button>' : "") + '<button class="vd-btn" id="vd-de-novo">Regravar</button></div>' +
+      (podeAgendar(blob) ? '<button class="vd-btn pri" id="vd-ag" style="flex:none">📅 Agendar no Instagram</button>' : "") +
+      '<div class="vd-row"><button class="vd-btn" id="vd-dl">Baixar</button>' + (PODE_COMPARTILHAR ? '<button class="vd-btn" id="vd-sh">Compartilhar</button>' : "") + '<button class="vd-btn" id="vd-de-novo">Regravar</button></div>' +
       (LEGENDA_OK
         ? (palavras.length >= 3 ? '<button class="vd-btn" id="vd-leg" style="flex:none">Gerar vídeo com legenda</button><p class="vd-hint">Refaz o vídeo com legenda animada em tempo real (dura o mesmo que o vídeo). Mantenha a tela aberta.</p>'
           : '<p class="vd-hint">Não captei fala suficiente para gerar legenda. Fale mais perto do microfone.</p>')
@@ -1529,6 +1550,7 @@
       (fluxo.legenda ? '<p class="vd-hint">Legenda do post:</p><textarea readonly>' + esc(fluxo.legenda) + '</textarea>' : ""));
     $("vd-dl").onclick = function () { baixar(blob, nome); };
     if ($("vd-sh")) $("vd-sh").onclick = function () { compartilhar(blob, nome, fluxo.legenda); };
+    if ($("vd-ag")) $("vd-ag").onclick = function () { agendarGravado(blob); };
     $("vd-de-novo").onclick = telaGravacao;
     if ($("vd-leg")) $("vd-leg").onclick = async function () {
       var b = this; b.disabled = true;
@@ -1537,10 +1559,12 @@
         var out = await gerarLegenda(blob, palavras, function (n) { var el = $("vd-pb"); if (el) { el.style.width = n + "%"; $("vd-pt").textContent = "Gerando vídeo com legenda… " + n + "%"; } });
         if (!out || !root || root.hidden) return;
         abrir(cab("Vídeo com legenda") + '<video class="vd-player" controls playsinline src="' + url(out) + '"></video>' +
-          '<div class="vd-row"><button class="vd-btn pri" id="vd-dl2">Baixar</button>' + (PODE_COMPARTILHAR ? '<button class="vd-btn" id="vd-sh2">Compartilhar</button>' : "") + '<button class="vd-btn" id="vd-de-novo2">Regravar</button></div>' +
+          (podeAgendar(out) ? '<button class="vd-btn pri" id="vd-ag2" style="flex:none">📅 Agendar no Instagram</button>' : "") +
+          '<div class="vd-row"><button class="vd-btn" id="vd-dl2">Baixar</button>' + (PODE_COMPARTILHAR ? '<button class="vd-btn" id="vd-sh2">Compartilhar</button>' : "") + '<button class="vd-btn" id="vd-de-novo2">Regravar</button></div>' +
           '<button class="vd-btn" id="vd-orig" style="flex:none">Voltar ao vídeo original</button>');
         $("vd-dl2").onclick = function () { baixar(out, nome + "-legenda"); };
         if ($("vd-sh2")) $("vd-sh2").onclick = function () { compartilhar(out, nome + "-legenda", fluxo.legenda); };
+        if ($("vd-ag2")) $("vd-ag2").onclick = function () { agendarGravado(out); };
         $("vd-de-novo2").onclick = telaGravacao;
         $("vd-orig").onclick = function () { telaPrevia(blob, palavras, dur); };
       } catch (e) { b.disabled = false; $("vd-lp").innerHTML = '<p class="vd-hint">Não consegui gerar a legenda: ' + esc(e.message) + '</p>'; }

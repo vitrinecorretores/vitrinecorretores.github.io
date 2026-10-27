@@ -1127,7 +1127,7 @@
   // agendados antigos (de antes da publicação automática) sem imagens: prepara em segundo plano quando o app abre
   async function prepararAgendadosPendentes() {
     var pend = state.carrosseis.filter(function (c) {
-      return c.status === "agendado" && c.slides && c.slides.length && c.slides.some(function (s) { return !s.render_url; });
+      return c.status === "agendado" && !ehReels(c) && c.slides && c.slides.length && c.slides.some(function (s) { return !s.render_url; });
     });
     for (var i = 0; i < pend.length; i++) {
       try { await prepararAgendado(pend[i]); } catch (e) { console.warn("agendado sem imagens:", e); }
@@ -1179,7 +1179,352 @@
       })();
     });
     await new Promise(function (r) { rec.onstop = r; rec.stop(); });
-    return new Blob(partes, { type: "video/mp4" });
+    var bruto = new Blob(partes, { type: "video/mp4" });
+    try { return new Blob([remuxMp4(new Uint8Array(await bruto.arrayBuffer()))], { type: "video/mp4" }); } catch (e) { console.warn("remux:", e); return bruto; }
+  }
+
+  /* ============================================================
+     REELS AGENDADOS — vídeo pronto guardado no Storage e publicado sozinho na hora marcada
+     (carrosseis.formato = 'reels' + carrosseis.video_url; o servidor publica em publicar-agendados)
+  ============================================================ */
+  var PASTA_PUBLICA = SUPABASE_URL + "/storage/v1/object/public/slides-render/";
+  function ehReels(c) { return !!(c && c.formato === "reels"); }
+  function videoDe(c) { var u = (c && c.video_url) || ""; return ehReels(c) && u.indexOf(PASTA_PUBLICA) === 0 ? u : ""; }
+  function thumbReels(c) {
+    var v = videoDe(c);
+    return '<div class="reels-mini">' + (v ? '<video src="' + escapeHtml(v) + '#t=0.8" muted playsinline preload="metadata"></video>' : "") + '<span aria-hidden="true">▶</span></div>';
+  }
+  function tagReels() { return '<span class="pill pill-reels">▶ Reels</span>'; }
+  /* MP4 fragmentado (o que o MediaRecorder do Chrome grava) → MP4 normal, com o índice (moov) no começo.
+     O Instagram recusa MP4 fragmentado; aqui só reorganizamos as caixas, sem recomprimir (rápido, sem perda).
+     Se o arquivo já for MP4 normal, devolve como está. */
+  function remuxMp4(u8) {
+    var dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    function tipo(o) { return String.fromCharCode(u8[o + 4], u8[o + 5], u8[o + 6], u8[o + 7]); }
+    function caixas(ini, fim) {
+      var out = [], o = ini;
+      while (o + 8 <= fim) {
+        var sz = dv.getUint32(o), h = 8;
+        if (sz === 1) { sz = Number(dv.getBigUint64(o + 8)); h = 16; } else if (sz === 0) sz = fim - o;
+        if (sz < 8) break;
+        out.push({ t: tipo(o), o: o, d: o + h, fim: Math.min(o + sz, fim) });
+        o += sz;
+      }
+      return out;
+    }
+    function achar(l, t) { for (var i = 0; i < l.length; i++) if (l[i].t === t) return l[i]; return null; }
+    function filhos(b) { return caixas(b.d, b.fim); }
+    var topo = caixas(0, u8.length);
+    var moov = achar(topo, "moov");
+    if (!moov) throw new Error("Vídeo sem índice (moov).");
+    if (!topo.some(function (b) { return b.t === "moof"; })) return u8;   // já é MP4 normal
+    var mv = filhos(moov);
+    var trex = {};
+    var mvex = achar(mv, "mvex");
+    if (mvex) filhos(mvex).forEach(function (b) {
+      if (b.t === "trex") trex[dv.getUint32(b.d + 4)] = { dur: dv.getUint32(b.d + 12), size: dv.getUint32(b.d + 16), flags: dv.getUint32(b.d + 20) };
+    });
+    var faixas = mv.filter(function (b) { return b.t === "trak"; }).map(function (trak) {
+      var tk = filhos(trak), tkhd = achar(tk, "tkhd"), md = filhos(achar(tk, "mdia")), mdhd = achar(md, "mdhd"), mi = filhos(achar(md, "minf"));
+      var v1 = u8[tkhd.d] === 1, m1 = u8[mdhd.d] === 1;
+      return {
+        id: dv.getUint32(tkhd.d + (v1 ? 20 : 12)),
+        ts: dv.getUint32(mdhd.d + (m1 ? 20 : 12)),
+        vol: dv.getUint16(tkhd.d + (v1 ? 48 : 36)),
+        w: dv.getUint32(tkhd.d + (v1 ? 88 : 76)), h: dv.getUint32(tkhd.d + (v1 ? 92 : 80)),
+        hdlr: achar(md, "hdlr"), mhd: achar(mi, "vmhd") || achar(mi, "smhd") || achar(mi, "nmhd"), dinf: achar(mi, "dinf"),
+        stsd: achar(filhos(achar(mi, "stbl")), "stsd"), am: []
+      };
+    });
+    if (!faixas.length) throw new Error("Vídeo sem faixas.");
+    topo.filter(function (b) { return b.t === "moof"; }).forEach(function (moof) {
+      filhos(moof).filter(function (b) { return b.t === "traf"; }).forEach(function (traf) {
+        var tf = filhos(traf), tfhd = achar(tf, "tfhd"), fl = dv.getUint32(tfhd.d) & 0xffffff, p = tfhd.d + 8;
+        var id = dv.getUint32(tfhd.d + 4), fx = faixas.find(function (f) { return f.id === id; });
+        if (!fx) return;
+        var def = trex[id] || { dur: 0, size: 0, flags: 0 };
+        var base = moof.o, dDur = def.dur, dSize = def.size, dFlags = def.flags;
+        if (fl & 1) { base = Number(dv.getBigUint64(p)); p += 8; }
+        if (fl & 2) p += 4;
+        if (fl & 8) { dDur = dv.getUint32(p); p += 4; }
+        if (fl & 0x10) { dSize = dv.getUint32(p); p += 4; }
+        if (fl & 0x20) { dFlags = dv.getUint32(p); p += 4; }
+        var fimAnterior = null;
+        tf.filter(function (b) { return b.t === "trun"; }).forEach(function (trun) {
+          var v = u8[trun.d], f = dv.getUint32(trun.d) & 0xffffff, q = trun.d + 4, n = dv.getUint32(q); q += 4;
+          var off = fimAnterior !== null ? fimAnterior : base;
+          if (f & 1) { off = base + dv.getInt32(q); q += 4; }
+          var primeira = null; if (f & 4) { primeira = dv.getUint32(q); q += 4; }
+          for (var i = 0; i < n; i++) {
+            var dur = dDur, size = dSize, flags = dFlags, cts = 0;
+            if (f & 0x100) { dur = dv.getUint32(q); q += 4; }
+            if (f & 0x200) { size = dv.getUint32(q); q += 4; }
+            if (f & 0x400) { flags = dv.getUint32(q); q += 4; } else if (i === 0 && primeira !== null) flags = primeira;
+            if (f & 0x800) { cts = v === 0 ? dv.getUint32(q) : dv.getInt32(q); q += 4; }
+            fx.am.push({ off: off, size: size, dur: dur, sync: !((flags >>> 16) & 1), cts: cts });
+            off += size;
+          }
+          fimAnterior = off;
+        });
+      });
+    });
+    faixas = faixas.filter(function (f) { return f.am.length; });
+    if (!faixas.length) throw new Error("Vídeo vazio.");
+    var enc = new TextEncoder(), MTS = 1000;
+    function cx(t) {
+      var partes = Array.prototype.slice.call(arguments, 1), len = 8;
+      partes.forEach(function (p) { len += p.length; });
+      var b = new Uint8Array(len); new DataView(b.buffer).setUint32(0, len); b.set(enc.encode(t), 4);
+      var o = 8; partes.forEach(function (p) { b.set(p, o); o += p.length; }); return b;
+    }
+    function u32s(vs) { var b = new Uint8Array(vs.length * 4), d = new DataView(b.buffer); vs.forEach(function (v, i) { d.setUint32(i * 4, v >>> 0); }); return b; }
+    function cru(b) { return u8.slice(b.o, b.fim); }
+    function grupos(lista) { var g = []; lista.forEach(function (x) { var l = g[g.length - 1]; if (l && l[1] === x) l[0]++; else g.push([1, x]); }); return g; }
+    var matriz = u32s([0x10000, 0, 0, 0, 0x10000, 0, 0, 0, 0x40000000]);
+    faixas.forEach(function (fx) {
+      var ds = fx.am.map(function (a) { return a.dur; }).filter(function (d) { return d > 0; });
+      var med = ds.length ? Math.round(ds.reduce(function (a, b) { return a + b; }, 0) / ds.length) : Math.round(fx.ts / 30);
+      fx.am.forEach(function (a) { if (!a.dur) a.dur = med; });
+      fx.total = fx.am.reduce(function (s, a) { return s + a.dur; }, 0);
+      fx.mdur = Math.round(fx.total / fx.ts * MTS);
+    });
+    var mdur = Math.max.apply(null, faixas.map(function (f) { return f.mdur; }));
+    var proxId = Math.max.apply(null, faixas.map(function (f) { return f.id; })) + 1;
+    function fazerMoov(mdatIni) {
+      var pos = mdatIni, traks = faixas.map(function (fx) {
+        var offs = fx.am.map(function (a) { var o = pos; pos += a.size; return o; });
+        var stt = grupos(fx.am.map(function (a) { return a.dur; }));
+        var stts = cx("stts", u32s([0, stt.length].concat([].concat.apply([], stt))));
+        var ctts = new Uint8Array(0);
+        if (fx.am.some(function (a) { return a.cts !== 0; })) { var cg = grupos(fx.am.map(function (a) { return a.cts; })); ctts = cx("ctts", u32s([0, cg.length].concat([].concat.apply([], cg)))); }
+        var syn = []; fx.am.forEach(function (a, i) { if (a.sync) syn.push(i + 1); });
+        var stss = syn.length === fx.am.length ? new Uint8Array(0) : cx("stss", u32s([0, syn.length].concat(syn)));
+        var stsz = cx("stsz", u32s([0, 0, fx.am.length].concat(fx.am.map(function (a) { return a.size; }))));
+        var stsc = cx("stsc", u32s([0, 1, 1, 1, 1]));
+        var stco = cx("stco", u32s([0, offs.length].concat(offs)));
+        var tkhd = cx("tkhd", u32s([3, 0, 0, fx.id, 0, fx.mdur, 0, 0]), new Uint8Array([0, 0, 0, 0, fx.vol >> 8, fx.vol & 255, 0, 0]), matriz, u32s([fx.w, fx.h]));
+        var mdhd = cx("mdhd", u32s([0, 0, 0, fx.ts, fx.total]), new Uint8Array([0x55, 0xc4, 0, 0]));
+        var stbl = cx("stbl", cru(fx.stsd), stts, ctts, stss, stsc, stsz, stco);
+        var minf = cx("minf", fx.mhd ? cru(fx.mhd) : new Uint8Array(0), cru(fx.dinf), stbl);
+        return cx("trak", tkhd, cx("mdia", mdhd, cru(fx.hdlr), minf));
+      });
+      var mvhd = cx("mvhd", u32s([0, 0, 0, MTS, mdur, 0x10000]), new Uint8Array([1, 0, 0, 0]), u32s([0, 0]), matriz, u32s([0, 0, 0, 0, 0, 0, proxId]));
+      return cx.apply(null, ["moov", mvhd].concat(traks));
+    }
+    var ftyp = cx("ftyp", enc.encode("isom"), u32s([0x200]), enc.encode("isomiso2avc1mp41"));
+    var dados = 0; faixas.forEach(function (fx) { fx.am.forEach(function (a) { dados += a.size; }); });
+    var moovN = fazerMoov(0);
+    var ini = ftyp.length + moovN.length + 8;
+    moovN = fazerMoov(ini);
+    var out = new Uint8Array(ini + dados);
+    out.set(ftyp, 0); out.set(moovN, ftyp.length);
+    new DataView(out.buffer).setUint32(ftyp.length + moovN.length, 8 + dados); out.set(enc.encode("mdat"), ftyp.length + moovN.length + 4);
+    var o = ini;
+    faixas.forEach(function (fx) { fx.am.forEach(function (a) { out.set(u8.subarray(a.off, a.off + a.size), o); o += a.size; }); });
+    return out;
+  }
+  // deixa o vídeo do jeito que o Instagram aceita: MP4 com índice no começo (sem recomprimir)
+  async function videoParaInstagram(blob) {
+    if (!/mp4/i.test(blob.type || "")) throw new Error("Este navegador gravou o vídeo em WEBM, que o Instagram não aceita. Gere o vídeo no Google Chrome atualizado ou no Safari 17+.");
+    var u8 = new Uint8Array(await blob.arrayBuffer());
+    return new Blob([remuxMp4(u8)], { type: "video/mp4" });
+  }
+  async function subirVideoReels(blob) {
+    var mp4 = await videoParaInstagram(blob);
+    if (mp4.size > 50 * 1024 * 1024) throw new Error("O vídeo passou de 50 MB. Encurte o vídeo e tente de novo.");
+    return uploadArquivo(mp4, state.profile.id + "/reels/" + Date.now() + "-" + Math.random().toString(36).slice(2, 8) + ".mp4", "video/mp4");
+  }
+  function usuarioDoPost(c) {
+    var d = c ? destinosDoCarrossel(c) : [];
+    var u = d[0] ? d[0].replace(/^@/, "") : ((contaSelecionada() && contaSelecionada().username) || (state.profile.nome || "seu_perfil").toLowerCase().replace(/\s+/g, ""));
+    return u;
+  }
+
+  // prévia igual à tela do Reels no Instagram (vídeo de verdade, o mesmo que vai ser publicado)
+  function previaReels(fonte, legenda, user, aoFechar) {
+    var body = document.getElementById("modal-body");
+    body.innerHTML =
+      '<div class="modal-head"><div><h3 style="font-size:18px;">Como vai ficar no Reels</h3>' +
+      '<p style="margin:4px 0 0;font-size:12.5px;color:var(--ink-muted);">Este é o vídeo que vai ser publicado. Toque no vídeo para ligar o som.</p></div>' +
+      '<button class="modal-close" id="rp-close">' + ICONS.close + '</button></div>' +
+      '<div class="reels-pv">' +
+      '<video id="rp-v" src="' + escapeHtml(fonte) + '" autoplay muted loop playsinline preload="auto"></video>' +
+      '<div class="reels-pv-carregando" id="rp-load"><div class="spin"></div><span>Carregando o vídeo…</span></div>' +
+      '<div class="reels-pv-topo"><b>Reels</b></div>' +
+      '<div class="reels-pv-lado" aria-hidden="true"><span>♡</span><span>💬</span><span>➤</span><span>⋯</span></div>' +
+      '<div class="reels-pv-base"><div class="reels-pv-user"><i>' + escapeHtml(user.slice(0, 1).toUpperCase()) + '</i><b>' + escapeHtml(user) + '</b><em>Seguir</em></div>' +
+      '<div class="reels-pv-leg" id="rp-leg">' + escapeHtml(legenda || "") + '</div></div>' +
+      '<button type="button" class="reels-pv-som" id="rp-som" aria-label="Som">🔇</button>' +
+      '<div class="reels-pv-barra"><i id="rp-barra"></i></div></div>' +
+      '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;"><button class="btn btn-ghost btn-sm" id="rp-voltar">Voltar</button></div>';
+    document.getElementById("overlay").hidden = false;
+    var v = document.getElementById("rp-v"), som = document.getElementById("rp-som");
+    function alternarSom() { v.muted = !v.muted; som.textContent = v.muted ? "🔇" : "🔊"; if (v.paused) v.play().catch(function () {}); }
+    som.onclick = function (e) { e.stopPropagation(); alternarSom(); };
+    v.onclick = alternarSom;
+    v.ontimeupdate = function () { var b = document.getElementById("rp-barra"); if (b && v.duration) b.style.width = (v.currentTime / v.duration * 100) + "%"; };
+    v.onerror = function () { var l = document.getElementById("rp-load"); if (l) l.innerHTML = "<span>Não consegui carregar o vídeo. Verifique a internet e tente de novo.</span>"; };
+    v.onplaying = v.onloadeddata = function () { var l = document.getElementById("rp-load"); if (l) l.hidden = true; };
+    document.getElementById("rp-leg").onclick = function () { this.classList.toggle("aberta"); };
+    function fechar() { try { v.pause(); } catch (e) { } if (aoFechar) aoFechar(); else closeModal(); }
+    document.getElementById("rp-close").onclick = fechar;
+    document.getElementById("rp-voltar").onclick = fechar;
+  }
+
+  // postar na mão (app do Instagram): compartilha ou baixa o vídeo pronto e copia a legenda
+  async function postarReelsNaMao(c, btn) {
+    var v = videoDe(c); if (!v) { toast("O vídeo deste Reels não foi encontrado."); return; }
+    var orig = btn ? btn.textContent : "";
+    if (btn) { btn.disabled = true; btn.textContent = "Preparando o vídeo…"; }
+    try {
+      var r = await fetch(v); if (!r.ok) throw new Error("download " + r.status);
+      var blob = await r.blob();
+      var leg = c.legenda || getSubjectMeta(c).titulo;
+      try { if (navigator.clipboard) await navigator.clipboard.writeText(leg); } catch (e) { }
+      var arq = new File([blob], "vitrine-reels.mp4", { type: "video/mp4" });
+      var podeComp = false; try { podeComp = !!(navigator.canShare && navigator.share && navigator.canShare({ files: [arq] })); } catch (e) { }
+      if (podeComp) {
+        try { await navigator.share({ files: [arq], title: "Reels Vitrine" }); toast("Legenda copiada — no Instagram é só colar."); }
+        catch (e) { if (e && e.name !== "AbortError") throw e; }
+      } else {
+        var u = URL.createObjectURL(blob), a = document.createElement("a"); a.href = u; a.download = "vitrine-reels.mp4";
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(u); }, 60000);
+        toast("Vídeo baixado e legenda copiada. No Instagram: Criar → Reels → escolha o vídeo e cole a legenda.");
+      }
+    } catch (e) { toast("Não consegui preparar o vídeo: " + e.message); }
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+  }
+
+  function openReelsModal(c) {
+    var meta = getSubjectMeta(c), v = videoDe(c);
+    var pillCls = c.status === "publicado" ? "pill-publicado" : c.status === "agendado" ? "pill-agendado" : "pill-draft";
+    var quando = c.status === "agendado" ? "Publica sozinho em " + fmtDateTime(c.data_agendada)
+      : c.status === "publicado" ? "Publicado " + fmtDate(c.data_publicada)
+      : c.status === "aguardando_aprovacao" ? "Aguardando aprovação do gestor" + (c.data_agendada ? " · para " + fmtDateTime(c.data_agendada) : "")
+      : "Rascunho — escolha o dia e o horário para publicar";
+    var destinos = destinosDoCarrossel(c);
+    var botoes = c.status === "publicado"
+      ? (igLink(c.instagram_permalink) ? '<a class="btn btn-ghost btn-sm" href="' + escapeHtml(igLink(c.instagram_permalink)) + '" target="_blank" rel="noopener noreferrer">' + ICONS.ig + ' Ver no Instagram</a>' : "")
+      : '<button class="btn btn-ghost btn-sm" id="rm-previa">' + ICONS.eye + ' Ver como fica</button>' +
+        '<button class="btn btn-ghost btn-sm" id="rm-agendar">📅 ' + (c.status === "agendado" ? "Reagendar" : "Agendar") + '</button>' +
+        (c.status === "agendado" ? '<button class="btn btn-ghost btn-sm" id="rm-publicado">' + ICONS.check + ' Marcar como publicado</button>' : "") +
+        '<button class="btn btn-primary btn-sm" id="rm-mao">📲 Postar pelo app</button>';
+    document.getElementById("modal-body").innerHTML =
+      '<div class="modal-head"><div><h3 style="font-size:19px;">' + escapeHtml(meta.titulo) + '</h3>' +
+      '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;"><span class="pill ' + pillCls + '">' + escapeHtml(c.status === "aguardando_aprovacao" ? "aguardando aprovação" : c.status) + '</span>' + tagReels() + '</div></div>' +
+      '<button class="modal-close" id="modal-close">' + ICONS.close + '</button></div>' +
+      '<div class="reels-modal">' +
+      (v ? '<video class="reels-player" src="' + escapeHtml(v) + '" controls playsinline preload="metadata"></video>'
+         : '<div class="reels-player reels-sem">Vídeo não encontrado</div>') +
+      '<div class="reels-info">' +
+      '<div class="reels-quando">' + escapeHtml(quando) + '</div>' +
+      (destinos.length ? '<div class="reels-dest">' + ICONS.ig + ' ' + escapeHtml(destinos.join(", ")) + '</div>' : "") +
+      (c.erro_publicacao ? '<div class="meta erro-pub">⚠ ' + escapeHtml(c.erro_publicacao) + '</div>' : "") +
+      '<label class="reels-leg-lb" for="rm-leg">Legenda</label>' +
+      (c.status === "publicado"
+        ? '<div class="reels-leg-txt">' + escapeHtml(c.legenda || "") + '</div>'
+        : '<textarea id="rm-leg" class="reels-leg" maxlength="2200" placeholder="Escreva a legenda do Reels">' + escapeHtml(c.legenda || "") + '</textarea>' +
+          '<div class="reels-leg-acoes"><span id="rm-leg-n">' + (c.legenda || "").length + '/2200</span><button class="btn btn-ghost btn-sm" id="rm-leg-salvar" disabled>Salvar legenda</button></div>') +
+      '</div></div>' +
+      '<div class="reels-botoes">' + botoes + '</div>';
+    document.getElementById("overlay").hidden = false;
+    document.getElementById("modal-close").onclick = closeModal;
+    var ta = document.getElementById("rm-leg"), sv = document.getElementById("rm-leg-salvar");
+    if (ta) {
+      ta.oninput = function () { document.getElementById("rm-leg-n").textContent = ta.value.length + "/2200"; sv.disabled = ta.value === (c.legenda || ""); };
+      sv.onclick = async function () {
+        sv.disabled = true; var t = sv.textContent; sv.textContent = "Salvando…";
+        try { await DB.update("carrosseis", "id=eq." + c.id, { legenda: ta.value.trim() }); c.legenda = ta.value.trim(); toast("Legenda salva."); }
+        catch (e) { toast("Erro ao salvar a legenda: " + e.message); sv.disabled = false; }
+        sv.textContent = t;
+      };
+    }
+    function legendaAtual() { return ta ? ta.value : (c.legenda || ""); }
+    var pv = document.getElementById("rm-previa");
+    if (pv) pv.onclick = function () { if (!v) { toast("O vídeo deste Reels não foi encontrado."); return; } var leg = legendaAtual(); previaReels(v, leg, usuarioDoPost(c), function () { openReelsModal(c); var t2 = document.getElementById("rm-leg"); if (t2 && t2.value !== leg) { t2.value = leg; t2.oninput(); } }); };
+    var ag = document.getElementById("rm-agendar");
+    if (ag) ag.onclick = function () { abrirAgendarRascunho(c.id); };
+    var mao = document.getElementById("rm-mao");
+    if (mao) mao.onclick = function () { postarReelsNaMao(c, mao); };
+    var mp = document.getElementById("rm-publicado");
+    if (mp) mp.onclick = async function () {
+      try {
+        var pubAt = new Date().toISOString();
+        await DB.update("carrosseis", "id=eq." + c.id, { status: "publicado", data_publicada: pubAt });
+        c.status = "publicado"; c.data_publicada = pubAt;
+        closeModal(); renderPainel(); renderInstagram(); toast("Marcado como publicado.");
+      } catch (err) { toast("Erro: " + err.message); }
+    };
+  }
+
+  // agenda um vídeo novo (feito no editor de Reels) para sair sozinho no Instagram
+  function agendarVideoNovo(blob, info) {
+    info = info || {};
+    if (testeSemPublicacoes()) { avisoFimDoTeste(); return; }
+    var previaUrl = URL.createObjectURL(blob);
+    var igOn = contasAtivas().length > 0;
+    var legIni = info.legenda || "";
+    document.getElementById("modal-body").innerHTML =
+      '<div class="modal-head"><div><h3 style="font-size:19px;">📅 Agendar Reels</h3>' +
+      '<div style="font-size:13px;color:var(--ink-muted);margin-top:4px;">' + escapeHtml(info.titulo || "Reels") + '</div></div>' +
+      '<button class="modal-close" id="modal-close">' + ICONS.close + '</button></div>' +
+      '<div class="reels-modal"><video class="reels-player" src="' + previaUrl + '" controls playsinline muted loop autoplay></video>' +
+      '<div class="reels-info">' +
+      '<div class="agendar-rapido">' +
+      '<label>Dia<input type="date" id="ag-data" value="' + ymd(addDays(1)) + '" min="' + ymd(new Date()) + '" max="' + ymd(addDays(90)) + '"></label>' +
+      '<label>Horário<input type="time" id="ag-hora" value="18:00" step="300"></label></div>' +
+      '<div class="ag-chips">' + HORARIOS_TOP.map(function (t) { return '<button type="button" class="cal-slot top" data-ag-hora="' + t + '">' + t + '</button>'; }).join("") + '</div>' +
+      '<div id="ag-contas">' + escolhaContasHtml([]) + '</div>' +
+      '<label class="reels-leg-lb" for="ag-leg">Legenda</label>' +
+      '<textarea id="ag-leg" class="reels-leg" maxlength="2200" placeholder="Escreva a legenda do Reels">' + escapeHtml(legIni) + '</textarea>' +
+      (igOn ? '<p class="ag-info">Na hora marcada, a Vitrine publica sozinha no seu Instagram — mesmo com o app fechado.</p>'
+            : '<p class="ag-info ag-warn">⚠ Seu Instagram ainda não está conectado. Conecte na aba Instagram até o horário, senão o Reels não sai sozinho.</p>') +
+      '</div></div>' +
+      '<div class="reels-botoes"><button class="btn btn-ghost btn-sm" id="ag-cancelar">Cancelar</button>' +
+      '<button class="btn btn-ghost btn-sm" id="ag-previa">' + ICONS.eye + ' Ver como fica</button>' +
+      '<button class="btn btn-primary btn-sm" id="ag-confirmar">📅 Confirmar agendamento</button></div>';
+    document.getElementById("overlay").hidden = false;
+    function sair() { closeModal(); setTimeout(function () { URL.revokeObjectURL(previaUrl); }, 60000); }
+    document.getElementById("modal-close").onclick = sair;
+    document.getElementById("ag-cancelar").onclick = sair;
+    qsa("[data-ag-hora]").forEach(function (b) { b.onclick = function () { document.getElementById("ag-hora").value = b.dataset.agHora; qsa("[data-ag-hora]").forEach(function (x) { x.classList.toggle("on", x === b); }); }; });
+    document.getElementById("ag-previa").onclick = function () {
+      var guardado = { d: document.getElementById("ag-data").value, h: document.getElementById("ag-hora").value, l: document.getElementById("ag-leg").value, c: lerContasMarcadas(document.getElementById("ag-contas")) };
+      previaReels(previaUrl, guardado.l, (contasAtivas().find(function (x) { return x.id === guardado.c[0]; }) || contaSelecionada() || { username: usuarioDoPost(null) }).username, function () {
+        agendarVideoNovo(blob, { titulo: info.titulo, legenda: guardado.l, propriedade_id: info.propriedade_id });
+        document.getElementById("ag-data").value = guardado.d; document.getElementById("ag-hora").value = guardado.h;
+        if (guardado.c[0]) { var r = document.querySelector('[data-conta-ig="' + guardado.c[0] + '"]'); if (r) r.checked = true; }
+      });
+    };
+    document.getElementById("ag-confirmar").onclick = async function () {
+      var btn = this;
+      var d = document.getElementById("ag-data").value, t = document.getElementById("ag-hora").value || "18:00";
+      if (!d) { toast("Escolha o dia da publicação."); return; }
+      var quando = new Date(d + "T" + t);
+      if (quando <= new Date(Date.now() + 5 * 60000)) { toast("Esse horário já passou (ou está em menos de 5 minutos) — escolha outro."); return; }
+      if (quando > addDays(90)) { toast("Dá pra agendar até 90 dias à frente."); return; }
+      var contasSel = lerContasMarcadas(document.getElementById("ag-contas"));
+      var leg = document.getElementById("ag-leg").value.trim();
+      btn.disabled = true; var orig = btn.textContent; btn.textContent = "Enviando o vídeo…";
+      try {
+        var url = await subirVideoReels(blob);
+        btn.textContent = "Agendando…";
+        var payload = {
+          corretor_id: state.profile.id, origem: info.propriedade_id ? "imovel" : "custom", propriedade_id: info.propriedade_id || null,
+          assunto_custom: (info.titulo || "Reels").slice(0, 200), categoria: "Reels", status: "agendado", data_agendada: quando.toISOString(),
+          legenda: leg || null, instagram_contas_ids: contasSel, formato: "reels", video_url: url, melhorar_fotos: false, fonte: "moderna"
+        };
+        var rows = await DB.insert("carrosseis", payload);
+        var novo = rows && rows[0];
+        if (!novo) throw new Error("o servidor não confirmou o agendamento.");
+        var sl = await DB.insert("slides", [{ carrossel_id: novo.id, ordem: 0, titulo: (info.titulo || "Reels").slice(0, 200), tag: "REELS" }]).catch(function () { return []; });
+        novo.slides = sl || [];
+        state.carrosseis.unshift(novo);
+        sair(); renderPainel(); renderInstagram();
+        if (novo.status === "aguardando_aprovacao") toast("Reels enviado para aprovação do gestor.");
+        else toast("Reels agendado para " + fmtDateTime(novo.data_agendada) + (igOn ? " — vai ser publicado sozinho no Instagram." : ". Conecte o Instagram até lá pra publicar sozinho."));
+      } catch (err) { toast("Não consegui agendar: " + err.message); btn.disabled = false; btn.textContent = orig; }
+    };
   }
 
   // prévia no formato do Instagram com escolha Feed / Reels / Stories.
@@ -1882,9 +2227,9 @@
         // agendados e publicados: card compacto (texto e botões na mesma linha), como os rascunhos enxutos
         var compacto = c.status !== "rascunho";
         return '<div class="ccard' + (compacto ? ' compacto' : '') + '">' +
-          '<div class="thumb">' + slideTile(slide0, tpl && tpl.slug, true, 1, 1, null, c.fonte) + '</div>' +
+          '<div class="thumb">' + (ehReels(c) ? thumbReels(c) : slideTile(slide0, tpl && tpl.slug, true, 1, 1, null, c.fonte)) + '</div>' +
           '<div class="body">' + (compacto ? '<div class="txt">' : '') +
-          '<h4>' + escapeHtml(meta.titulo) + '</h4>' +
+          '<h4>' + (ehReels(c) ? '<span class="tag-reels">▶ Reels</span> ' : '') + escapeHtml(meta.titulo) + '</h4>' +
           (compacto ? '' : '<div class="addr">' + escapeHtml(meta.sub) + '</div>') +
           '<div class="meta">' + when + '</div>' +
           (c.status === "agendado" && destinosDoCarrossel(c).length ? '<div class="meta ig-dest">→ ' + escapeHtml(destinosDoCarrossel(c).join(", ")) + '</div>' : "") +
@@ -1919,6 +2264,7 @@
   function openCarouselModal(id) {
     var c = state.carrosseis.find(function (x) { return x.id === id; });
     if (!c) return;
+    if (ehReels(c)) { openReelsModal(c); return; }
     var meta = getSubjectMeta(c);
     var tpl = findTemplateById(c.template_id);
     var pillCls = c.status === "publicado" ? "pill-publicado" : c.status === "agendado" ? "pill-agendado" : "pill-draft";
@@ -1962,7 +2308,7 @@
       try {
         await DB.update("carrosseis", "id=eq." + c.id, { melhorar_fotos: c.melhorar_fotos });
         // agendado já tem imagens prontas no Storage: refaz com o novo ajuste
-        if (c.status === "agendado") { toast("Refazendo as imagens agendadas…"); await prepararAgendado(c); }
+        if (c.status === "agendado" && !ehReels(c)) { toast("Refazendo as imagens agendadas…"); await prepararAgendado(c); }
       } catch (e) { toast("Erro ao salvar: " + e.message); }
       openCarouselModal(c.id);
     };
@@ -2000,10 +2346,17 @@
     var dIni = ini ? ymd(ini) : ymd(addDays(1));
     var tIni = ini ? pad2(ini.getHours()) + ":" + pad2(ini.getMinutes()) : "18:00";
     var igOn = state.igConta && state.igConta.status === "ativo";
+    var fmtSel = ehReels(c) ? "reels" : "feed";
     document.getElementById("modal-body").innerHTML =
       '<div class="modal-head"><div><h3 style="font-size:19px;">📅 ' + (c.status === "agendado" ? "Reagendar" : "Agendar") + ' publicação</h3>' +
       '<div style="font-size:13px;color:var(--ink-muted);margin-top:4px;">' + escapeHtml(meta.titulo) + '</div></div>' +
       '<button class="modal-close" id="modal-close">' + ICONS.close + '</button></div>' +
+      (ehReels(c)
+        ? '<div class="ag-contas ag-contas-uma"><span class="tag-reels">▶ Reels</span><span>Vai sair como <b>Reels</b> (vídeo)</span></div>'
+        : '<div class="ag-formato"><div class="ag-contas-t">Publicar como</div><div class="ag-fmt">' +
+          '<button type="button" class="ag-fmt-b on" data-ag-fmt="feed"><b>Carrossel</b><span>no feed</span></button>' +
+          '<button type="button" class="ag-fmt-b" data-ag-fmt="reels"><b>▶ Reels</b><span>vídeo 9:16 · 3 s por slide</span></button></div>' +
+          '<p class="ag-fmt-dica" id="ag-fmt-dica" hidden>A Vitrine monta o vídeo agora, neste aparelho (leva uns segundos por slide). Mantenha esta tela aberta até terminar.</p></div>') +
       '<div class="agendar-rapido">' +
       '<label>Dia<input type="date" id="ag-data" value="' + dIni + '" min="' + ymd(new Date()) + '" max="' + ymd(addDays(90)) + '"></label>' +
       '<label>Horário<input type="time" id="ag-hora" value="' + tIni + '" step="300"></label></div>' +
@@ -2019,6 +2372,13 @@
     document.getElementById("modal-close").onclick = closeModal;
     document.getElementById("ag-cancelar").onclick = closeModal;
     qsa("[data-ag-hora]").forEach(function (b) { b.onclick = function () { document.getElementById("ag-hora").value = b.dataset.agHora; }; });
+    qsa("[data-ag-fmt]").forEach(function (b) {
+      b.onclick = function () {
+        fmtSel = b.dataset.agFmt;
+        qsa("[data-ag-fmt]").forEach(function (x) { x.classList.toggle("on", x === b); });
+        var dica = document.getElementById("ag-fmt-dica"); if (dica) dica.hidden = fmtSel !== "reels";
+      };
+    });
     document.getElementById("ag-confirmar").onclick = async function () {
       var btn = this;
       var d = document.getElementById("ag-data").value, t = document.getElementById("ag-hora").value || "18:00";
@@ -2026,7 +2386,9 @@
       var quando = new Date(d + "T" + t);
       if (quando <= new Date(Date.now() + 5 * 60000)) { toast("Esse horário já passou (ou está em menos de 5 minutos) — escolha outro."); return; }
       if (quando > addDays(90)) { toast("Dá pra agendar até 90 dias à frente."); return; }
-      if (!c.slides || c.slides.length < 2 || c.slides.length > 10) { toast("Pra publicar no feed o carrossel precisa ter de 2 a 10 slides."); return; }
+      if (fmtSel === "feed" && (!c.slides || c.slides.length < 2 || c.slides.length > 10)) { toast("Pra publicar no feed o carrossel precisa ter de 2 a 10 slides."); return; }
+      if (fmtSel === "reels" && !ehReels(c) && (!c.slides || !c.slides.length)) { toast("Este carrossel não tem slides para virar vídeo."); return; }
+      if (ehReels(c) && !videoDe(c)) { toast("O vídeo deste Reels não foi encontrado. Gere o vídeo de novo."); return; }
       if (c.status !== "agendado" && testeSemPublicacoes()) { closeModal(); avisoFimDoTeste(); return; }
       btn.disabled = true; var orig = btn.textContent; btn.textContent = "Agendando…";
       var eraRascunho = c.status !== "agendado";
@@ -2034,13 +2396,23 @@
         var iso = quando.toISOString();
         var contasSel = lerContasMarcadas(document.getElementById("ag-contas"));
         if (contasAtivas().length > 1 && !contasSel.length) { toast("Marque pelo menos um Instagram."); btn.disabled = false; btn.textContent = orig; return; }
-        var upd = await DB.update("carrosseis", "id=eq." + c.id, { status: "agendado", data_agendada: iso, erro_publicacao: null, instagram_contas_ids: contasSel });
+        var extra = {};
+        if (fmtSel === "reels" && !ehReels(c)) {
+          // carrossel → Reels: monta o vídeo 9:16 com os slides e guarda no Storage pro servidor publicar
+          var blRe = await renderCarouselBlobs(c, function (n, tot) { btn.textContent = "Preparando slide " + n + "/" + tot + "…"; }, "reels");
+          var vid = await gerarVideoReels(blRe, function (pc) { btn.textContent = "Gerando o vídeo " + pc + "%…"; });
+          blRe.forEach(function (b) { setTimeout(function () { URL.revokeObjectURL(b.url); }, 30000); });
+          btn.textContent = "Enviando o vídeo…";
+          extra = { formato: "reels", video_url: await subirVideoReels(vid), legenda: c.legenda || legendaPadrao(c) };
+        }
+        var upd = await DB.update("carrosseis", "id=eq." + c.id, Object.assign({ status: "agendado", data_agendada: iso, erro_publicacao: null, instagram_contas_ids: contasSel }, extra));
+        Object.assign(c, extra);
         // com a aprovação do gestor ligada, o banco troca 'agendado' por 'aguardando_aprovacao'
         var stFinal = upd && upd[0] && upd[0].status ? upd[0].status : "agendado";
         c.status = stFinal; c.data_agendada = iso; c.erro_publicacao = null; c.instagram_contas_ids = contasSel;
         // imagens do feed prontas no Storage pro servidor publicar na hora marcada
         // rascunho pode ter sido editado (fonte/fotos) depois de algum render antigo: renderiza de novo
-        if (eraRascunho || c.slides.some(function (s) { return !s.render_url; })) {
+        if (!ehReels(c) && (eraRascunho || c.slides.some(function (s) { return !s.render_url; }))) {
           try { await prepararAgendado(c, function (n, tot) { btn.textContent = "Preparando imagens " + n + "/" + tot + "…"; }); }
           catch (e) { toast("Agendado, mas as imagens não foram preparadas (" + e.message + "). Abra o app antes do horário que eu tento de novo."); }
         }
@@ -3380,8 +3752,8 @@
       var tpl = findTemplateById(c.template_id);
       var slide0 = (c.slides && c.slides[0]) || { tag: "", titulo: meta.titulo, corpo: "" };
       var when = label === "Publica em" ? fmtDateTime(c.data_agendada) : fmtDate(c.data_publicada);
-      return '<div class="qitem"><div class="thumb">' + slideTile(slide0, tpl && tpl.slug, true, 1, 1, null, c.fonte) + '</div>' +
-        '<div class="body"><h4>' + escapeHtml(meta.titulo) + '</h4><div class="when">' + label + ' ' + when +
+      return '<div class="qitem"><div class="thumb">' + (ehReels(c) ? thumbReels(c) : slideTile(slide0, tpl && tpl.slug, true, 1, 1, null, c.fonte)) + '</div>' +
+        '<div class="body"><h4>' + (ehReels(c) ? '<span class="tag-reels">▶ Reels</span> ' : '') + escapeHtml(meta.titulo) + '</h4><div class="when">' + label + ' ' + when +
         (destinosDoCarrossel(c).length ? ' · ' + escapeHtml(destinosDoCarrossel(c).join(", ")) : '') + '</div></div></div>';
     }
   }
@@ -4010,6 +4382,6 @@
     }
   }
 
-  window.Vitrine = Object.assign(window.Vitrine || {}, { state: state, DB: DB, toast: toast, escapeHtml: escapeHtml, fmtDate: fmtDate, fmtDateTime: fmtDateTime, contasAtivas: contasAtivas, callFunction: callFunction, fotosDe: fotosDe, fmtBRL: fmtBRL, closeModal: closeModal });
+  window.Vitrine = Object.assign(window.Vitrine || {}, { state: state, DB: DB, toast: toast, escapeHtml: escapeHtml, fmtDate: fmtDate, fmtDateTime: fmtDateTime, contasAtivas: contasAtivas, callFunction: callFunction, fotosDe: fotosDe, fmtBRL: fmtBRL, closeModal: closeModal, remuxMp4: remuxMp4, agendarVideoNovo: agendarVideoNovo });
   bootApp();
 })();

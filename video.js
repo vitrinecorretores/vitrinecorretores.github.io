@@ -68,6 +68,7 @@
     ".rl-colpv{display:flex;flex-direction:column;gap:10px;align-items:stretch}.rl-colpv .rl-pv{align-self:center}",
     ".rl-colctl{display:flex;flex-direction:column;gap:14px;min-width:0}",
     ".rl-e.on{background:rgba(212,255,63,.10)}.rl-e.on b::after{content:' ✓'}",
+    ".rl-ia{border:1px solid #27272A;background:#0D0D10;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}.rl-ia>b{font-size:14px}",
     ".rl-sec{background:#111113;border:1px solid #27272A;border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:12px}",
     ".rl-sec>h4{margin:0;font-size:15px;display:flex;align-items:center;gap:8px}.rl-sec>h4 i{font-style:normal;width:22px;height:22px;border-radius:50%;background:#27272A;font-size:12px;display:inline-flex;align-items:center;justify-content:center}",
     ".rl-resumo{background:#111113;border:1px solid #27272A;border-radius:12px;padding:10px 12px;font-size:13px;display:grid;gap:4px}.rl-resumo b{color:" + LIMA + ";font-weight:700}.rl-resumo span{color:#A1A1AA}",
@@ -941,6 +942,19 @@
       '<input type="file" id="rl-nar-file" accept="audio/*" hidden>' +
       '<textarea id="rl-nar-t" placeholder="Texto da narração (opcional, aparece grande sobre a prévia como guia de leitura)" style="min-height:70px">' + esc(rs.narrTexto || "") + '</textarea>' +
       '<button class="vd-btn" id="rl-nar-g" style="flex:none">Gerar texto da narração</button>' +
+      (function () {
+        var ia = rs.ia || (rs.ia = { voz: "masc_grave", estilo: "natural", tom: "normal", velocidade: "normal" });
+        function chips(campo, ops) {
+          return '<div class="rl-chips">' + ops.map(function (o) { return '<button class="rl-c' + (ia[campo] === o[0] ? " on" : "") + '" data-ia="' + campo + '" data-v="' + o[0] + '">' + o[1] + '</button>'; }).join("") + '</div>';
+        }
+        return '<div class="rl-ia"><b>🤖 Narração com IA</b>' +
+          '<p class="vd-hint" style="margin:0">A IA lê o texto da narração acima. Escolha a voz e o jeito de falar.</p>' +
+          '<div class="rl-lb">Voz</div>' + chips("voz", [["masc_grave", "Masculina grave"], ["masc_suave", "Masculina suave"], ["masc_animada", "Masculina animada"], ["fem_firme", "Feminina firme"], ["fem_suave", "Feminina suave"], ["fem_animada", "Feminina animada"]]) +
+          '<div class="rl-lb">Jeito de falar</div>' + chips("estilo", [["natural", "Natural"], ["suave", "Mais suave"], ["animado", "Mais animado"], ["elegante", "Elegante (alto padrão)"], ["empolgado", "Empolgado"]]) +
+          '<div class="rl-lb">Tom</div>' + chips("tom", [["grave", "Mais grave"], ["normal", "Normal"], ["agudo", "Mais agudo"]]) +
+          '<div class="rl-lb">Velocidade</div>' + chips("velocidade", [["lenta", "Mais lenta"], ["normal", "Normal"], ["rapida", "Mais rápida"]]) +
+          '<button class="vd-btn pri" id="rl-ia-gerar" style="flex:none">🤖 Gerar narração com IA</button></div>';
+      })() +
       '<p class="vd-hint">Use fone de ouvido para a música da prévia não entrar no microfone. Durante a gravação a prévia toca sem música.</p>' +
       '</section></div></div>' +
       '<div class="rl-sticky"><button class="vd-btn pri" id="rl-exp" style="width:100%;flex:none">Exportar vídeo</button>' +
@@ -990,6 +1004,28 @@
     };
     $("rl-nar-t").oninput = function () { rs.narrTexto = this.value; };
     if ($("rl-nar-rec")) $("rl-nar-rec").onclick = gravarNarracao;
+    Array.prototype.forEach.call(root.querySelectorAll("[data-ia]"), function (b) {
+      b.onclick = function () {
+        rs.ia[b.dataset.ia] = b.dataset.v;
+        Array.prototype.forEach.call(root.querySelectorAll('[data-ia="' + b.dataset.ia + '"]'), function (x) { x.classList.toggle("on", x === b); });
+      };
+    });
+    $("rl-ia-gerar").onclick = async function () {
+      var texto = ($("rl-nar-t").value || "").trim();
+      if (texto.length < 5) { V.toast("Escreva o texto da narração ou toque em \"Gerar texto da narração\" primeiro."); $("rl-nar-t").focus(); return; }
+      var b = this; b.disabled = true; b.textContent = "Gerando a voz… (até 30 s)";
+      try {
+        var r = await V.callFunction("narrar-ia", { texto: texto, voz: rs.ia.voz, estilo: rs.ia.estilo, tom: rs.ia.tom, velocidade: rs.ia.velocidade });
+        if (!root || root.hidden) return;
+        var bin = atob(r.audio_base64), arr = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+        var blob = new Blob([arr], { type: r.mime || "audio/wav" });
+        var dur = await new Promise(function (ok) { var a = new Audio(url(blob)); a.onloadedmetadata = function () { ok(isFinite(a.duration) ? a.duration : 0); }; a.onerror = function () { ok(0); }; });
+        rs.narrPend = blob; rs.narrPendUrl = null; rs.narrPendDur = dur;
+        telaReels();
+        var pend = root.querySelector(".rl-pend"); if (pend) try { pend.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) {}
+      } catch (e) { V.toast(e.message || "Não consegui gerar a narração."); b.disabled = false; b.textContent = "🤖 Gerar narração com IA"; }
+    };
     if ($("rl-pend-ok")) $("rl-pend-ok").onclick = function () { rs.narr = rs.narrPend; rs.narrUrl = rs.narrPendUrl; rs.narrDur = rs.narrPendDur; rs.narrPend = null; rs.narrPendUrl = null; telaReels(); V.toast("Narração adicionada ao vídeo."); };
     if ($("rl-pend-x")) $("rl-pend-x").onclick = function () { rs.narrPend = null; rs.narrPendUrl = null; telaReels(); V.toast("Gravação apagada."); };
     if ($("rl-pend-re")) $("rl-pend-re").onclick = function () { rs.narrPend = null; rs.narrPendUrl = null; telaReels(); gravarNarracao(); };

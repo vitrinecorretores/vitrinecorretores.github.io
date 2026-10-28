@@ -3499,6 +3499,15 @@
     qsa("[data-cor]", fbox).forEach(function (b) { b.onclick = function () { wizard.fonte = comCor(wizard.fonte, b.dataset.cor); renderTplStep(); }; });
     var box = document.getElementById("wiz-fotos");
     if (!box) { box = document.createElement("div"); box.id = "wiz-fotos"; strip.insertAdjacentElement("afterend", box); }
+    // "Ver como fica no Instagram" fica no passo Estilo, logo abaixo dos slides (antes ficava no Publicar)
+    var vb = document.getElementById("wiz-ver-previa");
+    if (!vb) {
+      vb = document.createElement("button"); vb.type = "button"; vb.id = "wiz-ver-previa"; vb.className = "btn btn-ghost wiz-ver-previa";
+      vb.innerHTML = "👁 Ver como fica no Instagram";
+      box.insertAdjacentElement("beforebegin", vb);
+      vb.onclick = function () { verPreviaDoWizard(); };
+    }
+    vb.hidden = !(wizard.slides && wizard.slides.length);
     if (wizard.slides && wizard.slides.length) {
       box.innerHTML = '<div class="fotos-titulo">Fotos dos slides — troque as que quiser</div>' + melhorarToggleHtml(wizard.melhorar) + fotoControlsHtml(wizard.slides);
       wireFotoControls(box, wizard.slides, wizardContexto(), false, renderTplStep);
@@ -3519,13 +3528,6 @@
     qsa("[data-dest]").forEach(function (el) {
       el.addEventListener("click", function () { wizard.dest = el.dataset.dest; renderDestStep(); });
     });
-    var vb = document.getElementById("wiz-ver-previa");
-    if (!vb) {
-      vb = document.createElement("button"); vb.type = "button"; vb.id = "wiz-ver-previa"; vb.className = "btn btn-ghost wiz-ver-previa";
-      vb.innerHTML = "👁 Ver como fica no Instagram";
-      document.getElementById("dest-grid").insertAdjacentElement("afterend", vb);
-      vb.onclick = function () { verPreviaDoWizard(); };
-    }
     document.getElementById("schedule-box").hidden = wizard.dest !== "agendado";
     if (wizard.dest === "agendado") renderCalendario();
     var igOn = state.igConta && state.igConta.status === "ativo";

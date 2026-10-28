@@ -1019,8 +1019,15 @@
       '<p class="vd-hint" style="margin-top:8px;text-align:center">' + (mp4 ? "Sai em MP4, pronto para o Instagram." : "Seu navegador grava em WEBM (o Instagram pode recusar). Prefira Chrome atualizado ou Safari 17+ para MP4.") + '</p></div>');
     var cardEl = root.querySelector(".vd-card"); if (cardEl) cardEl.classList.add("rl-wide");
     rs.totalAtual = iniciarPrevia($("rl-cv"));
+    // ao escolher qualquer opção, a tela rola sozinha até o vídeo para mostrar como ficou
+    function verVideo() {
+      var pv = root.querySelector(".rl-pv"); if (!pv) return;
+      var calmo = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      try { pv.scrollIntoView({ behavior: calmo ? "auto" : "smooth", block: "center" }); } catch (e) { pv.scrollIntoView(); }
+    }
+    if (rs.rolarVideo) { rs.rolarVideo = false; setTimeout(verVideo, 80); }
     var deb = null;
-    function reiniciar() { pararPrevia(); rs.totalAtual = iniciarPrevia($("rl-cv")); }
+    function reiniciar(rolar) { pararPrevia(); rs.totalAtual = iniciarPrevia($("rl-cv")); if (rolar !== false) verVideo(); }
     Array.prototype.forEach.call(root.querySelectorAll(".rl-e[data-k]"), function (b) {
       b.onclick = function () {
         rs.key = b.dataset.k;
@@ -1031,7 +1038,7 @@
     });
     $("rl-hook").oninput = function () {
       rs.hook = this.value; rs.hookEditado = true; clearTimeout(deb);
-      deb = setTimeout(reiniciar, 350);
+      deb = setTimeout(function () { reiniciar(false); }, 350);
     };
     Array.prototype.forEach.call(root.querySelectorAll("[data-layout]"), function (b) {
       b.onclick = function () { rs.layout = b.dataset.layout === "padrao" ? "" : b.dataset.layout; Array.prototype.forEach.call(root.querySelectorAll("[data-layout]"), function (x) { x.classList.toggle("on", x === b); }); reiniciar(); };
@@ -1046,19 +1053,19 @@
       b.onclick = async function () {
         var v = b.dataset.mus;
         if (v === "arquivo") { $("rl-file").click(); return; }
-        if (v === "insta") { rs.musica = null; rs.musicaUrl = null; rs.musicaNome = ""; rs.trilha = null; rs.musicaInsta = true; telaReels(); return; }
-        if (!v) { rs.musica = null; rs.musicaUrl = null; rs.musicaNome = ""; rs.trilha = null; rs.musicaInsta = false; telaReels(); return; }
+        if (v === "insta") { rs.musica = null; rs.musicaUrl = null; rs.musicaNome = ""; rs.trilha = null; rs.musicaInsta = true; rs.rolarVideo = true; telaReels(); return; }
+        if (!v) { rs.musica = null; rs.musicaUrl = null; rs.musicaNome = ""; rs.trilha = null; rs.musicaInsta = false; rs.rolarVideo = true; telaReels(); return; }
         var id = v.slice(2), txt = b.textContent; b.disabled = true; b.textContent = "Carregando…";
         try {
           var f = await carregarTrilha(id);
           if (!root || root.hidden) return;
-          rs.musica = f; rs.musicaUrl = null; rs.musicaNome = nomeTrilha(id); rs.trilha = id; rs.musicaInsta = false; telaReels();
+          rs.musica = f; rs.musicaUrl = null; rs.musicaNome = nomeTrilha(id); rs.trilha = id; rs.musicaInsta = false; rs.rolarVideo = true; telaReels();
         } catch (e) { b.disabled = false; b.textContent = txt; V.toast(e.message || "Não consegui carregar a trilha."); }
       };
     });
     $("rl-file").onchange = function () {
       var f = this.files && this.files[0]; if (!f) return;
-      rs.musica = f; rs.musicaUrl = null; rs.musicaNome = f.name.slice(0, 28); rs.trilha = null; rs.musicaInsta = false; telaReels();
+      rs.musica = f; rs.musicaUrl = null; rs.musicaNome = f.name.slice(0, 28); rs.trilha = null; rs.musicaInsta = false; rs.rolarVideo = true; telaReels();
     };
     $("rl-nar-t").oninput = function () { rs.narrTexto = this.value; };
     if ($("rl-nar-rec")) $("rl-nar-rec").onclick = gravarNarracao;
@@ -1086,7 +1093,7 @@
         var pend = root.querySelector(".rl-pend"); if (pend) try { pend.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) {}
       } catch (e) { V.toast(e.message || "Não consegui gerar a narração."); b.disabled = false; b.textContent = "🤖 Gerar narração com IA"; }
     };
-    if ($("rl-pend-ok")) $("rl-pend-ok").onclick = function () { rs.narr = rs.narrPend; rs.narrUrl = rs.narrPendUrl; rs.narrDur = rs.narrPendDur; rs.narrPend = null; rs.narrPendUrl = null; telaReels(); V.toast("Narração adicionada ao vídeo."); };
+    if ($("rl-pend-ok")) $("rl-pend-ok").onclick = function () { rs.narr = rs.narrPend; rs.narrUrl = rs.narrPendUrl; rs.narrDur = rs.narrPendDur; rs.narrPend = null; rs.narrPendUrl = null; rs.rolarVideo = true; telaReels(); V.toast("Narração adicionada ao vídeo."); };
     if ($("rl-pend-x")) $("rl-pend-x").onclick = function () { rs.narrPend = null; rs.narrPendUrl = null; telaReels(); V.toast("Gravação apagada."); };
     if ($("rl-pend-re")) $("rl-pend-re").onclick = function () { rs.narrPend = null; rs.narrPendUrl = null; telaReels(); gravarNarracao(); };
     if ($("rl-nar-f")) $("rl-nar-f").onclick = function () { $("rl-nar-file").click(); };

@@ -62,7 +62,9 @@
     ".rl-c.on{background:rgba(212,255,63,.14);border-color:" + LIMA + ";box-shadow:0 0 0 1px " + LIMA + " inset;color:" + LIMA + "}.rl-c.on::after{content:' ✓'}",
     ".rl-cor{width:36px;height:36px;border-radius:50%;border:2px solid #27272A;cursor:pointer;position:relative;padding:0}.rl-cor.on{border-color:#fff;box-shadow:0 0 0 3px " + LIMA + "}.rl-cor.on::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:900;color:#0A0A0A;text-shadow:0 0 3px #fff}",
     ".rl-lb{font-size:12px;color:#A1A1AA;font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:-6px}",
-    ".vd-card.rl-wide{max-width:1040px}",
+    ".vd-card.rl-wide{max-width:560px}",
+    ".rl-uma{display:flex!important;flex-direction:column;gap:14px}",
+    ".rl-uma .rl-colpv{position:static}",
     ".rl-grid{display:flex;flex-direction:column;gap:14px}",
     "@media(min-width:900px){.rl-grid{display:grid;grid-template-columns:minmax(300px,380px) 1fr;gap:24px;align-items:start}.rl-colpv{position:sticky;top:12px}}",
     ".rl-colpv{display:flex;flex-direction:column;gap:10px;align-items:stretch}.rl-colpv .rl-pv{align-self:center}",
@@ -237,7 +239,7 @@
   };
   var LAYOUTS_RL = {
     padrao: { nome: "Do estilo", desc: "painéis com os dados" }, centro: { nome: "Centro", desc: "frase gigante no meio" },
-    faixa: { nome: "Faixa", desc: "faixa colorida na tela" }, caixa: { nome: "Marca-texto", desc: "frase em caixas" },
+    faixa: { nome: "Faixa", desc: "faixa inclinada atravessando a tela" }, caixa: { nome: "Marca-texto", desc: "caixas coloridas embaixo, à esquerda" },
     esquerda: { nome: "Topo", desc: "título grande à esquerda" }, legenda: { nome: "Legenda", desc: "palavra por palavra embaixo" }
   };
   // trilhas instrumentais próprias da Vitrine (compostas por código em trilhas.js): sem direitos autorais, sem crédito
@@ -261,10 +263,10 @@
   function nomeTrilha(id) { var x = TRILHAS.find(function (t) { return t.id === id; }); return x ? x.nome : ""; }
   function carregarFonte(id) { var f = FONTES_RL[id]; if (!f || !document.fonts || !document.fonts.load) return Promise.resolve(); return document.fonts.load(f.peso + " 80px " + f.css.split(",")[0]).catch(function () {}); }
   var ESTILOS = {
-    luxo: { nome: "Luxo", desc: "Lento e elegante, tons quentes", bpm: 80, beats: 4, tr: 0.9, trans: ["dissolve"], fonte: SERIF, peso: 500, acc: "#E6C98F", accTxt: "#1A1408", anim: "mask", grao: true, quente: 0.07, vig: 0.5, pulse: false, mov: EZ.io3, painel: "rgba(22,15,8,.58)" },
-    moderno: { nome: "Moderno", desc: "Dinâmico, cortes no ritmo", bpm: 120, beats: 3, tr: 0.42, trans: ["slide", "zoom", "flash", "dissolve"], fonte: FONTE, peso: 900, acc: LIMA, accTxt: "#0A0A0A", anim: "words", grao: false, quente: 0, vig: 0.35, pulse: true, mov: EZ.o3, painel: "rgba(10,10,12,.68)" },
-    direto: { nome: "Direto", desc: "Rápido, preço em destaque", bpm: 100, beats: 2, tr: 0.2, trans: ["dissolve", "slide"], fonte: FONTE, peso: 900, acc: LIMA, accTxt: "#0A0A0A", anim: "words", grao: false, quente: 0, vig: 0.3, pulse: false, mov: EZ.o3, painel: "rgba(10,10,12,.7)" },
-    cinetico: { nome: "Motion", desc: "Texto gigante animado, frase por frase", bpm: 110, beats: 2, tr: 0.3, trans: ["zoom", "flash", "slide"], fonte: FONTE, peso: 900, acc: LIMA, accTxt: "#0A0A0A", anim: "words", grao: false, quente: 0, vig: 0.55, pulse: true, mov: EZ.o3, painel: "rgba(10,10,12,.7)" }
+    luxo: { nome: "Luxo", desc: "Cinema: tarjas pretas, dourado, lento", bpm: 80, beats: 4, tr: 0.9, trans: ["dissolve"], fonte: SERIF, peso: 500, acc: "#E6C98F", accTxt: "#1A1408", anim: "mask", grao: true, quente: 0.07, vig: 0.5, pulse: false, mov: EZ.io3, painel: "rgba(22,15,8,.58)" },
+    moderno: { nome: "Moderno", desc: "Stories: barrinhas no topo, cortes no ritmo", bpm: 120, beats: 3, tr: 0.42, trans: ["slide", "zoom", "flash", "dissolve"], fonte: FONTE, peso: 900, acc: LIMA, accTxt: "#0A0A0A", anim: "words", grao: false, quente: 0, vig: 0.35, pulse: true, mov: EZ.o3, painel: "rgba(10,10,12,.68)" },
+    direto: { nome: "Direto", desc: "Anúncio: selo À VENDA e preço fixo embaixo", bpm: 100, beats: 2, tr: 0.2, trans: ["dissolve", "slide"], fonte: FONTE, peso: 900, acc: LIMA, accTxt: "#0A0A0A", anim: "words", grao: false, quente: 0, vig: 0.3, pulse: false, mov: EZ.o3, painel: "rgba(10,10,12,.7)" },
+    cinetico: { nome: "Motion", desc: "Texto gigante e borda pulsando na batida", bpm: 110, beats: 2, tr: 0.3, trans: ["zoom", "flash", "slide"], fonte: FONTE, peso: 900, acc: LIMA, accTxt: "#0A0A0A", anim: "words", grao: false, quente: 0, vig: 0.55, pulse: true, mov: EZ.o3, painel: "rgba(10,10,12,.7)" }
   };
   // movimentos de câmera nas fotos: z = [início, fim] de zoom; x/y = deslocamento (fração da sobra da foto)
   var MOV = [
@@ -496,27 +498,30 @@
       var corAlt = idx % 2 ? E.acc : "#FFFFFF";
       if (LAY === "faixa") {
         ctx.fillStyle = "rgba(0,0,0," + (0.22 * vis) + ")"; ctx.fillRect(0, 0, W, H);
+        ctx.save(); ctx.translate(W / 2, 1200); ctx.rotate(-0.11); ctx.translate(-W / 2, -1200);   // faixa inclinada
         r = ajustar(ctx, txt.toUpperCase(), 920, 124, 64, 3, PE, FT); lh = r.tam * 1.08;
         var hb = r.linhas.length * lh + 96, yb = 1200 - hb / 2;
         var ent = EZ.o5(c01((t - it.a) / 0.42)), sai = EZ.io3(c01((t - (it.b - 0.32)) / 0.32));
         ctx.save(); ctx.translate((ent - 1) * W + sai * W, 0);
-        ctx.fillStyle = E.acc; ctx.fillRect(0, yb, W, hb);
-        ctx.fillStyle = "rgba(0,0,0,.18)"; ctx.fillRect(0, yb + hb - 10, W, 10);
+        ctx.fillStyle = E.acc; ctx.fillRect(-300, yb, W + 600, hb);
+        ctx.fillStyle = "rgba(0,0,0,.18)"; ctx.fillRect(-300, yb + hb - 10, W + 600, 10);
         ctx.restore();
         if (ent > 0.55 && sai < 0.5) bloco(ctx, r.linhas, { x: W / 2, y: yb + 48, tam: r.tam, peso: PE, fonte: FT, cor: E.accTxt, alin: "center", t: t, t0: it.a + 0.22, modo: "words", stag: 0.08, dur: 0.28, fim: it.b - 0.3, lh: 1.08, sombra: false });
+        ctx.restore();
         return;
       }
       if (LAY === "caixa") {
         ctx.fillStyle = "rgba(0,0,0," + (0.42 * vis) + ")"; ctx.fillRect(0, 0, W, H);
         r = ajustar(ctx, txt.toUpperCase(), 860, 122, 62, 4, PE, FT); lh = r.tam * 1.34;
-        var y0 = 920 - r.linhas.length * lh / 2, out = c01((it.b - t) / 0.25);
-        ctx.save(); ctx.font = PE + " " + r.tam + "px " + FT; ctx.textBaseline = "top"; ctx.textAlign = "center";
+        // marca-texto: caixas embaixo, alinhadas à esquerda, alternando branco e cor de destaque
+        var y0 = 1420 - r.linhas.length * lh, out = c01((it.b - t) / 0.25), xc = 64;
+        ctx.save(); ctx.font = PE + " " + r.tam + "px " + FT; ctx.textBaseline = "top"; ctx.textAlign = "left";
         r.linhas.forEach(function (l, i) {
           var q = EZ.o5(c01((t - it.a - 0.08 - i * 0.13) / 0.34)); if (q <= 0 || out <= 0) return;
-          var w = ctx.measureText(l).width + 54, y = y0 + i * lh;
+          var w = ctx.measureText(l).width + 54, y = y0 + i * lh, fundo = i % 2 ? "#FFFFFF" : E.acc;
           ctx.globalAlpha = out;
-          ctx.save(); ctx.translate(W / 2 - w / 2, 0); ctx.scale(q, 1); rr(ctx, 0, y - r.tam * 0.12, w, r.tam * 1.18, 16); ctx.fillStyle = E.acc; ctx.fill(); ctx.restore();
-          if (q > 0.65) { ctx.globalAlpha = out * c01((q - 0.65) / 0.35); ctx.fillStyle = E.accTxt; ctx.fillText(l, W / 2, y); }
+          ctx.save(); ctx.translate(xc, 0); ctx.scale(q, 1); rr(ctx, 0, y - r.tam * 0.12, w, r.tam * 1.18, 6); ctx.fillStyle = fundo; ctx.fill(); ctx.restore();
+          if (q > 0.65) { ctx.globalAlpha = out * c01((q - 0.65) / 0.35); ctx.fillStyle = i % 2 ? "#0A0A0A" : E.accTxt; ctx.fillText(l, xc + 27, y); }
         });
         ctx.restore();
         return;
@@ -671,6 +676,49 @@
       ctx.restore();
     }
 
+    // identidade de cada estilo, desenhada por cima das fotos (o que mais diferencia um estilo do outro na tela)
+    function moldura(t) {
+      var dentro = t > 0.05 && t < tOutro;
+      if (key === "luxo") {   // cinema: tarjas pretas, filete dourado e legenda serifada do bairro
+        var hb = 190 * EZ.io3(c01(t / 0.9));
+        ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, hb); ctx.fillRect(0, H - hb, W, hb);
+        ctx.strokeStyle = "rgba(230,201,143,.55)"; ctx.lineWidth = 2; ctx.strokeRect(48, hb + 34, W - 96, H - 2 * hb - 68);
+        if (dentro && p.bairro) {
+          ctx.save(); ctx.globalAlpha = c01((t - HOOK_FIM) / 0.8); ctx.font = "500 34px " + SERIF; ctx.fillStyle = "#E6C98F"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.fillText(String(p.bairro).toUpperCase().split("").join(" "), W / 2, H - hb / 2); ctx.restore();
+        }
+      } else if (key === "moderno") {   // stories: barrinhas de progresso no topo, uma por cena, e cantoneiras
+        var seg = nShots, gap = 10, x0 = 48, wSeg = (W - 96 - gap * (seg - 1)) / seg, atual = Math.min(seg - 1, Math.floor(t / shotDur));
+        for (var k = 0; k < seg; k++) {
+          var pr = k < atual ? 1 : k > atual ? 0 : c01((t - k * shotDur) / shotDur);
+          ctx.fillStyle = "rgba(255,255,255,.35)"; rr(ctx, x0 + k * (wSeg + gap), 70, wSeg, 8, 4); ctx.fill();
+          if (pr > 0) { ctx.fillStyle = E.acc; rr(ctx, x0 + k * (wSeg + gap), 70, wSeg * pr, 8, 4); ctx.fill(); }
+        }
+        ctx.strokeStyle = E.acc; ctx.lineWidth = 10; ctx.lineCap = "round";
+        [[60, 140, 1, 1], [W - 60, 140, -1, 1], [60, H - 120, 1, -1], [W - 60, H - 120, -1, -1]].forEach(function (c) {
+          ctx.beginPath(); ctx.moveTo(c[0], c[1] + c[3] * 70); ctx.lineTo(c[0], c[1]); ctx.lineTo(c[0] + c[2] * 70, c[1]); ctx.stroke();
+        });
+      } else if (key === "direto") {   // anúncio: selo de finalidade no topo e barra fixa com preço e bairro
+        if (!dentro) return;
+        var ap = EZ.o5(c01((t - 0.2) / 0.4));
+        var selo = p.finalidade === "aluguel" ? "PARA ALUGAR" : "À VENDA";
+        ctx.save(); ctx.font = "900 40px " + FONTE; var sw = ctx.measureText(selo).width + 56;
+        ctx.translate((ap - 1) * (sw + 60), 0); ctx.fillStyle = E.acc; rr(ctx, 48, 96, sw, 76, 14); ctx.fill();
+        ctx.fillStyle = E.accTxt; ctx.textBaseline = "middle"; ctx.fillText(selo, 76, 135); ctx.restore();
+        var linha = [+p.preco ? curto(p.preco) + (p.finalidade === "aluguel" ? "/mês" : "") : "", p.bairro ? String(p.bairro).trim() : ""].filter(Boolean).join("  •  ");
+        if (linha && t > HOOK_FIM) {
+          var bq = EZ.o5(c01((t - HOOK_FIM) / 0.4)), bh = 120, by = H - 110 - bh;
+          ctx.save(); ctx.translate(0, (1 - bq) * (bh + 140));
+          ctx.fillStyle = "rgba(10,10,12,.86)"; ctx.fillRect(0, by, W, bh); ctx.fillStyle = E.acc; ctx.fillRect(0, by, 14, bh);
+          var rl = ajustar(ctx, linha, W - 120, 54, 34, 1, 900, FT);
+          ctx.font = "900 " + rl.tam + "px " + FT; ctx.fillStyle = "#FFFFFF"; ctx.textBaseline = "middle"; ctx.fillText(rl.linhas[0], 56, by + bh / 2); ctx.restore();
+        }
+      } else if (key === "cinetico") {   // motion: borda colorida que pisca no tempo da música
+        var fb2 = (t / beat) % 1, bl = Math.exp(-6 * fb2);
+        ctx.strokeStyle = E.acc; ctx.globalAlpha = 0.25 + 0.75 * bl; ctx.lineWidth = 14 + 10 * bl; ctx.strokeRect(20, 20, W - 40, H - 40); ctx.globalAlpha = 1;
+      }
+    }
+
     function draw(t) {
       t = Math.max(0, Math.min(total, t));
       ctx.setTransform(escala, 0, 0, escala, 0, 0);
@@ -691,6 +739,7 @@
         ctx.translate((Math.floor(t * 24) * 53) % 256, (Math.floor(t * 24) * 97) % 256);
         ctx.fillStyle = graos[Math.floor(t * 24) % graos.length]; ctx.fillRect(-256, -256, W + 512, H + 512); ctx.restore();
       }
+      moldura(t);
       gancho(t); info(t); cartao(t);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
@@ -902,39 +951,16 @@
     var musicaUso = rs.musicaInsta ? "Escolher no Instagram" : rs.trilha ? nomeTrilha(rs.trilha) : rs.musica ? (rs.musicaNome || "Arquivo do aparelho") : "Sem música";
     var narrUso = rs.narr ? "Narração gravada" + (rs.narrDur ? " (" + mmss(rs.narrDur) + ")" : "") : "Sem narração";
     var lay = LAYOUTS_RL[rs.layout || "padrao"];
-    abrir(cab("🎬 Reels do imóvel") + '<div class="rl-grid"><div class="rl-colpv">' +
-      '<div class="rl-pv"><canvas id="rl-cv" width="540" height="960"></canvas></div>' +
-      '<div id="rl-recslot"></div>' +
+    abrir(cab("🎬 Reels do imóvel") + '<div class="rl-grid rl-uma">' +
+      '<section class="rl-sec rl-topo"><h4>✍️ Texto</h4>' +
+      '<div class="rl-lb">Frase de abertura (primeiros 2 segundos)</div><input type="text" id="rl-hook" maxlength="90" value="' + esc(rs.hook) + '">' +
+      '</section>' +
+      '<div class="rl-colpv"><div class="rl-pv"><canvas id="rl-cv" width="540" height="960"></canvas></div><div id="rl-recslot"></div>' +
       '<div class="rl-resumo"><div><span>Em uso no vídeo:</span></div>' +
         '<div>🎨 <b>' + esc(ESTILOS[rs.key].nome) + '</b>' + (lay ? ' · ' + esc(lay.nome) : '') + '</div>' +
         '<div>🎵 <b>' + esc(musicaUso) + '</b></div><div>🎙️ <b>' + esc(narrUso) + '</b></div></div>' +
-      '</div><div class="rl-colctl">' +
-      '<section class="rl-sec"><h4><i>1</i>Visual</h4>' +
-      '<div class="rl-lb">Estilo</div><div class="rl-est">' + Object.keys(ESTILOS).map(function (k) {
-        return '<button class="rl-e' + (k === rs.key ? " on" : "") + '" data-k="' + k + '"><b>' + ESTILOS[k].nome + '</b><span>' + ESTILOS[k].desc + '</span></button>';
-      }).join("") + '</div>' +
-      '<div class="rl-lb">Layout das frases</div><div class="rl-est rl-lay">' + Object.keys(LAYOUTS_RL).map(function (k) {
-        var on = (rs.layout || "padrao") === k;
-        return '<button class="rl-e' + (on ? " on" : "") + '" data-layout="' + k + '"><b>' + LAYOUTS_RL[k].nome + '</b><span>' + LAYOUTS_RL[k].desc + '</span></button>';
-      }).join("") + '</div>' +
-      '<div class="rl-lb">Fonte</div><div class="rl-chips">' + [["", "Do estilo"]].concat(Object.keys(FONTES_RL).map(function (k) { return [k, FONTES_RL[k].nome]; })).map(function (f) {
-        var st = f[0] ? ' style="font-family:' + FONTES_RL[f[0]].css.replace(/"/g, "'") + ';font-weight:' + Math.min(FONTES_RL[f[0]].peso, 800) + '"' : "";
-        return '<button class="rl-c' + ((rs.fonte || "") === f[0] ? " on" : "") + '" data-fonte="' + f[0] + '"' + st + '>' + f[1] + '</button>';
-      }).join("") + '</div>' +
-      '<div class="rl-lb">Cor de destaque</div><div class="rl-chips"><button class="rl-c' + (!rs.cor ? " on" : "") + '" data-cor="">Do estilo</button>' + Object.keys(CORES_RL).map(function (k) {
-        return '<button class="rl-cor' + (rs.cor === k ? " on" : "") + '" data-cor="' + k + '" title="' + CORES_RL[k].nome + '" aria-label="' + CORES_RL[k].nome + '" style="background:' + CORES_RL[k].hex + '"></button>';
-      }).join("") + '</div>' +
-      '</section><section class="rl-sec"><h4><i>2</i>Texto</h4>' +
-      '<div class="rl-lb">Frase de abertura (primeiros 2 segundos)</div><input type="text" id="rl-hook" maxlength="90" value="' + esc(rs.hook) + '">' +
-      '</section><section class="rl-sec"><h4><i>3</i>Áudio</h4>' +
-      '<div class="rl-lb">Música</div><div class="rl-chips" id="rl-mus-op">' +
-        '<button class="rl-c' + (!rs.musica && !rs.musicaInsta ? " on" : "") + '" data-mus="">Sem música</button>' +
-        TRILHAS.map(function (t) { return '<button class="rl-c' + (rs.trilha === t.id ? " on" : "") + '" data-mus="t:' + t.id + '" title="' + t.desc + '">▶ ' + t.nome + '</button>'; }).join("") +
-        '<button class="rl-c' + (rs.musica && !rs.trilha ? " on" : "") + '" data-mus="arquivo">📁 ' + (rs.musica && !rs.trilha ? esc(rs.musicaNome) : "Do aparelho") + '</button>' +
-        '<button class="rl-c' + (rs.musicaInsta ? " on" : "") + '" data-mus="insta">🎵 Escolher no Instagram</button></div>' +
-      '<p class="vd-hint dif">' + (rs.musicaInsta ? "O vídeo sai sem música. Na hora de postar, a Vitrine manda o vídeo para o app do Instagram e lá você escolhe a música da biblioteca deles."
-        : "As trilhas ▶ são da própria Vitrine: livres de direitos autorais e sem custo. Ou use um arquivo seu, ou escolha a música no Instagram.") + '</p>' +
-      '<input type="file" id="rl-file" accept="audio/*" hidden>' +
+      '</div>' +
+      '<section class="rl-sec"><h4><i>1</i>Narração e música</h4>' +
       '<div class="rl-lb">Narração</div>' +
       (rs.narrPend
         ? '<div class="rl-pend"><span class="rl-badge">Nova gravação · ' + mmss(rs.narrPendDur) + ' · ouça antes de usar</span>' +
@@ -964,7 +990,31 @@
           '<button class="vd-btn pri" id="rl-ia-gerar" style="flex:none">🤖 Gerar narração com IA</button></div>';
       })() +
       '<p class="vd-hint">Use fone de ouvido para a música da prévia não entrar no microfone. Durante a gravação a prévia toca sem música.</p>' +
-      '</section></div></div>' +
+      '<div class="rl-lb">Música</div><div class="rl-chips" id="rl-mus-op">' +
+        '<button class="rl-c' + (!rs.musica && !rs.musicaInsta ? " on" : "") + '" data-mus="">Sem música</button>' +
+        TRILHAS.map(function (t) { return '<button class="rl-c' + (rs.trilha === t.id ? " on" : "") + '" data-mus="t:' + t.id + '" title="' + t.desc + '">▶ ' + t.nome + '</button>'; }).join("") +
+        '<button class="rl-c' + (rs.musica && !rs.trilha ? " on" : "") + '" data-mus="arquivo">📁 ' + (rs.musica && !rs.trilha ? esc(rs.musicaNome) : "Do aparelho") + '</button>' +
+        '<button class="rl-c' + (rs.musicaInsta ? " on" : "") + '" data-mus="insta">🎵 Escolher no Instagram</button></div>' +
+      '<p class="vd-hint dif">' + (rs.musicaInsta ? "O vídeo sai sem música. Na hora de postar, a Vitrine manda o vídeo para o app do Instagram e lá você escolhe a música da biblioteca deles."
+        : "As trilhas ▶ são da própria Vitrine: livres de direitos autorais e sem custo. Ou use um arquivo seu, ou escolha a música no Instagram.") + '</p>' +
+      '<input type="file" id="rl-file" accept="audio/*" hidden>' +
+      '</section><section class="rl-sec"><h4><i>2</i>Fonte</h4>' +
+      '<div class="rl-lb">Fonte</div><div class="rl-chips">' + [["", "Do estilo"]].concat(Object.keys(FONTES_RL).map(function (k) { return [k, FONTES_RL[k].nome]; })).map(function (f) {
+        var st = f[0] ? ' style="font-family:' + FONTES_RL[f[0]].css.replace(/"/g, "'") + ';font-weight:' + Math.min(FONTES_RL[f[0]].peso, 800) + '"' : "";
+        return '<button class="rl-c' + ((rs.fonte || "") === f[0] ? " on" : "") + '" data-fonte="' + f[0] + '"' + st + '>' + f[1] + '</button>';
+      }).join("") + '</div>' +
+      '<div class="rl-lb">Cor de destaque</div><div class="rl-chips"><button class="rl-c' + (!rs.cor ? " on" : "") + '" data-cor="">Do estilo</button>' + Object.keys(CORES_RL).map(function (k) {
+        return '<button class="rl-cor' + (rs.cor === k ? " on" : "") + '" data-cor="' + k + '" title="' + CORES_RL[k].nome + '" aria-label="' + CORES_RL[k].nome + '" style="background:' + CORES_RL[k].hex + '"></button>';
+      }).join("") + '</div>' +
+      '</section><section class="rl-sec"><h4><i>3</i>Visual</h4>' +
+      '<div class="rl-lb">Estilo</div><div class="rl-est">' + Object.keys(ESTILOS).map(function (k) {
+        return '<button class="rl-e' + (k === rs.key ? " on" : "") + '" data-k="' + k + '"><b>' + ESTILOS[k].nome + '</b><span>' + ESTILOS[k].desc + '</span></button>';
+      }).join("") + '</div>' +
+      '<div class="rl-lb">Layout das frases</div><div class="rl-est rl-lay">' + Object.keys(LAYOUTS_RL).map(function (k) {
+        var on = (rs.layout || "padrao") === k;
+        return '<button class="rl-e' + (on ? " on" : "") + '" data-layout="' + k + '"><b>' + LAYOUTS_RL[k].nome + '</b><span>' + LAYOUTS_RL[k].desc + '</span></button>';
+      }).join("") + '</div>' +
+      '</section></div>' +
       '<div class="rl-sticky"><button class="vd-btn pri" id="rl-exp" style="width:100%;flex:none">Exportar vídeo</button>' +
       '<p class="vd-hint" style="margin-top:8px;text-align:center">' + (mp4 ? "Sai em MP4, pronto para o Instagram." : "Seu navegador grava em WEBM (o Instagram pode recusar). Prefira Chrome atualizado ou Safari 17+ para MP4.") + '</p></div>');
     var cardEl = root.querySelector(".vd-card"); if (cardEl) cardEl.classList.add("rl-wide");

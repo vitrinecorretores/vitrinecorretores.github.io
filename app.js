@@ -693,12 +693,55 @@
   var MARCA = null;   // { img, nome, creci } — preparado por prepararMarca() antes de desenhar
   async function prepararMarca() {
     var p = (typeof state !== "undefined" && state.profile) || {};
-    if (p.marca_ativa === false || !(p.nome || p.logo_url)) { MARCA = null; return; }
+    if (!(p.nome || p.logo_url)) { MARCA = null; return; }
     var img = p.logo_url ? await loadImage(p.logo_url, false) : null;
     MARCA = { img: img, nome: String(p.nome || "").trim(), creci: String(p.creci || "").trim() };
   }
-  // desenha o selo da marca à esquerda; yc = centro vertical; cor = cor do texto. Logo ≤ 56px de altura.
-  function rodapeMarca(ctx, x, yc, maxW, cor, family) {
+  // a marca não sai mais automática embaixo dos posts: só entra quando o corretor liga a opção (ver aplicarMarca)
+  function rodapeMarca() { }
+  function rodapeMarcaLinha() { }
+
+  /* ---------- marca opcional no post: { ativo, pos: rodape|topo, alinh: esq|centro|dir, slides: todos|capa|ultimo|capa_ultimo, mostrar: tudo|logo|texto } ---------- */
+  var MARCA_PADRAO = { ativo: false, pos: "rodape", alinh: "esq", slides: "todos", mostrar: "tudo" };
+  function marcaCfg(cfg) { var c = Object.assign({}, MARCA_PADRAO, cfg || {}); c.ativo = !!(cfg && cfg.ativo); return c; }
+  var MARCA_POST = MARCA_PADRAO;   // config do carrossel que está sendo desenhado
+  function aplicarMarca(ctx, W, H, alto, i, total) {
+    var cfg = MARCA_POST;
+    if (!cfg || !cfg.ativo || !MARCA) return;
+    var ult = i === total - 1;
+    if (cfg.slides === "capa" && i !== 0) return;
+    if (cfg.slides === "ultimo" && !ult) return;
+    if (cfg.slides === "capa_ultimo" && i !== 0 && !ult) return;
+    var family = "Manrope, Arial, sans-serif", usaLogo = cfg.mostrar !== "texto" && MARCA.img, usaTexto = cfg.mostrar !== "logo" || !MARCA.img;
+    var l1 = usaTexto ? MARCA.nome : "", l2 = usaTexto && MARCA.creci ? "CRECI " + MARCA.creci : "";
+    if (!usaLogo && !l1 && !l2) return;
+    var padIn = 14, gap = 14, lh = 0, lw = 0, tw = 0, maxTxt = W * 0.55;
+    if (usaLogo) { var r = MARCA.img.width / MARCA.img.height; lh = 52; lw = lh * r; if (lw > 220) { lw = 220; lh = lw / r; } }
+    function corta(t, fonte) { ctx.font = fonte; while (t.length > 3 && ctx.measureText(t).width > maxTxt) t = t.slice(0, -2) + "…"; return t; }
+    if (l1) { l1 = corta(l1, "700 28px " + family); tw = Math.max(tw, ctx.measureText(l1).width); }
+    if (l2) { l2 = corta(l2, "500 22px " + family); tw = Math.max(tw, ctx.measureText(l2).width); }
+    var txtH = l1 && l2 ? 58 : (l1 || l2 ? 30 : 0);
+    var boxW = padIn * 2 + (usaLogo ? lw + 12 : 0) + (usaLogo && tw ? gap : 0) + tw, boxH = padIn * 2 + Math.max(usaLogo ? lh + 12 : 0, txtH);
+    var margem = 56, x = cfg.alinh === "centro" ? (W - boxW) / 2 : cfg.alinh === "dir" ? W - margem - boxW : margem;
+    var y = cfg.pos === "topo" ? (alto ? 230 : 44) : H - (alto ? 360 : 150) - boxH;   // longe do contador/"ARRASTA" e da barra do Instagram
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.35)"; ctx.shadowBlur = 18;
+    ctx.fillStyle = "rgba(10,12,18,0.62)"; rrect(ctx, x, y, boxW, boxH, 20); ctx.fill();
+    ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
+    var cx = x + padIn;
+    if (usaLogo) {
+      ctx.fillStyle = "rgba(255,255,255,0.96)"; rrect(ctx, cx, y + (boxH - lh - 12) / 2, lw + 12, lh + 12, 12); ctx.fill();
+      ctx.drawImage(MARCA.img, cx + 6, y + (boxH - lh) / 2, lw, lh);
+      cx += lw + 12 + (tw ? gap : 0);
+    }
+    ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillStyle = "#FFFFFF";
+    var yc = y + boxH / 2;
+    if (l1 && l2) { ctx.font = "700 28px " + family; ctx.fillText(l1, cx, yc - 14); ctx.globalAlpha = 0.85; ctx.font = "500 22px " + family; ctx.fillText(l2, cx, yc + 16); }
+    else if (l1 || l2) { ctx.font = (l1 ? "700 28px " : "500 22px ") + family; ctx.fillText(l1 || l2, cx, yc); }
+    ctx.restore(); ctx.textBaseline = "top";
+  }
+
+  function seloMarcaAntigo(ctx, x, yc, maxW, cor, family) {
     if (!MARCA) return;
     var lh = 0, lw = 0, gap = 14, pad = 6;
     if (MARCA.img) {
@@ -721,8 +764,6 @@
     } else { ctx.globalAlpha = 0.95; ctx.fillText(corta(l1 || l2, "700 28px " + family), tx, yc); }
     ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.shadowColor = "transparent"; ctx.textBaseline = "top";
   }
-  // linha do rodapé: à esquerda do contador "1/7" (yBase = topo do contador)
-  function rodapeMarcaLinha(ctx, W, pad, yBase, cor, family) { rodapeMarca(ctx, pad, yBase + 17, W - pad * 2 - 300, cor, family); }
 
   function faixaLinkVitrine(ctx, W, H, alto) {
     if (!comLinkVitrine()) return;
@@ -1016,6 +1057,7 @@
     var ctx = cv.getContext("2d");
     if (ESTILOS_VIRAIS[tplSlug]) {   // estilos virais têm layout próprio (ver desenharEstiloViral)
       desenharEstiloViral(ctx, tplSlug, slide, i, total, bgImg, alto, fonte, SLIDE_W, SLIDE_H);
+      aplicarMarca(ctx, SLIDE_W, SLIDE_H, alto, i, total);
       return new Promise(function (resolve, reject) {
         try { cv.toBlob(function (b) { b ? resolve(b) : reject(new Error("Falha ao gerar imagem.")); }, "image/jpeg", 0.9); } catch (e) { reject(e); }
       });
@@ -1080,7 +1122,7 @@
       ctx.fillText((i + 1) + "/" + total, SLIDE_W - pad, bottomLimit + 30);
     }
     ctx.globalAlpha = 1; ctx.textAlign = "left";
-    rodapeMarcaLinha(ctx, SLIDE_W, pad, bottomLimit + 26, bgImg ? "#fff" : ink, family);
+    aplicarMarca(ctx, SLIDE_W, SLIDE_H, alto, i, total);
 
     // teste grátis e conta admin (divulgação da própria Vitrine): faixa com o link da plataforma em cada página
     if (comLinkVitrine()) {
@@ -1116,7 +1158,8 @@
     var tpl = findTemplateById(c.template_id);
     var slug = (tpl && tpl.slug) || "minimalista";
     await carregarFonte(c.fonte);
-    await prepararMarca();   // logo + nome + CRECI no rodapé de todos os slides
+    await prepararMarca();   // logo + nome + CRECI: só entram se o post tiver a opção de marca ligada
+    MARCA_POST = marcaCfg(c.marca_cfg);
     var melhorar = c.melhorar_fotos !== false;   // ✨ Melhorar fotos (ligado por padrão)
     try { await garantirFotosReais(c.slides, contextoDoCarrossel(c), true); }
     catch (e) { toast("Não consegui buscar as fotos: " + e.message); }
@@ -2887,7 +2930,7 @@
      WIZARD
   ============================================================ */
   function freshWizard() {
-    return { step: 1, subjectMode: "topic", propertyId: null, topicId: null, customTopic: "", customCategoria: "Dicas", slides: null, templateSlug: "minimalista", fonte: "impacto", dest: "rascunho", customPrompt: "", melhorar: true, calc: null, calcSig: "" };
+    return { step: 1, subjectMode: "topic", propertyId: null, topicId: null, customTopic: "", customCategoria: "Dicas", slides: null, templateSlug: "minimalista", fonte: "impacto", dest: "rascunho", customPrompt: "", melhorar: true, calc: null, calcSig: "", marca: null };
   }
   var wizard = freshWizard();
   function resetWizard() {
@@ -3504,7 +3547,39 @@
     if (slug === "antes-depois") return fotos >= 2 && (dir.indexOf("antes e depois") >= 0 || /\breforma|\bvirou\b|\btransforma|\bantes e depois\b/i.test(todo));
     return true;
   }
+  function wizardMarca() {
+    if (!wizard.marca) wizard.marca = marcaCfg((state.profile && state.profile.marca_cfg) || null);
+    return wizard.marca;
+  }
+  function marcaOpcoesHtml(m, pref) {
+    function sel(id, campo, ops) {
+      return '<label>' + ops[0] + '<select id="' + pref + id + '" data-mcampo="' + campo + '">' + ops.slice(1).map(function (o) {
+        return '<option value="' + o[0] + '"' + (m[campo] === o[0] ? " selected" : "") + '>' + o[1] + '</option>'; }).join("") + '</select></label>';
+    }
+    return '<label class="melhorar-toggle"><input type="checkbox" id="' + pref + 'ativo"' + (m.ativo ? " checked" : "") + '> <span><b>Inserir minha marca</b> (logo, nome e CRECI)</span></label>' +
+      '<div class="marca-opcoes" id="' + pref + 'opcoes"' + (m.ativo ? "" : " hidden") + ' style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:10px;">' +
+      sel("pos", "pos", ["Onde", ["rodape", "Embaixo"], ["topo", "Em cima"]]) +
+      sel("alinh", "alinh", ["Alinhamento", ["esq", "À esquerda"], ["centro", "No centro"], ["dir", "À direita"]]) +
+      sel("slides", "slides", ["Em quais slides", ["todos", "Todos"], ["capa", "Só na capa"], ["ultimo", "Só no último"], ["capa_ultimo", "Capa e último"]]) +
+      sel("mostrar", "mostrar", ["O que mostrar", ["tudo", "Logo + nome + CRECI"], ["logo", "Só o logo"], ["texto", "Só nome + CRECI"]]) + '</div>';
+  }
+  function ligarMarcaOpcoes(root, pref, m, aoMudar) {
+    var chk = root.querySelector("#" + pref + "ativo"), box = root.querySelector("#" + pref + "opcoes");
+    chk.onchange = function () { m.ativo = chk.checked; box.hidden = !chk.checked; aoMudar(); };
+    qsa("[data-mcampo]", box).forEach(function (el) { el.onchange = function () { m[el.dataset.mcampo] = el.value; aoMudar(); }; });
+  }
+  function renderMarcaWizard() {
+    var box = document.getElementById("wiz-marca"); if (!box) return;
+    var p = state.profile || {}, m = wizardMarca();
+    var semDados = !(p.nome || p.logo_url);
+    box.innerHTML = '<div class="marca-card" style="margin-top:16px;"><div style="font-weight:700;margin-bottom:4px;">Sua marca no post</div>' +
+      '<p class="marca-sub" style="margin:0 0 10px;">Por padrão o post sai sem seu nome. Ligue aqui pra colocar seu logo e CRECI onde quiser — vale pro carrossel e pro reels. Confira em "Ver como fica no Instagram".' +
+      (semDados ? ' <b>Cadastre seu logo e nome em Minha marca primeiro.</b>' : '') + '</p>' + marcaOpcoesHtml(m, "wm-") + '</div>';
+    ligarMarcaOpcoes(box, "wm-", m, function () { });
+  }
+
   function renderTplStep() {
+    renderMarcaWizard();
     var visiveis = state.templates.filter(tplVisivel);
     var combinam = visiveis.filter(function (t) { return TPL_ESTRUTURA[t.slug] && textoCombina(t.slug); });
     var ordem = combinam.concat(visiveis.filter(function (t) { return combinam.indexOf(t) < 0; }));
@@ -3663,7 +3738,7 @@
       _temp: true, origem: origem, template_id: tpl ? tpl.id : null, fonte: comCor(wizard.fonte, corDe(wizard.fonte)),
       propriedade_id: wizard.propertyId, topico_id: wizard.topicId,
       assunto_custom: wizard.customTopic, categoria: wizard.customCategoria, melhorar_fotos: wizard.melhorar !== false,
-      slides: wizard.slides
+      marca_cfg: wizardMarca(), slides: wizard.slides
     };
     await abrirPrevia(temp, "ver");
   }
@@ -3684,6 +3759,7 @@
       template_id: tpl ? tpl.id : null,
       fonte: comCor(wizard.fonte, corDe(wizard.fonte)),
       melhorar_fotos: wizard.melhorar !== false,
+      marca_cfg: wizardMarca().ativo ? wizardMarca() : null,
       direcionamento: wizard.customPrompt || null,
       gancho_idx: wizard.ganchos ? wizard.ganchoIdx : null,
       status: wizard.dest,
@@ -4010,8 +4086,9 @@
     var logo = safeUrl(p.logo_url);
     box.innerHTML = '<div class="section-head" style="margin-top:6px;"><h2>Minha marca</h2></div>' +
       '<div class="marca-card">' +
-      '<p class="marca-sub">Seu logo, nome e CRECI aparecem em um rodapé discreto em todos os slides, e a cor da marca vira o destaque padrão dos títulos.</p>' +
-      '<label class="melhorar-toggle"><input type="checkbox" id="marca-ativa"' + (ativa ? " checked" : "") + '> <span>Usar minha marca nos slides</span></label>' +
+      '<p class="marca-sub">Seu logo, nome e CRECI só entram no post quando você liga "Inserir minha marca" — aqui como padrão, ou em cada carrossel no passo Estilo. A cor da marca vira o destaque dos títulos.</p>' +
+      '<label class="melhorar-toggle"><input type="checkbox" id="marca-ativa"' + (ativa ? " checked" : "") + '> <span>Usar a cor da minha marca nos títulos</span></label>' +
+      '<div style="margin:10px 0 4px;font-weight:600;font-size:13px;">Padrão para novos carrosséis</div>' + marcaOpcoesHtml(marcaCfg(p.marca_cfg), "mp-") +
       '<div class="marca-grid">' +
       '<div class="marca-logo"><div class="marca-logo-img">' + (logo ? '<img src="' + escapeHtml(logo) + '" alt="Seu logo">' : '<span>Sem logo</span>') + '</div>' +
       '<label class="btn btn-ghost btn-sm">' + (logo ? "Trocar logo" : "Enviar logo") + '<input type="file" id="marca-logo-up" accept="image/png,image/jpeg,image/webp" hidden></label>' +
@@ -4048,6 +4125,8 @@
     document.getElementById("marca-cor").addEventListener("input", function (e) { document.getElementById("marca-cor-hex").value = e.target.value.toUpperCase(); atualizar(); });
     document.getElementById("marca-cor-hex").addEventListener("input", function () { var h = lerHex(); if (h) document.getElementById("marca-cor").value = h; atualizar(); });
     atualizar();
+    var marcaPadrao = marcaCfg(p.marca_cfg);
+    ligarMarcaOpcoes(box, "mp-", marcaPadrao, function () { });
 
     async function gravar(campos, msg) {
       try {
@@ -4082,7 +4161,8 @@
       if (!nome) { toast("Preencha o seu nome."); return; }
       var ok = await gravar({
         nome: nome, creci: document.getElementById("marca-creci").value.trim() || null,
-        cor_marca: hex || null, marca_ativa: document.getElementById("marca-ativa").checked
+        cor_marca: hex || null, marca_ativa: document.getElementById("marca-ativa").checked,
+        marca_cfg: marcaPadrao
       }, "Marca salva.");
       if (ok) renderMarca();
     };

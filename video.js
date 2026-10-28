@@ -381,8 +381,15 @@
     var outro = Math.ceil(3.2 / beat) * beat;
     function tot(k) { return k * shotDur + outro; }
     var nShots = n;
-    while (tot(nShots) < 15 && nShots < Math.max(n * 4, 14) && tot(nShots + 1) <= 30) nShots++;
-    while (tot(nShots) > 30 && nShots > 3) nShots--;
+    // com narração em uso, o vídeo acompanha a voz: termina logo depois que a narração acaba (cortes continuam no ritmo da música)
+    var alvo = d.narr && d.narrDur > 0 ? Math.min(90, d.narrDur + 1.2) : 0;
+    if (alvo) {
+      nShots = 1;
+      while (tot(nShots) < Math.max(12, alvo) && tot(nShots + 1) <= 92) nShots++;
+    } else {
+      while (tot(nShots) < 15 && nShots < Math.max(n * 4, 14) && tot(nShots + 1) <= 30) nShots++;
+      while (tot(nShots) > 30 && nShots > 3) nShots--;
+    }
     var total = tot(nShots), tOutro = nShots * shotDur;
     var p = d.p, prof = d.prof || {};
     var hook = parseHook(d.hook);
@@ -936,6 +943,7 @@
           '<button class="vd-btn" id="rl-pend-re" style="flex:none">🎙️ Gravar de novo</button></div>' : '') +
       (rs.narr
         ? '<div class="rl-uso"><span class="rl-badge">✓ Em uso no vídeo' + (rs.narrDur ? ' · ' + mmss(rs.narrDur) : '') + '</span>' +
+          '<p class="vd-hint" style="margin:0">O vídeo foi ajustado para durar o mesmo que a narração' + (rs.narrDur ? ' (' + mmss(Math.min(90, rs.narrDur + 1.2)) + ' no total)' : '') + ', com os cortes no ritmo da música.</p>' +
           '<audio controls id="rl-nar-a" src="' + (rs.narrUrl || (rs.narrUrl = url(rs.narr))) + '" style="width:100%"></audio>' +
           '<div class="vd-row"><button class="vd-btn" id="rl-nar-rec">🎙️ Regravar</button><button class="vd-btn" id="rl-nar-x">🗑 Remover do vídeo</button></div></div>'
         : (rs.narrPend ? '' : '<div class="vd-row"><button class="vd-btn" id="rl-nar-rec">🎙️ Gravar narração</button><button class="vd-btn" id="rl-nar-f">Escolher áudio</button></div>')) +
@@ -960,9 +968,9 @@
       '<div class="rl-sticky"><button class="vd-btn pri" id="rl-exp" style="width:100%;flex:none">Exportar vídeo</button>' +
       '<p class="vd-hint" style="margin-top:8px;text-align:center">' + (mp4 ? "Sai em MP4, pronto para o Instagram." : "Seu navegador grava em WEBM (o Instagram pode recusar). Prefira Chrome atualizado ou Safari 17+ para MP4.") + '</p></div>');
     var cardEl = root.querySelector(".vd-card"); if (cardEl) cardEl.classList.add("rl-wide");
-    iniciarPrevia($("rl-cv"));
+    rs.totalAtual = iniciarPrevia($("rl-cv"));
     var deb = null;
-    function reiniciar() { pararPrevia(); iniciarPrevia($("rl-cv")); }
+    function reiniciar() { pararPrevia(); rs.totalAtual = iniciarPrevia($("rl-cv")); }
     Array.prototype.forEach.call(root.querySelectorAll(".rl-e[data-k]"), function (b) {
       b.onclick = function () {
         rs.key = b.dataset.k;
@@ -1015,7 +1023,9 @@
       if (texto.length < 5) { V.toast("Escreva o texto da narração ou toque em \"Gerar texto da narração\" primeiro."); $("rl-nar-t").focus(); return; }
       var b = this; b.disabled = true; b.textContent = "Gerando a voz… (até 30 s)";
       try {
-        var r = await V.callFunction("narrar-ia", { texto: texto, voz: rs.ia.voz, estilo: rs.ia.estilo, tom: rs.ia.tom, velocidade: rs.ia.velocidade });
+        // tempo alvo = duração atual do vídeo (sem narração), para a voz caber no mesmo ritmo; depois o vídeo se ajusta à voz
+        var alvoSeg = rs.narr ? 0 : Math.round(Math.max(8, (rs.totalAtual || 20) - 2.5));
+        var r = await V.callFunction("narrar-ia", { texto: texto, voz: rs.ia.voz, estilo: rs.ia.estilo, tom: rs.ia.tom, velocidade: rs.ia.velocidade, alvo_segundos: alvoSeg, bpm: ESTILOS[rs.key] && ESTILOS[rs.key].bpm });
         if (!root || root.hidden) return;
         var bin = atob(r.audio_base64), arr = new Uint8Array(bin.length);
         for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
@@ -1033,14 +1043,14 @@
     $("rl-nar-file").onchange = function () {
       var f = this.files && this.files[0]; if (!f) return;
       rs.narr = f; rs.narrUrl = null; rs.narrDur = 0;
-      var a = new Audio(url(f)); a.onloadedmetadata = function () { rs.narrDur = isFinite(a.duration) ? a.duration : 0; };
+      var a = new Audio(url(f)); a.onloadedmetadata = function () { rs.narrDur = isFinite(a.duration) ? a.duration : 0; if (rs.narr === f && root && !root.hidden) telaReels(); };
       telaReels();
     };
     if ($("rl-nar-x")) $("rl-nar-x").onclick = function () { rs.narr = null; rs.narrUrl = null; telaReels(); };
     $("rl-nar-g").onclick = async function () {
       var b = this; b.disabled = true; b.textContent = "Escrevendo…";
       try {
-        var p = rs.p, r = await V.callFunction("gerar-roteiro", { duracao: 30, propriedade: { tipo: p.tipo, bairro: p.bairro, cidade: p.cidade, preco: p.preco, finalidade: p.finalidade, quartos: p.quartos, area_m2: p.area_m2, diferenciais: p.diferenciais || [] } });
+        var p = rs.p, r = await V.callFunction("gerar-roteiro", { duracao: (rs.totalAtual || 30) > 45 ? 60 : 30, propriedade: { tipo: p.tipo, bairro: p.bairro, cidade: p.cidade, preco: p.preco, finalidade: p.finalidade, quartos: p.quartos, area_m2: p.area_m2, diferenciais: p.diferenciais || [] } });
         rs.narrTexto = [r.gancho, r.roteiro, r.cta].filter(Boolean).join("\n"); $("rl-nar-t").value = rs.narrTexto;
       } catch (e) { V.toast(e.message || "Não consegui gerar o texto."); }
       b.disabled = false; b.textContent = "Gerar texto da narração";

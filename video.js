@@ -62,9 +62,12 @@
     ".rl-c.on{background:rgba(212,255,63,.14);border-color:" + LIMA + ";box-shadow:0 0 0 1px " + LIMA + " inset;color:" + LIMA + "}.rl-c.on::after{content:' ✓'}",
     ".rl-cor{width:36px;height:36px;border-radius:50%;border:2px solid #27272A;cursor:pointer;position:relative;padding:0}.rl-cor.on{border-color:#fff;box-shadow:0 0 0 3px " + LIMA + "}.rl-cor.on::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:900;color:#0A0A0A;text-shadow:0 0 3px #fff}",
     ".rl-lb{font-size:12px;color:#A1A1AA;font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:-6px}",
-    ".vd-card.rl-wide{max-width:560px}",
+    ".vd-card.rl-wide{max-width:1240px}",
     ".rl-uma{display:flex!important;flex-direction:column;gap:14px}",
+    ".rl-lado,.rl-ctl{display:flex;flex-direction:column;gap:14px;min-width:0}",
     ".rl-uma .rl-colpv{position:static}",
+    "@media(min-width:880px){.rl-uma{display:grid!important;grid-template-columns:minmax(320px,420px) minmax(0,1fr);gap:24px;align-items:start}.rl-lado{position:sticky;top:8px}.rl-uma .rl-pv{height:min(64vh,660px)}}",
+    "@media(min-width:1180px){.rl-ctl .rl-est{grid-template-columns:repeat(4,1fr)}.rl-ctl .rl-lay{grid-template-columns:repeat(3,1fr)}}",
     ".rl-grid{display:flex;flex-direction:column;gap:14px}",
     "@media(min-width:900px){.rl-grid{display:grid;grid-template-columns:minmax(300px,380px) 1fr;gap:24px;align-items:start}.rl-colpv{position:sticky;top:12px}}",
     ".rl-colpv{display:flex;flex-direction:column;gap:10px;align-items:stretch}.rl-colpv .rl-pv{align-self:center}",
@@ -951,7 +954,7 @@
     var musicaUso = rs.musicaInsta ? "Escolher no Instagram" : rs.trilha ? nomeTrilha(rs.trilha) : rs.musica ? (rs.musicaNome || "Arquivo do aparelho") : "Sem música";
     var narrUso = rs.narr ? "Narração gravada" + (rs.narrDur ? " (" + mmss(rs.narrDur) + ")" : "") : "Sem narração";
     var lay = LAYOUTS_RL[rs.layout || "padrao"];
-    abrir(cab("🎬 Reels do imóvel") + '<div class="rl-grid rl-uma">' +
+    abrir(cab("🎬 Reels do imóvel") + '<div class="rl-grid rl-uma"><div class="rl-lado">' +
       '<section class="rl-sec rl-topo"><h4>✍️ Texto</h4>' +
       '<div class="rl-lb">Frase de abertura (primeiros 2 segundos)</div><input type="text" id="rl-hook" maxlength="90" value="' + esc(rs.hook) + '">' +
       '</section>' +
@@ -959,7 +962,7 @@
       '<div class="rl-resumo"><div><span>Em uso no vídeo:</span></div>' +
         '<div>🎨 <b>' + esc(ESTILOS[rs.key].nome) + '</b>' + (lay ? ' · ' + esc(lay.nome) : '') + '</div>' +
         '<div>🎵 <b>' + esc(musicaUso) + '</b></div><div>🎙️ <b>' + esc(narrUso) + '</b></div></div>' +
-      '</div>' +
+      '</div></div><div class="rl-ctl">' +
       '<section class="rl-sec"><h4><i>1</i>Narração e música</h4>' +
       '<div class="rl-lb">Narração</div>' +
       (rs.narrPend
@@ -1014,7 +1017,7 @@
         var on = (rs.layout || "padrao") === k;
         return '<button class="rl-e' + (on ? " on" : "") + '" data-layout="' + k + '"><b>' + LAYOUTS_RL[k].nome + '</b><span>' + LAYOUTS_RL[k].desc + '</span></button>';
       }).join("") + '</div>' +
-      '</section></div>' +
+      '</section></div></div>' +
       '<div class="rl-sticky"><button class="vd-btn pri" id="rl-exp" style="width:100%;flex:none">Exportar vídeo</button>' +
       '<p class="vd-hint" style="margin-top:8px;text-align:center">' + (mp4 ? "Sai em MP4, pronto para o Instagram." : "Seu navegador grava em WEBM (o Instagram pode recusar). Prefira Chrome atualizado ou Safari 17+ para MP4.") + '</p></div>');
     var cardEl = root.querySelector(".vd-card"); if (cardEl) cardEl.classList.add("rl-wide");
@@ -1022,6 +1025,7 @@
     // ao escolher qualquer opção, a tela rola sozinha até o vídeo para mostrar como ficou
     function verVideo() {
       var pv = root.querySelector(".rl-pv"); if (!pv) return;
+      var bx = pv.getBoundingClientRect(); if (bx.top >= 0 && bx.bottom <= (window.innerHeight || 0)) return;   // vídeo já está à vista (tela larga)
       var calmo = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       try { pv.scrollIntoView({ behavior: calmo ? "auto" : "smooth", block: "center" }); } catch (e) { pv.scrollIntoView(); }
     }

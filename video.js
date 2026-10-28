@@ -62,6 +62,22 @@
     ".rl-c.on{background:rgba(212,255,63,.14);border-color:" + LIMA + ";box-shadow:0 0 0 1px " + LIMA + " inset;color:" + LIMA + "}.rl-c.on::after{content:' ✓'}",
     ".rl-cor{width:36px;height:36px;border-radius:50%;border:2px solid #27272A;cursor:pointer;position:relative;padding:0}.rl-cor.on{border-color:#fff;box-shadow:0 0 0 3px " + LIMA + "}.rl-cor.on::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:900;color:#0A0A0A;text-shadow:0 0 3px #fff}",
     ".rl-lb{font-size:12px;color:#A1A1AA;font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:-6px}",
+    ".vd-card.rl-wide{max-width:1040px}",
+    ".rl-grid{display:flex;flex-direction:column;gap:14px}",
+    "@media(min-width:900px){.rl-grid{display:grid;grid-template-columns:minmax(300px,380px) 1fr;gap:24px;align-items:start}.rl-colpv{position:sticky;top:12px}}",
+    ".rl-colpv{display:flex;flex-direction:column;gap:10px;align-items:stretch}.rl-colpv .rl-pv{align-self:center}",
+    ".rl-colctl{display:flex;flex-direction:column;gap:14px;min-width:0}",
+    ".rl-e.on{background:rgba(212,255,63,.10)}.rl-e.on b::after{content:' ✓'}",
+    ".rl-sec{background:#111113;border:1px solid #27272A;border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:12px}",
+    ".rl-sec>h4{margin:0;font-size:15px;display:flex;align-items:center;gap:8px}.rl-sec>h4 i{font-style:normal;width:22px;height:22px;border-radius:50%;background:#27272A;font-size:12px;display:inline-flex;align-items:center;justify-content:center}",
+    ".rl-resumo{background:#111113;border:1px solid #27272A;border-radius:12px;padding:10px 12px;font-size:13px;display:grid;gap:4px}.rl-resumo b{color:" + LIMA + ";font-weight:700}.rl-resumo span{color:#A1A1AA}",
+    ".rl-uso{border:1px solid " + LIMA + ";background:rgba(212,255,63,.07);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}",
+    ".rl-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#0A0A0A;background:" + LIMA + ";border-radius:999px;padding:3px 10px;align-self:flex-start}",
+    ".rl-pend{border:1px dashed #F59E0B;background:rgba(245,158,11,.08);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}.rl-pend .rl-badge{background:#F59E0B}",
+    ".rl-recbar{background:#18181B;border:1px solid #FF3B30;border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px}",
+    ".rl-recbar .rl-rtop{display:flex;align-items:center;gap:8px;font-weight:800}.rl-recbar .rl-rtop span{margin-left:auto;font-variant-numeric:tabular-nums;color:#F4F4F5}",
+    ".rl-rec.pulsa{animation:rlpulsa 1s infinite}@keyframes rlpulsa{0%,100%{opacity:1}50%{opacity:.25}}",
+    ".rl-lvl{height:10px;background:#27272A;border-radius:6px;overflow:hidden}.rl-lvl i{display:block;height:100%;width:0;background:linear-gradient(90deg," + LIMA + ",#F59E0B,#FF3B30);transition:width .08s}",
     ".rl-sticky{position:sticky;bottom:0;background:linear-gradient(rgba(9,9,11,0),#09090B 30%);padding:14px 0 calc(6px + env(safe-area-inset-bottom));margin-top:auto}",
     /* câmera */
     ".cm{position:fixed;inset:0;background:#000;color:#fff;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:none}",
@@ -722,9 +738,33 @@
     var ov = document.createElement("div"); ov.className = "rl-ov";
     ov.innerHTML = '<div class="rl-ovt" id="rl-ovt">' + esc(rs.narrTexto || "") + '</div><div class="rl-ovc" id="rl-ovc"></div>';
     pv.appendChild(ov);
-    var parou = false, rec = null, g = null, mime = "", tIni = 0;
-    function soltar() { ms.getTracks().forEach(function (t) { t.stop(); }); }
+    var parou = false, rec = null, g = null, mime = "", tIni = 0, acMed = null;
+    // barra de gravação visível embaixo da prévia: tempo, progresso, nível do microfone, parar e cancelar
+    var slot = $("rl-recslot") || pv.parentNode;
+    var barra = document.createElement("div"); barra.className = "rl-recbar";
+    barra.innerHTML = '<div class="rl-rtop"><span class="rl-rec pulsa"></span>Prepare-se… <span id="rl-rt">0:00</span></div>' +
+      '<div class="vd-bar"><i id="rl-rp"></i></div><div class="rl-lvl" title="Nível do microfone"><i id="rl-lv"></i></div>' +
+      '<div class="vd-row"><button class="vd-btn pri" id="rl-rstop" style="flex:2"><span class="rl-rec"></span>Parar gravação</button><button class="vd-btn" id="rl-rcan">Cancelar</button></div>';
+    slot.appendChild(barra);
+    try { barra.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (e) {}
+    try {
+      var ACm = window.AudioContext || window.webkitAudioContext; acMed = new ACm();
+      var an = acMed.createAnalyser(); an.fftSize = 512; acMed.createMediaStreamSource(ms).connect(an);
+      var buf = new Uint8Array(an.fftSize);
+      (function nivel() {
+        if (!barra.isConnected) return;
+        an.getByteTimeDomainData(buf); var pico = 0;
+        for (var q = 0; q < buf.length; q++) pico = Math.max(pico, Math.abs(buf[q] - 128));
+        var lv = $("rl-lv"); if (lv) lv.style.width = Math.min(100, pico / 128 * 160) + "%";
+        requestAnimationFrame(nivel);
+      })();
+    } catch (e) { acMed = null; }
+    function mmss(x) { x = Math.max(0, Math.round(x)); return Math.floor(x / 60) + ":" + String(x % 60).padStart(2, "0"); }
+    function soltar() { ms.getTracks().forEach(function (t) { t.stop(); }); if (acMed) { try { acMed.close(); } catch (e) {} acMed = null; } }
+    function limparTela() { if (ov.isConnected) ov.remove(); if (barra.isConnected) barra.remove(); }
     cancelar = function () { parou = true; soltar(); try { if (rec && rec.state !== "inactive") rec.stop(); } catch (e) {} };
+    $("rl-rcan").onclick = function () { if (cancelar) cancelar(); cancelar = null; limparTela(); telaReels(); };
+    $("rl-rstop").disabled = true;
     for (var k = 3; k >= 1; k--) {
       $("rl-ovc").innerHTML = "<b>" + k + "</b>"; await wait(1000);
       if (parou || !ov.isConnected) { soltar(); return; }
@@ -735,6 +775,15 @@
     tIni = performance.now();
     var total = iniciarPrevia(canvas, { mudo: true, semNarr: true });
     var b = document.createElement("button"); b.className = "vd-btn pri rl-ovb"; b.innerHTML = '<span class="rl-rec"></span>Parar'; b.style.flex = "none"; ov.appendChild(b);
+    barra.querySelector(".rl-rtop").childNodes[1].nodeValue = "Gravando narração ";
+    $("rl-rstop").disabled = false; $("rl-rstop").onclick = function () { b.click(); };
+    (function relogio() {
+      if (parou || !barra.isConnected) return;
+      var dt = (performance.now() - tIni) / 1000, rt = $("rl-rt"), rp = $("rl-rp");
+      if (rt) rt.textContent = mmss(dt) + " / " + mmss(total);
+      if (rp) rp.style.width = Math.min(100, dt / total * 100) + "%";
+      setTimeout(relogio, 200);
+    })();
     var txt = $("rl-ovt"), alto = ov.clientHeight;
     (function rola() {
       if (parou || !ov.isConnected) return;
@@ -749,8 +798,10 @@
       var blob = await g.parar(tipoBase(rec.mimeType, mime || "audio/webm"));
       soltar();
       if (!root || root.hidden) return;
-      rs.narr = blob; rs.narrUrl = null; rs.narrDur = dur;
+      // não entra direto no vídeo: fica pendente até o corretor escolher "Usar" ou "Apagar"
+      rs.narrPend = blob; rs.narrPendUrl = null; rs.narrPendDur = dur;
       telaReels();
+      var pend = root.querySelector(".rl-pend"); if (pend) try { pend.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) {}
     };
   }
 
@@ -839,8 +890,18 @@
 
   function telaReels() {
     var mp4 = !!escolherMime(["video/mp4;codecs=avc1.42E01E,mp4a.40.2", "video/mp4"]);
-    abrir(cab("🎬 Reels do imóvel") +
+    function mmss(x) { x = Math.max(0, Math.round(x || 0)); return Math.floor(x / 60) + ":" + String(x % 60).padStart(2, "0"); }
+    var musicaUso = rs.musicaInsta ? "Escolher no Instagram" : rs.trilha ? nomeTrilha(rs.trilha) : rs.musica ? (rs.musicaNome || "Arquivo do aparelho") : "Sem música";
+    var narrUso = rs.narr ? "Narração gravada" + (rs.narrDur ? " (" + mmss(rs.narrDur) + ")" : "") : "Sem narração";
+    var lay = LAYOUTS_RL[rs.layout || "padrao"];
+    abrir(cab("🎬 Reels do imóvel") + '<div class="rl-grid"><div class="rl-colpv">' +
       '<div class="rl-pv"><canvas id="rl-cv" width="540" height="960"></canvas></div>' +
+      '<div id="rl-recslot"></div>' +
+      '<div class="rl-resumo"><div><span>Em uso no vídeo:</span></div>' +
+        '<div>🎨 <b>' + esc(ESTILOS[rs.key].nome) + '</b>' + (lay ? ' · ' + esc(lay.nome) : '') + '</div>' +
+        '<div>🎵 <b>' + esc(musicaUso) + '</b></div><div>🎙️ <b>' + esc(narrUso) + '</b></div></div>' +
+      '</div><div class="rl-colctl">' +
+      '<section class="rl-sec"><h4><i>1</i>Visual</h4>' +
       '<div class="rl-lb">Estilo</div><div class="rl-est">' + Object.keys(ESTILOS).map(function (k) {
         return '<button class="rl-e' + (k === rs.key ? " on" : "") + '" data-k="' + k + '"><b>' + ESTILOS[k].nome + '</b><span>' + ESTILOS[k].desc + '</span></button>';
       }).join("") + '</div>' +
@@ -855,7 +916,9 @@
       '<div class="rl-lb">Cor de destaque</div><div class="rl-chips"><button class="rl-c' + (!rs.cor ? " on" : "") + '" data-cor="">Do estilo</button>' + Object.keys(CORES_RL).map(function (k) {
         return '<button class="rl-cor' + (rs.cor === k ? " on" : "") + '" data-cor="' + k + '" title="' + CORES_RL[k].nome + '" aria-label="' + CORES_RL[k].nome + '" style="background:' + CORES_RL[k].hex + '"></button>';
       }).join("") + '</div>' +
+      '</section><section class="rl-sec"><h4><i>2</i>Texto</h4>' +
       '<div class="rl-lb">Frase de abertura (primeiros 2 segundos)</div><input type="text" id="rl-hook" maxlength="90" value="' + esc(rs.hook) + '">' +
+      '</section><section class="rl-sec"><h4><i>3</i>Áudio</h4>' +
       '<div class="rl-lb">Música</div><div class="rl-chips" id="rl-mus-op">' +
         '<button class="rl-c' + (!rs.musica && !rs.musicaInsta ? " on" : "") + '" data-mus="">Sem música</button>' +
         TRILHAS.map(function (t) { return '<button class="rl-c' + (rs.trilha === t.id ? " on" : "") + '" data-mus="t:' + t.id + '" title="' + t.desc + '">▶ ' + t.nome + '</button>'; }).join("") +
@@ -865,23 +928,32 @@
         : "As trilhas ▶ são da própria Vitrine: livres de direitos autorais e sem custo. Ou use um arquivo seu, ou escolha a música no Instagram.") + '</p>' +
       '<input type="file" id="rl-file" accept="audio/*" hidden>' +
       '<div class="rl-lb">Narração</div>' +
+      (rs.narrPend
+        ? '<div class="rl-pend"><span class="rl-badge">Nova gravação · ' + mmss(rs.narrPendDur) + ' · ouça antes de usar</span>' +
+          '<audio controls src="' + (rs.narrPendUrl || (rs.narrPendUrl = url(rs.narrPend))) + '" style="width:100%"></audio>' +
+          '<div class="vd-row"><button class="vd-btn pri" id="rl-pend-ok">✓ Usar esta narração</button><button class="vd-btn" id="rl-pend-x">🗑 Apagar</button></div>' +
+          '<button class="vd-btn" id="rl-pend-re" style="flex:none">🎙️ Gravar de novo</button></div>' : '') +
       (rs.narr
-        ? '<audio controls id="rl-nar-a" src="' + (rs.narrUrl || (rs.narrUrl = url(rs.narr))) + '" style="width:100%"></audio><div class="vd-row"><button class="vd-btn" id="rl-nar-rec">🎙️ Regravar</button><button class="vd-btn" id="rl-nar-x">Apagar</button></div>'
-        : '<div class="vd-row"><button class="vd-btn" id="rl-nar-rec">🎙️ Gravar narração</button><button class="vd-btn" id="rl-nar-f">Escolher áudio</button></div>') +
+        ? '<div class="rl-uso"><span class="rl-badge">✓ Em uso no vídeo' + (rs.narrDur ? ' · ' + mmss(rs.narrDur) : '') + '</span>' +
+          '<audio controls id="rl-nar-a" src="' + (rs.narrUrl || (rs.narrUrl = url(rs.narr))) + '" style="width:100%"></audio>' +
+          '<div class="vd-row"><button class="vd-btn" id="rl-nar-rec">🎙️ Regravar</button><button class="vd-btn" id="rl-nar-x">🗑 Remover do vídeo</button></div></div>'
+        : (rs.narrPend ? '' : '<div class="vd-row"><button class="vd-btn" id="rl-nar-rec">🎙️ Gravar narração</button><button class="vd-btn" id="rl-nar-f">Escolher áudio</button></div>')) +
       '<input type="file" id="rl-nar-file" accept="audio/*" hidden>' +
       '<textarea id="rl-nar-t" placeholder="Texto da narração (opcional, aparece grande sobre a prévia como guia de leitura)" style="min-height:70px">' + esc(rs.narrTexto || "") + '</textarea>' +
       '<button class="vd-btn" id="rl-nar-g" style="flex:none">Gerar texto da narração</button>' +
       '<p class="vd-hint">Use fone de ouvido para a música da prévia não entrar no microfone. Durante a gravação a prévia toca sem música.</p>' +
+      '</section></div></div>' +
       '<div class="rl-sticky"><button class="vd-btn pri" id="rl-exp" style="width:100%;flex:none">Exportar vídeo</button>' +
       '<p class="vd-hint" style="margin-top:8px;text-align:center">' + (mp4 ? "Sai em MP4, pronto para o Instagram." : "Seu navegador grava em WEBM (o Instagram pode recusar). Prefira Chrome atualizado ou Safari 17+ para MP4.") + '</p></div>');
+    var cardEl = root.querySelector(".vd-card"); if (cardEl) cardEl.classList.add("rl-wide");
     iniciarPrevia($("rl-cv"));
     var deb = null;
     function reiniciar() { pararPrevia(); iniciarPrevia($("rl-cv")); }
-    Array.prototype.forEach.call(root.querySelectorAll(".rl-e"), function (b) {
+    Array.prototype.forEach.call(root.querySelectorAll(".rl-e[data-k]"), function (b) {
       b.onclick = function () {
         rs.key = b.dataset.k;
         if (!rs.hookEditado) { rs.hook = hookPadrao(rs.p, rs.key); $("rl-hook").value = rs.hook; }
-        Array.prototype.forEach.call(root.querySelectorAll(".rl-e"), function (x) { x.classList.toggle("on", x === b); });
+        Array.prototype.forEach.call(root.querySelectorAll(".rl-e[data-k]"), function (x) { x.classList.toggle("on", x === b); });
         reiniciar();
       };
     });
@@ -917,7 +989,10 @@
       rs.musica = f; rs.musicaUrl = null; rs.musicaNome = f.name.slice(0, 28); rs.trilha = null; rs.musicaInsta = false; telaReels();
     };
     $("rl-nar-t").oninput = function () { rs.narrTexto = this.value; };
-    $("rl-nar-rec").onclick = gravarNarracao;
+    if ($("rl-nar-rec")) $("rl-nar-rec").onclick = gravarNarracao;
+    if ($("rl-pend-ok")) $("rl-pend-ok").onclick = function () { rs.narr = rs.narrPend; rs.narrUrl = rs.narrPendUrl; rs.narrDur = rs.narrPendDur; rs.narrPend = null; rs.narrPendUrl = null; telaReels(); V.toast("Narração adicionada ao vídeo."); };
+    if ($("rl-pend-x")) $("rl-pend-x").onclick = function () { rs.narrPend = null; rs.narrPendUrl = null; telaReels(); V.toast("Gravação apagada."); };
+    if ($("rl-pend-re")) $("rl-pend-re").onclick = function () { rs.narrPend = null; rs.narrPendUrl = null; telaReels(); gravarNarracao(); };
     if ($("rl-nar-f")) $("rl-nar-f").onclick = function () { $("rl-nar-file").click(); };
     $("rl-nar-file").onchange = function () {
       var f = this.files && this.files[0]; if (!f) return;

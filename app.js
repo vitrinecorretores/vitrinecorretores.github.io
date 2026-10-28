@@ -1837,7 +1837,8 @@
       (authMode === "signup" ? '<label class="auth-field">Nome<input type="text" id="auth-nome" autocomplete="name" required></label>' +
         '<label class="auth-field">Celular (WhatsApp)<input type="tel" id="auth-tel" autocomplete="tel" inputmode="tel" placeholder="(85) 99999-9999" required></label>' : "") +
       '<label class="auth-field">E-mail<input type="email" id="auth-email" autocomplete="email" required></label>' +
-      '<label class="auth-field">Senha<input type="password" id="auth-pass" autocomplete="' + (authMode === "signup" ? "new-password" : "current-password") + '" minlength="6" required></label>' +
+      '<label class="auth-field">Senha<input type="password" id="auth-pass" autocomplete="' + (authMode === "signup" ? "new-password" : "current-password") + '" minlength="' + (authMode === "signup" ? 8 : 6) + '" required></label>' +
+      (authMode === "signup" ? '<p class="auth-hint" style="margin:-4px 0 10px;font-size:12.5px;color:var(--ink-muted);">Mínimo de 8 caracteres, com letra maiúscula, letra minúscula e número.</p>' : '') +
       '<button type="submit" class="btn btn-primary auth-submit" id="auth-submit">' + (authMode === "signup" ? "Criar conta grátis" : "Entrar") + "</button>" +
       "</form>" +
       '<p style="text-align:center;font-size:11.5px;color:var(--ink-faint);margin:14px 0 0;">' + (authMode === "signup" ? "3 carrosséis grátis no teste, sem cartão." : "Ainda não tem conta? Use a aba \"Criar conta\".") + "</p>" +
@@ -1857,6 +1858,9 @@
       if (authMode === "signup") {
         tel = qs("#auth-tel", view).value.replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, "");
         if (!/^[1-9]{2}9?\d{8}$/.test(tel)) { renderAuthView("Informe um celular válido com DDD, ex.: (85) 99999-9999."); return; }
+        if (pass.length < 8 || !/[a-z]/.test(pass) || !/[A-Z]/.test(pass) || !/\d/.test(pass)) {
+          renderAuthView("Sua senha precisa ter pelo menos 8 caracteres, com letra maiúscula, letra minúscula e número."); return;
+        }
       }
       btn.disabled = true;
       var originalTxt = btn.textContent;
@@ -1874,7 +1878,9 @@
         }
         await bootApp();
       } catch (err) {
-        renderAuthView(err.message || "Não foi possível continuar. Tente de novo.");
+        var msg = err.message || "";
+        if (/weak|password should|characters|pwned|leaked/i.test(msg)) msg = "Sua senha precisa ter pelo menos 8 caracteres, com letra maiúscula, letra minúscula e número.";
+        renderAuthView(msg || "Não foi possível continuar. Tente de novo.");
       } finally {
         btn.disabled = false;
         btn.textContent = originalTxt;
@@ -1898,6 +1904,34 @@
   var ADMIN_IDS = ["f13c2703-8848-485a-ae60-97e139a2b0a6"];
   function ehAdmin() { return !!(state.profile && ADMIN_IDS.indexOf(state.profile.id) >= 0); }
 
+  /* ---------- botão "voltar" do celular/navegador: volta um passo, nunca do zero ---------- */
+  var NAV = { pop: false, tela: null, passo: null };
+  function navGravar(tela, passo) {
+    if (NAV.pop) { NAV.tela = tela; NAV.passo = passo; return; }
+    if (NAV.tela === tela && NAV.passo === passo) return;
+    var st = { vitrine: 1, tela: tela, passo: passo };
+    // voltar um passo dentro do assistente substitui o histórico (não empilha); avançar empilha
+    if (NAV.tela === tela && tela === "novo" && passo != null && NAV.passo != null && passo < NAV.passo) history.replaceState(st, "");
+    else if (NAV.tela == null) history.replaceState(st, "");
+    else history.pushState(st, "");
+    NAV.tela = tela; NAV.passo = passo;
+  }
+  window.addEventListener("popstate", function (e) {
+    var ov = document.getElementById("overlay");
+    if (ov && !ov.hidden) {   // janela aberta: o voltar só fecha a janela e mantém a tela onde está
+      var x = ov.querySelector(".modal-close, #pv-close, #ag-cancelar"); if (x) x.click(); else closeModal();
+      history.pushState({ vitrine: 1, tela: NAV.tela, passo: NAV.passo }, "");
+      return;
+    }
+    var st = e.state;
+    if (!st || !st.vitrine) return;
+    NAV.pop = true;
+    try {
+      if (st.tela === "novo" && NAV.tela === "novo" && st.passo) { wizard.step = st.passo; renderWizard(); }
+      else { if (st.tela === "novo" && st.passo) wizard.step = st.passo; showScreen(st.tela); if (st.tela === "novo") renderWizard(); }
+    } finally { NAV.pop = false; NAV.tela = st.tela; NAV.passo = st.passo; }
+  });
+
   function showScreen(name) {
     qsa(".screen").forEach(function (s) { s.hidden = true; });
     document.getElementById("screen-" + name).hidden = false;
@@ -1911,6 +1945,7 @@
     if (name === "admin") renderAdmin();
     if (name === "equipe") renderEquipe();
     if (name === "novo" && wizard.step === 1) renderWizard();
+    navGravar(name, name === "novo" ? wizard.step : null);
     if (window.Vitrine && window.Vitrine.aoMostrar) { try { window.Vitrine.aoMostrar(name); } catch (e) { console.error(e); } }
   }
 
@@ -3241,6 +3276,8 @@
     if (wizard.step === 2) renderGenArea();
     if (wizard.step === 3) renderTplStep();
     if (wizard.step === 4) renderDestStep();
+    var telaNovo = document.getElementById("screen-novo");
+    if (telaNovo && !telaNovo.hidden) navGravar("novo", wizard.step);
   }
 
   function renderPickGrid() {

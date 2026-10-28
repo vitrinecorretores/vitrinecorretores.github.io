@@ -1939,6 +1939,7 @@
     imoveis: ["Meus imóveis", "Os imóveis disponíveis para virar carrossel."],
     novo: ["Criar carrossel", "Escolha um assunto e a IA monta o carrossel pra você em segundos."],
     instagram: ["Instagram", "Conexão e fila de publicação."],
+    marca: ["Minha marca", "Logo, nome, CRECI e cor que podem entrar nos seus posts."],
     plano: ["Plano", "Seu teste grátis e sua assinatura da Vitrine."],
     admin: ["Admin", "Contas cadastradas na plataforma (visível só pra você)."],
     equipe: ["Equipe", "Os corretores da sua imobiliária na Vitrine."]
@@ -1985,6 +1986,7 @@
     if (name === "imoveis") renderImoveis();
     if (name === "instagram") renderInstagram();
     if (name === "plano") renderPlano();
+    if (name === "marca") renderMarca();
     if (name === "admin") renderAdmin();
     if (name === "equipe") renderEquipe();
     if (name === "novo" && wizard.step === 1) renderWizard();
@@ -3574,8 +3576,9 @@
     var semDados = !(p.nome || p.logo_url);
     box.innerHTML = '<div class="marca-card" style="margin-top:16px;"><div style="font-weight:700;margin-bottom:4px;">Sua marca no post</div>' +
       '<p class="marca-sub" style="margin:0 0 10px;">Por padrão o post sai sem seu nome. Ligue aqui pra colocar seu logo e CRECI onde quiser — vale pro carrossel e pro reels. Confira em "Ver como fica no Instagram".' +
-      (semDados ? ' <b>Cadastre seu logo e nome em Minha marca primeiro.</b>' : '') + '</p>' + marcaOpcoesHtml(m, "wm-") + '</div>';
+      (semDados ? ' <b>Cadastre seu logo e nome em <a href="#" id="wm-ir-marca" style="color:var(--accent);">Minha marca</a> primeiro.</b>' : '') + '</p>' + marcaOpcoesHtml(m, "wm-") + '</div>';
     ligarMarcaOpcoes(box, "wm-", m, function () { });
+    var irM = document.getElementById("wm-ir-marca"); if (irM) irM.onclick = function (e) { e.preventDefault(); showScreen("marca"); };
   }
 
   function renderTplStep() {
@@ -4084,7 +4087,7 @@
     if (!box || !state.profile) return;
     var p = state.profile, ativa = p.marca_ativa !== false, cor = /^#[0-9a-f]{6}$/i.test(p.cor_marca || "") ? p.cor_marca : "";
     var logo = safeUrl(p.logo_url);
-    box.innerHTML = '<div class="section-head" style="margin-top:6px;"><h2>Minha marca</h2></div>' +
+    box.innerHTML = '' +
       '<div class="marca-card">' +
       '<p class="marca-sub">Seu logo, nome e CRECI só entram no post quando você liga "Inserir minha marca" — aqui como padrão, ou em cada carrossel no passo Estilo. A cor da marca vira o destaque dos títulos.</p>' +
       '<label class="melhorar-toggle"><input type="checkbox" id="marca-ativa"' + (ativa ? " checked" : "") + '> <span>Usar a cor da minha marca nos títulos</span></label>' +
@@ -4245,7 +4248,6 @@
 
   function renderPlano() {
     renderAbasPlano();
-    renderMarca();
     var statusEl = document.getElementById("plan-status");
     if (!state.assinatura || state.assinatura.status === "trial") {
       var used = (state.profile.trial_usado || 0), limit = (state.profile.trial_limite || 0), left = Math.max(limit - used, 0);

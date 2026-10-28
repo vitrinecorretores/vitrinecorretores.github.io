@@ -200,6 +200,24 @@
     } catch (e) { if (e && e.name !== "AbortError") V.toast("Não consegui compartilhar: " + e.message); }
   }
   var PODE_COMPARTILHAR = !!(navigator.share && navigator.canShare);
+  // "Poste no Instagram" (música escolhida no Instagram): no celular entrega o vídeo direto ao app do Instagram;
+  // no computador baixa o vídeo, copia a legenda e abre o Instagram do cliente para criar o post
+  function podeMandarArquivo(blob, nome) {
+    try { return !!(navigator.canShare && navigator.share && navigator.canShare({ files: [new File([blob], nome + "." + extDe(blob.type), { type: blob.type })] })); } catch (e) { return false; }
+  }
+  function copiarTexto(txt) { try { if (txt && navigator.clipboard) navigator.clipboard.writeText(txt).catch(function () {}); } catch (e) { } }
+  async function posteNoInstagram(blob, nome, legenda, usuario) {
+    copiarTexto(legenda);
+    if (podeMandarArquivo(blob, nome)) {
+      var f = new File([blob], nome + "." + extDe(blob.type), { type: blob.type });
+      try { await navigator.share({ files: [f] }); return; }
+      catch (e) { if (e && e.name === "AbortError") return; }
+    }
+    baixar(blob, nome);
+    var destino = usuario ? "https://www.instagram.com/" + encodeURIComponent(usuario) + "/" : "https://www.instagram.com/";
+    window.open(destino, "_blank", "noopener");
+    V.toast("Vídeo baixado e legenda copiada. No Instagram: Criar → escolha o vídeo → cole a legenda.");
+  }
   // Instagram só aceita MP4 normal: reorganiza o MP4 fragmentado do gravador (sem recomprimir)
   async function mp4Normal(blob) {
     if (!/mp4/i.test(blob.type || "") || !V.remuxMp4) return blob;
@@ -1126,14 +1144,23 @@
         if (!blob || !root || root.hidden) return;
         blob = await mp4Normal(blob);
         var nome = "reels-" + String(rs.p.titulo || "imovel").toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 30);
+        var igC = (V.state && V.state.igConta && V.state.igConta.status === "ativo") ? V.state.igConta : null;
+        var igUser = igC && igC.username ? igC.username : "";
+        var legPronta = [rs.hook, "📲 Fotos e detalhes: link na bio"].filter(Boolean).join("\n\n");
         abrir(cab("🎬 Reels pronto") + '<video class="vd-player" controls playsinline loop autoplay src="' + url(blob) + '"></video>' +
-          (rs.musicaInsta ? '<p class="vd-hint">🎵 Sem música, como você escolheu: poste pelo app do Instagram (botão Compartilhar no celular) e escolha a música lá. Se agendar, a Vitrine te avisa na hora de postar.</p>' : "") +
-          (podeAgendar(blob) ? '<button class="vd-btn pri" id="vd-ag" style="flex:none">' + (rs.musicaInsta ? "📅 Agendar para postar pelo app" : "📅 Agendar no Instagram") + '</button>' : "") +
-          '<div class="vd-row"><button class="vd-btn' + (podeAgendar(blob) ? "" : " pri") + '" id="vd-dl">Baixar vídeo</button>' + (PODE_COMPARTILHAR ? '<button class="vd-btn" id="vd-sh">Compartilhar</button>' : "") + '</div>' +
+          (rs.musicaInsta
+            ? '<button class="vd-btn pri" id="vd-ig" style="flex:none">📲 Poste no Instagram' + (igUser ? ' (@' + esc(igUser) + ')' : '') + '</button>' +
+              '<p class="vd-hint">' + (podeMandarArquivo(blob, nome)
+                ? 'Toque em <b>Poste no Instagram</b>, escolha <b>Instagram → Reels</b>, toque no ícone de <b>música 🎵</b> e escolha a sua. A legenda já fica copiada: é só colar.'
+                : 'O vídeo é baixado, a legenda é copiada e abrimos o seu Instagram. Lá, clique em <b>Criar</b>, escolha o vídeo baixado e cole a legenda. Para pôr música do Instagram, poste pelo app do celular.') + '</p>'
+            : "") +
+          (podeAgendar(blob) ? '<button class="vd-btn' + (rs.musicaInsta ? "" : " pri") + '" id="vd-ag" style="flex:none">' + (rs.musicaInsta ? "📅 Agendar para postar pelo app" : "📅 Agendar no Instagram") + '</button>' : "") +
+          '<div class="vd-row"><button class="vd-btn' + (podeAgendar(blob) || rs.musicaInsta ? "" : " pri") + '" id="vd-dl">Baixar vídeo</button>' + (PODE_COMPARTILHAR && !rs.musicaInsta ? '<button class="vd-btn" id="vd-sh">Compartilhar</button>' : "") + '</div>' +
           '<button class="vd-btn" id="rl-volta" style="flex:none">Editar de novo</button>' +
           '<p class="vd-hint">Formato ' + extDe(blob.type).toUpperCase() + ' 9:16. ' + (extDe(blob.type) === "webm" ? "Se o Instagram não aceitar o WEBM, gere pelo Chrome atualizado, que grava MP4." : "Pronto para postar no Instagram.") + '</p>');
         $("vd-dl").onclick = function () { baixar(blob, nome); };
         if ($("vd-sh")) $("vd-sh").onclick = function () { compartilhar(blob, nome, ""); };
+        if ($("vd-ig")) $("vd-ig").onclick = function () { posteNoInstagram(blob, nome, legPronta, igUser); };
         if ($("vd-ag")) $("vd-ag").onclick = function () {
           var p = rs.p || {};
           var leg = [rs.hook, "📲 Fotos e detalhes: link na bio"].filter(Boolean).join("\n\n");

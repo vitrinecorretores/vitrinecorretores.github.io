@@ -1431,7 +1431,7 @@
     return '<div class="ag-formato"><div class="ag-contas-t">Como publicar</div><div class="ag-fmt">' +
       '<button type="button" class="ag-fmt-b' + (manual ? "" : " on") + '" data-ag-modo="auto"><b>Automático</b><span>a Vitrine publica sozinha na hora</span></button>' +
       '<button type="button" class="ag-fmt-b' + (manual ? " on" : "") + '" data-ag-modo="app"><b>🎵 Eu posto pelo app</b><span>para escolher a música do Instagram</span></button></div>' +
-      '<p class="ag-fmt-dica" id="ag-modo-dica"' + (manual ? "" : " hidden") + '>Na hora marcada você recebe um aviso no celular e no e-mail. Abra a Vitrine, toque em <b>Postar pelo app</b>: o vídeo vai para o Instagram com a legenda copiada, e lá você escolhe a música.</p></div>';
+      '<p class="ag-fmt-dica" id="ag-modo-dica"' + (manual ? "" : " hidden") + '>Na hora marcada você recebe um aviso no celular e no e-mail. Abra a Vitrine, toque em <b>Poste no Instagram</b>: o vídeo vai para o Instagram com a legenda copiada, e lá você escolhe a música.</p></div>';
   }
   function ligarComoPublicar(root, aoMudar) {
     function info(app) {
@@ -1527,7 +1527,10 @@
       } else {
         var u = URL.createObjectURL(blob), a = document.createElement("a"); a.href = u; a.download = "vitrine-reels.mp4";
         document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(u); }, 60000);
-        toast("Vídeo baixado e legenda copiada. No Instagram: Criar → Reels → escolha o vídeo e cole a legenda.");
+        // abre o Instagram da conta escolhida no agendamento (ou a conta ativa) para criar o post
+        var contaIg = (contasAtivas() || []).filter(function (x) { return (c.instagram_contas_ids || []).indexOf(x.id) >= 0; })[0] || (state.igConta && state.igConta.status === "ativo" ? state.igConta : null);
+        window.open(contaIg && contaIg.username ? "https://www.instagram.com/" + encodeURIComponent(contaIg.username) + "/" : "https://www.instagram.com/", "_blank", "noopener");
+        toast("Vídeo baixado e legenda copiada. No Instagram: Criar → escolha o vídeo → cole a legenda.");
       }
     } catch (e) { toast("Não consegui preparar o vídeo: " + e.message); }
     if (btn) { btn.disabled = false; btn.textContent = orig; }
@@ -1537,7 +1540,7 @@
     var meta = getSubjectMeta(c), v = videoDe(c);
     var pillCls = c.status === "publicado" ? "pill-publicado" : c.status === "agendado" ? "pill-agendado" : "pill-draft";
     var horaDePostar = c.status === "agendado" && c.publicar_manual && new Date(c.data_agendada) <= new Date();
-    var quando = c.status === "agendado" && c.publicar_manual ? (horaDePostar ? "⏰ Hora de postar! Toque em Postar pelo app e escolha a música no Instagram" : "Você posta pelo app em " + fmtDateTime(c.data_agendada) + " — a Vitrine te avisa na hora")
+    var quando = c.status === "agendado" && c.publicar_manual ? (horaDePostar ? "⏰ Hora de postar! Toque em Poste no Instagram e escolha a música lá" : "Você posta pelo app em " + fmtDateTime(c.data_agendada) + " — a Vitrine te avisa na hora")
       : c.status === "agendado" ? "Publica sozinho em " + fmtDateTime(c.data_agendada)
       : c.status === "publicado" ? "Publicado " + fmtDate(c.data_publicada)
       : c.status === "aguardando_aprovacao" ? "Aguardando aprovação do gestor" + (c.data_agendada ? " · para " + fmtDateTime(c.data_agendada) : "")
@@ -1548,7 +1551,7 @@
       : '<button class="btn btn-ghost btn-sm" id="rm-previa">' + ICONS.eye + ' Ver como fica</button>' +
         '<button class="btn btn-ghost btn-sm" id="rm-agendar">📅 ' + (c.status === "agendado" ? "Reagendar" : "Agendar") + '</button>' +
         (c.status === "agendado" ? '<button class="btn btn-ghost btn-sm" id="rm-publicado">' + ICONS.check + ' Marcar como publicado</button>' : "") +
-        '<button class="btn btn-primary btn-sm" id="rm-mao">📲 Postar pelo app' + (c.publicar_manual ? " (escolher música)" : "") + '</button>';
+        '<button class="btn btn-primary btn-sm" id="rm-mao">📲 Poste no Instagram' + (c.publicar_manual ? " (escolher música)" : "") + '</button>';
     document.getElementById("modal-body").innerHTML =
       '<div class="modal-head"><div><h3 style="font-size:19px;">' + escapeHtml(meta.titulo) + '</h3>' +
       '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;"><span class="pill ' + pillCls + '">' + escapeHtml(c.status === "aguardando_aprovacao" ? "aguardando aprovação" : c.status) + '</span>' + tagReels() + '</div></div>' +

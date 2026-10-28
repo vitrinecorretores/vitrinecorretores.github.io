@@ -861,7 +861,7 @@
         TRILHAS.map(function (t) { return '<button class="rl-c' + (rs.trilha === t.id ? " on" : "") + '" data-mus="t:' + t.id + '" title="' + t.desc + '">▶ ' + t.nome + '</button>'; }).join("") +
         '<button class="rl-c' + (rs.musica && !rs.trilha ? " on" : "") + '" data-mus="arquivo">📁 ' + (rs.musica && !rs.trilha ? esc(rs.musicaNome) : "Do aparelho") + '</button>' +
         '<button class="rl-c' + (rs.musicaInsta ? " on" : "") + '" data-mus="insta">🎵 Escolher no Instagram</button></div>' +
-      '<p class="vd-hint">' + (rs.musicaInsta ? "O vídeo sai sem música. Na hora de postar, a Vitrine manda o vídeo para o app do Instagram e lá você escolhe a música da biblioteca deles."
+      '<p class="vd-hint dif">' + (rs.musicaInsta ? "O vídeo sai sem música. Na hora de postar, a Vitrine manda o vídeo para o app do Instagram e lá você escolhe a música da biblioteca deles."
         : "As trilhas ▶ são da própria Vitrine: livres de direitos autorais e sem custo. Ou use um arquivo seu, ou escolha a música no Instagram.") + '</p>' +
       '<input type="file" id="rl-file" accept="audio/*" hidden>' +
       '<div class="rl-lb">Narração</div>' +
@@ -975,7 +975,7 @@
   function telaEscolha() {
     var props = state.propriedades || [];
     abrir(cab("🎥 Gravar vídeo com roteiro") +
-      '<p class="vd-hint">A IA escreve o roteiro, você lê no teleprompter olhando para a câmera.</p>' +
+      '<p class="vd-hint dif">A IA escreve o roteiro, você lê no teleprompter olhando para a câmera.</p>' +
       '<div class="vd-tabs"><button class="vd-chip' + (fluxo.modo === "assunto" ? " on" : "") + '" data-m="assunto">Assunto livre</button><button class="vd-chip' + (fluxo.modo === "imovel" ? " on" : "") + '" data-m="imovel">Um dos meus imóveis</button></div>' +
       (fluxo.modo === "assunto"
         ? '<textarea id="vd-ass" maxlength="300" placeholder="Ex.: 3 erros de quem compra o primeiro imóvel em Fortaleza">' + esc(fluxo.assunto) + '</textarea>'

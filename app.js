@@ -1412,7 +1412,7 @@
     return '<div class="ag-formato"><div class="ag-contas-t">Música do vídeo</div><div class="ag-mus">' +
       '<button type="button" class="ag-mus-b on" data-ag-mus="">Sem música</button>' +
       L.map(function (t) { return '<button type="button" class="ag-mus-b" data-ag-mus="' + t.id + '" title="' + escapeHtml(t.desc) + '">▶ ' + escapeHtml(t.nome) + '</button>'; }).join("") +
-      '</div><audio id="ag-mus-ouvir" preload="none"></audio><p class="ag-fmt-dica">Trilhas da própria Vitrine: sem direitos autorais e sem custo. Toque para ouvir.</p></div>';
+      '</div><audio id="ag-mus-ouvir" preload="none"></audio><p class="ag-fmt-dica dif">Trilhas da própria Vitrine: sem direitos autorais e sem custo. Toque para ouvir.</p></div>';
   }
   function ligarMusica(root, aoMudar) {
     var player = qs("#ag-mus-ouvir", root);
@@ -1575,7 +1575,7 @@
       comoPublicarHtml(manualSel) +
       '<label class="reels-leg-lb" for="ag-leg">Legenda</label>' +
       '<textarea id="ag-leg" class="reels-leg" maxlength="2200" placeholder="Escreva a legenda do Reels">' + escapeHtml(legIni) + '</textarea>' +
-      (igOn ? '<p class="ag-info">Na hora marcada, a Vitrine publica sozinha no seu Instagram — mesmo com o app fechado.</p>'
+      (igOn ? '<p class="ag-info dif">Na hora marcada, a Vitrine publica sozinha no seu Instagram — mesmo com o app fechado.</p>'
             : '<p class="ag-info ag-warn">⚠ Seu Instagram ainda não está conectado. Conecte na aba Instagram até o horário, senão o Reels não sai sozinho.</p>') +
       '</div></div>' +
       '<div class="reels-botoes"><button class="btn btn-ghost btn-sm" id="ag-cancelar">Cancelar</button>' +
@@ -2464,7 +2464,7 @@
       '<div class="ag-chips">' + HORARIOS_TOP.map(function (t) { return '<button type="button" class="cal-slot top" data-ag-hora="' + t + '">' + t + '</button>'; }).join("") +
       '<span class="ag-dica">horários de mais engajamento</span></div>' +
       '<div id="ag-contas">' + escolhaContasHtml(c.instagram_contas_ids) + '</div>' +
-      (igOn ? '<p class="ag-info">Na hora marcada, a Vitrine publica sozinha no seu Instagram — mesmo com o app fechado.</p>'
+      (igOn ? '<p class="ag-info dif">Na hora marcada, a Vitrine publica sozinha no seu Instagram — mesmo com o app fechado.</p>'
             : '<p class="ag-info ag-warn">⚠ Seu Instagram ainda não está conectado. Conecte na aba Instagram até o horário, senão o post não sai sozinho.</p>') +
       '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">' +
       '<button class="btn btn-ghost btn-sm" id="ag-cancelar">Cancelar</button>' +

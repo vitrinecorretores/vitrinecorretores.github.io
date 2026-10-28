@@ -661,6 +661,12 @@ body .auth-card{padding:22px;}
   .tema-livre textarea:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(212,255,63,0.138);}
   .tema-livre-acoes{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-top:12px;}
   .tema-livre-dica{font-size:12.5px; color:var(--ink-muted);}
+  /* frases de diferencial da Vitrine: destaque em verde-limão */
+  p.dif, span.dif, div.dif{display:flex; align-items:flex-start; gap:8px; padding:9px 12px; border-radius:10px; background:rgba(212,255,63,0.07); border:1px solid rgba(212,255,63,0.26); border-left:3px solid var(--accent); color:var(--ink); font-size:13px; font-weight:600; line-height:1.45;}
+  p.dif::before, span.dif::before, div.dif::before{content:"✦"; color:var(--accent); flex:none; line-height:1.45;}
+  .dif b, .dif strong{color:var(--accent);}
+  span.dif{display:inline-flex;}
+  p.ag-info.dif, p.ag-fmt-dica.dif, p.vd-hint.dif{margin:12px 0 0;}
   .formatos-virais{display:flex; flex-wrap:wrap; gap:6px; margin:10px 0;}
   .formatos-label{width:100%; font-size:12px; font-weight:600; color:var(--ink-muted);}
   .formato-chip.on{background:var(--accent); border-color:var(--accent); color:#fff;}
@@ -1316,13 +1322,13 @@ body .auth-card{padding:22px;}
                 <textarea id="tema-livre-txt" rows="3" maxlength="400" placeholder="Escreva sua ideia do jeito que vier. Ex.: os 5 erros de quem compra apartamento na planta em Fortaleza"></textarea>
                 <div id="tema-livre-formatos"></div>
                 <div class="tema-livre-acoes">
-                  <span class="tema-livre-dica">A IA transforma sua ideia num carrossel pronto pra viralizar.</span>
+                  <span class="tema-livre-dica dif">A IA transforma sua ideia num carrossel pronto pra viralizar.</span>
                   <button type="button" class="btn btn-primary" id="tema-livre-btn">✨ Criar carrossel com esse tema</button>
                 </div>
               </div>
               <div class="ou-sep"><span>ou escolha uma sugestão abaixo</span></div>
               <h3 style="font-size:18px;margin-bottom:4px;">Escolha o assunto</h3>
-              <p style="color:var(--ink-muted);font-size:12.5px;margin:0 0 14px;">Não precisa ser um imóvel da sua carteira — a Vitrine sugere assuntos virais do mercado imobiliário, ou você manda seu próprio direcionamento.</p>
+              <p class="dif" style="margin:0 0 14px;">Não precisa ser um imóvel da sua carteira — a Vitrine sugere assuntos virais do mercado imobiliário, ou você manda seu próprio direcionamento.</p>
               <div class="mode-tabs" id="mode-tabs">
                 <button class="mode-tab" data-mode="topic"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M4 20l10-10"/><path d="M14 10l6-6"/><path d="M17 3l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/></svg> Sugestões da Vitrine</button>
                 <button class="mode-tab" data-mode="property"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M4 21V9l8-5 8 5v12"/><path d="M9 21v-7h6v7"/></svg> Imóvel da carteira</button>
@@ -1350,14 +1356,14 @@ body .auth-card{padding:22px;}
 
             <div id="wiz-step-2" hidden>
               <h3 style="font-size:18px;margin-bottom:4px;">Conteúdo gerado por IA</h3>
-              <p style="color:var(--ink-muted);font-size:12.5px;margin:0 0 6px;">A Vitrine escreve o texto com IA de verdade e gera a imagem de capa a partir do assunto escolhido — edite à vontade antes de continuar.</p>
-              <p style="color:var(--accent2);font-size:12px;font-weight:600;margin:0 0 16px;">Gancho na capa, pedido de arrastar, e CTA de comentar/salvar no final — pensado pra viralizar, não só informar.</p>
+              <p class="dif" style="margin:0 0 8px;">A Vitrine escreve o texto com IA de verdade e gera a imagem de capa a partir do assunto escolhido — edite à vontade antes de continuar.</p>
+              <p class="dif" style="margin:0 0 16px;">Gancho na capa, pedido de arrastar, e CTA de comentar/salvar no final — pensado pra viralizar, não só informar.</p>
               <div id="gen-area"></div>
             </div>
 
             <div id="wiz-step-3" hidden>
               <h3 style="font-size:18px;margin-bottom:4px;">Estilo visual</h3>
-              <p style="color:var(--ink-muted);font-size:12.5px;margin:0 0 16px;">Escolha o template — dá pra trocar depois, o texto continua o mesmo.</p>
+              <p class="dif" style="margin:0 0 16px;">Escolha o template — dá pra trocar depois, o texto continua o mesmo.</p>
               <div class="tpl-grid" id="tpl-grid"></div>
               <div class="carousel-strip" id="preview-strip"></div>
             </div>
@@ -1395,7 +1401,7 @@ body .auth-card{padding:22px;}
             <div class="autoreply-head">
               <div>
                 <h3 style="font-size:16px;">Respostas automáticas nos comentários</h3>
-                <p style="margin:3px 0 0;font-size:12.5px;color:var(--ink-muted);">Quando alguém comenta a palavra-gatilho no carrossel, o bot responde na hora.</p>
+                <p class="dif" style="margin:6px 0 0;">Quando alguém comenta a palavra-gatilho no carrossel, o bot responde na hora.</p>
               </div>
               <button class="btn btn-ghost btn-sm" id="autoreply-toggle"></button>
             </div>
@@ -1459,9 +1465,9 @@ body .auth-card{padding:22px;}
 <script src="fotos.js?v=20261023-x"></script>
 <script src="simulacao.js?v=20261023-x"></script>
 <script src="datas.js?v=20261023-x"></script>
-<script src="app.js?v=20261028-previa"></script>
+<script src="app.js?v=20261028-dif"></script>
 <script src="vitrine-leads.js?v=20261023-x"></script>
-<script src="video.js?v=20261028-trilhas"></script>
+<script src="video.js?v=20261028-dif"></script>
 <script src="resultado.js?v=20261023-x"></script>
 <script src="crescimento.js?v=20261028-push"></script>
 </body>

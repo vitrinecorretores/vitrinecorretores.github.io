@@ -133,27 +133,57 @@
         '</div></div>';
     }).join("") + '</div>';
   }
+  // miniatura leve para a escolha (as CDNs do Unsplash/Pexels redimensionam pela URL)
+  function miniaturaFoto(u) {
+    u = String(u || "");
+    if (/images\.unsplash\.com/.test(u)) return u.replace(/([?&])w=\d+/, "$1w=240").replace(/([?&])h=\d+/, "$1h=300");
+    if (/images\.pexels\.com/.test(u)) return u.split("?")[0] + "?auto=compress&cs=tinysrgb&h=300";
+    return u;
+  }
   function wireFotoControls(root, slides, contexto, persistir, redesenhar) {
-    async function trocar(i, termo, btn) {
+    // Trocar / Buscar: traz 3 fotos para o corretor tocar e escolher (e "Mais opções" traz outras 3)
+    async function trocar(i, termo, btn, manual) {
       var s = slides[i], orig = btn.innerHTML;
       btn.disabled = true; btn.innerHTML = '<div class="spin"></div>';
       try {
-        var body = { contexto: contexto, slides: [{ titulo: s.titulo, corpo: s.corpo }], excluir: (s._vistas || []).concat(s.imagem_url ? [s.imagem_url] : []) };
-        if (termo || s._termo) body.termos = [termo || s._termo];   // sem chamar a IA de novo quando já sabemos o termo
+        var vistas = (s._vistas || []).concat(s.imagem_url ? [s.imagem_url] : []).concat(s._opcoesVistas || []);
+        var body = { contexto: contexto, slides: [{ titulo: s.titulo, corpo: s.corpo }], excluir: vistas.slice(-60), opcoes: 3 };
+        if (termo || s._termo) body.termos = [termo || s._termo];   // sem chamar a IA de termos quando já sabemos o termo
+        if (manual) body.traduzir = true;                            // digitado em português: vira busca em inglês
         var resp = await callFunction("buscar-imagens", body);
         var foto = (resp.imagens || [])[0];
-        if (!foto) { toast("Não achei outra foto pra esse slide — tente “Buscar…” com outras palavras."); return; }
-        aplicarFoto(s, foto);
-        if (persistir) await salvarFotoDoSlide(s);
-        redesenhar();
+        if (!foto) { toast("Não achei outra foto pra esse slide — tente “Buscar…” descrevendo a cena (ex.: casal assinando contrato)."); return; }
+        var ops = (foto.alternativas && foto.alternativas.length ? foto.alternativas : [foto]);
+        s._termo = foto.termo || s._termo;
+        s._opcoesVistas = (s._opcoesVistas || []).concat(ops.map(function (o) { return o.url; }));
+        mostrarOpcoes(i, ops, btn);
       } catch (err) { toast("Erro ao buscar foto: " + err.message); }
       finally { btn.disabled = false; btn.innerHTML = orig; }
+    }
+    function mostrarOpcoes(i, ops, btn) {
+      var caixa = btn.closest(".foto-ctl"); if (!caixa) return;
+      var velho = caixa.querySelector(".foto-opcoes"); if (velho) velho.remove();
+      var d = document.createElement("div"); d.className = "foto-opcoes";
+      d.innerHTML = '<div class="foto-opcoes-t">Toque na foto que combina com o slide:</div><div class="foto-opcoes-l">' +
+        ops.map(function (o, k) { return '<button type="button" class="foto-op" data-op="' + k + '" title="' + escapeHtml(o.credito || "") + '"><img src="' + escapeHtml(safeUrl(miniaturaFoto(o.url))) + '" alt="Opção ' + (k + 1) + '" loading="lazy"></button>'; }).join("") +
+        '<button type="button" class="btn btn-ghost btn-xs foto-op-mais">Mais opções</button><button type="button" class="btn btn-ghost btn-xs foto-op-x" aria-label="Fechar">✕</button></div>';
+      caixa.appendChild(d);
+      qsa("[data-op]", d).forEach(function (b) {
+        b.onclick = async function () {
+          var s = slides[i];
+          aplicarFoto(s, ops[+b.dataset.op]);
+          if (persistir) await salvarFotoDoSlide(s);
+          redesenhar();
+        };
+      });
+      d.querySelector(".foto-op-mais").onclick = function () { trocar(i, null, this); };
+      d.querySelector(".foto-op-x").onclick = function () { d.remove(); };
     }
     qsa("[data-foto-trocar]", root).forEach(function (b) { b.onclick = function () { trocar(+b.dataset.fotoTrocar, null, b); }; });
     qsa("[data-foto-buscar]", root).forEach(function (b) {
       b.onclick = function () {
-        var t = window.prompt("Buscar foto por (ex.: varanda com vista para o mar, casal recebendo as chaves):");
-        if (t && t.trim()) trocar(+b.dataset.fotoBuscar, t.trim(), b);
+        var t = window.prompt("Descreva a cena da foto (ex.: casal recebendo as chaves, varanda com vista para o mar, documentos na mesa):");
+        if (t && t.trim()) trocar(+b.dataset.fotoBuscar, t.trim(), b, true);
       };
     });
     qsa("[data-foto-up]", root).forEach(function (inp) {

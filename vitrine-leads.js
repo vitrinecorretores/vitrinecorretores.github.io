@@ -55,9 +55,17 @@
         (top.length ? '<div style="margin-top:14px;font-size:12.5px;color:var(--ink-muted);">Seus posts que mais engajaram</div><ol class="rs-top">' + top.map(function (p) {
           var t = esc((p.legenda_inicio || "Post").slice(0, 60));
           return '<li>' + (p.permalink ? '<a href="' + esc(p.permalink) + '" target="_blank" rel="noopener" style="color:var(--accent2);">' + t + '</a>' : t) +
-            ' — ' + (p.curtidas || 0) + ' curtidas, ' + (p.salvamentos || 0) + ' salvamentos, ' + (p.compartilhamentos || 0) + ' envios</li>';
+            ' — ' + (p.curtidas || 0) + ' curtidas, ' + (p.salvamentos || 0) + ' salvamentos, ' + (p.compartilhamentos || 0) + ' envios' +
+            ' <button type="button" class="btn btn-ghost btn-xs rs-nova" data-rs-nova="' + esc((p.legenda_inicio || "").slice(0, 160)) + '" title="Cria um carrossel novo sobre o mesmo assunto, com outro gancho">♻️ Nova versão</button></li>';
         }).join("") + '</ol>' : '') +
         '</div>';
+      // reaproveitar o que deu certo: abre "Criar carrossel" com o tema do post que mais engajou
+      Array.prototype.forEach.call(el.querySelectorAll("[data-rs-nova]"), function (b) {
+        b.onclick = function () {
+          var base = (b.getAttribute("data-rs-nova") || "").replace(/\s+/g, " ").trim();
+          if (V.abrirComTema) V.abrirComTema("Nova versão de um post meu que deu muito certo, com outro gancho e outra abordagem (sem repetir o texto): " + base);
+        };
+      });
     } catch (e) { el.innerHTML = ""; console.error(e); }
   }
 

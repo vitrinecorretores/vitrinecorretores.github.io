@@ -2359,6 +2359,7 @@
   function ordemRecente(a, b) { return String(dataRecente(b)).localeCompare(String(dataRecente(a))); }
 
   function renderPainel() {
+    renderSemanaCard();
     renderDatasCard();
     renderAprovPainel();
     var total = state.carrosseis.length;
@@ -2547,6 +2548,9 @@
       '<div class="ag-chips">' + HORARIOS_TOP.map(function (t) { return '<button type="button" class="cal-slot top" data-ag-hora="' + t + '">' + t + '</button>'; }).join("") +
       '<span class="ag-dica">horários de mais engajamento</span></div>' +
       '<div id="ag-contas">' + escolhaContasHtml(c.instagram_contas_ids) + '</div>' +
+      // legenda pronta (gancho + chamada + hashtags): o corretor só confere; dá pra ajustar digitando ou falando
+      '<label class="reels-leg-lb" for="ag-leg">Legenda <span style="font-weight:500;opacity:.7;">(pronta — ajuste se quiser)</span></label>' +
+      '<textarea id="ag-leg" class="reels-leg" style="min-height:110px;" maxlength="2200">' + escapeHtml(c.legenda || legendaPadrao(c)) + '</textarea>' +
       (igOn ? '<p class="ag-info dif">Na hora marcada, a Vitrine publica sozinha no seu Instagram — mesmo com o app fechado.</p>'
             : '<p class="ag-info ag-warn">⚠ Seu Instagram ainda não está conectado. Conecte na aba Instagram até o horário, senão o post não sai sozinho.</p>') +
       '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">' +
@@ -2597,6 +2601,9 @@
           btn.textContent = "Enviando o vídeo…";
           extra = { formato: "reels", video_url: await subirVideoReels(vid), legenda: c.legenda || legendaPadrao(c) };
         }
+        var legEl = document.getElementById("ag-leg");
+        var legTxt = legEl ? legEl.value.trim() : "";
+        extra.legenda = legTxt || extra.legenda || c.legenda || legendaPadrao(c);
         extra.publicar_manual = fmtSel === "reels" ? manualSel : false;
         var upd = await DB.update("carrosseis", "id=eq." + c.id, Object.assign({ status: "agendado", data_agendada: iso, erro_publicacao: null, instagram_contas_ids: contasSel }, extra));
         Object.assign(c, extra);
@@ -2774,6 +2781,12 @@
   function openAddPropertyModal() {
     document.getElementById("modal-body").innerHTML =
       '<div class="modal-head"><h3 style="font-size:19px;">Novo imóvel</h3><button class="modal-close" id="modal-close">' + ICONS.close + '</button></div>' +
+      // descrever falando: o microfone (voz.js) escreve, e a IA preenche os campos só com o que foi dito
+      '<div class="card np-voz-card" style="padding:12px;margin-bottom:12px;"><div style="font-size:13px;font-weight:600;margin-bottom:4px;">🎤 Descreva o imóvel falando</div>' +
+      '<div style="font-size:12px;opacity:.75;margin-bottom:8px;">Ex.: "Casa no Cidade Alpha, 4 quartos, 280 metros, 2 vagas, piscina e área gourmet, venda por 2 milhões e 100." A Vitrine preenche o cadastro sozinha.</div>' +
+      '<textarea id="np-voz" data-voz-auto rows="2" placeholder="Toque no microfone e fale, ou escreva aqui como você descreveria o imóvel"></textarea>' +
+      '<div style="display:flex;justify-content:flex-end;margin-top:6px;"><button class="btn btn-ghost btn-sm" type="button" id="np-voz-ok">✨ Preencher com a descrição</button></div>' +
+      '<div id="np-voz-msg" style="font-size:12px;margin-top:4px;opacity:.85;"></div></div>' +
       '<div class="card" style="padding:12px;margin-bottom:14px;"><div style="font-size:13px;font-weight:600;margin-bottom:6px;">Importar por link</div>' +
       '<div style="display:flex;gap:8px;"><input type="url" id="np-link" placeholder="Cole o link do anúncio (ZAP, VivaReal, OLX, QuintoAndar...)" style="flex:1;min-width:0;">' +
       '<button class="btn btn-ghost" type="button" id="np-importar">Importar</button></div>' +
@@ -2867,6 +2880,28 @@
       }
       toast(arqs.length + " foto(s) baixada(s). Se o navegador perguntar, permita vários downloads.");
     }
+    // descrição falada/escrita -> IA preenche (só o que foi dito; nada inventado). Ao parar o microfone, preenche sozinho.
+    var vozTxt = document.getElementById("np-voz"), vozBtn = document.getElementById("np-voz-ok"), vozUltimo = "";
+    async function preencherPorDescricao() {
+      var txt = vozTxt.value.trim(), msgV = document.getElementById("np-voz-msg");
+      if (txt.length < 10) { msgV.textContent = "Descreva um pouco mais o imóvel (tipo, bairro, quartos, preço…)."; return; }
+      if (txt === vozUltimo) return;
+      vozUltimo = txt; vozBtn.disabled = true; msgV.textContent = "Lendo a descrição…";
+      try {
+        var r = await callFunction("importar-imovel", { texto: txt });
+        var d = r.dados || {}, n = 0;
+        function setV(id, v) { if (v !== null && v !== undefined && v !== "") { document.getElementById(id).value = v; n++; } }
+        setV("np-titulo", d.titulo); setV("np-bairro", d.bairro); setV("np-cidade", d.cidade);
+        setV("np-tipo", d.tipo); setV("np-finalidade", d.finalidade); setV("np-preco", d.preco);
+        setV("np-m2", d.area_m2); setV("np-quartos", d.quartos); setV("np-vagas", d.vagas);
+        if (d.diferenciais && d.diferenciais.length) { document.getElementById("np-dif").value = d.diferenciais.join(", "); n++; }
+        if (d.endereco) enderecoImportado = d.endereco;
+        msgV.textContent = n ? "Pronto! Preenchi " + n + " campo(s) com o que você disse. Confira abaixo e adicione as fotos." : "Não achei dados do imóvel na descrição. Tente falar tipo, bairro, quartos e preço.";
+      } catch (e) { msgV.textContent = e.message; vozUltimo = ""; }
+      finally { vozBtn.disabled = false; }
+    }
+    vozBtn.addEventListener("click", function () { vozUltimo = ""; preencherPorDescricao(); });
+    vozTxt.addEventListener("change", function () { if (vozTxt.value.trim().length >= 25) preencherPorDescricao(); });
     document.getElementById("np-importar").addEventListener("click", async function () {
       var inp = document.getElementById("np-link"), msg = document.getElementById("np-imp-msg"), b = this;
       var link = inp.value.trim();
@@ -3829,6 +3864,8 @@
         return;
       }
       if (wizard.dest === "agendado") {
+        // legenda pronta (gancho + chamada + hashtags) já salva: o post sai completo sem o corretor escrever nada
+        try { var legW = legendaPadrao(carrossel); if (legW) { await DB.update("carrosseis", "id=eq." + carrossel.id, { legenda: legW }); carrossel.legenda = legW; } } catch (e) { /* o servidor monta uma legenda se faltar */ }
         // gera e sobe agora as imagens do feed: na hora marcada o servidor publica sozinho, mesmo com o app fechado
         try {
           await prepararAgendado(carrossel, function (n, t) { btn.textContent = "Preparando imagens " + n + "/" + t + "…"; });
@@ -4617,6 +4654,141 @@
     }
   }
 
-  window.Vitrine = Object.assign(window.Vitrine || {}, { state: state, DB: DB, toast: toast, escapeHtml: escapeHtml, fmtDate: fmtDate, fmtDateTime: fmtDateTime, contasAtivas: contasAtivas, callFunction: callFunction, fotosDe: fotosDe, fmtBRL: fmtBRL, closeModal: closeModal, remuxMp4: remuxMp4, agendarVideoNovo: agendarVideoNovo });
+  /* ---------- SEMANA PRONTA: a Vitrine escolhe os assuntos, cria os carrosséis e agenda (o corretor só confere) ---------- */
+  var DIAS_CURTOS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+  function renderSemanaCard() {
+    var el = document.getElementById("semana-card"); if (!el) return;
+    el.innerHTML = '<div class="autoreply-card semana-card" style="margin-bottom:22px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">' +
+      '<div style="flex:1;min-width:220px;"><h3 style="font-size:16px;">🗓️ Semana pronta com um toque</h3>' +
+      '<p class="dif" style="margin:8px 0 0;">A Vitrine escolhe os assuntos, cria os carrosséis e agenda nos melhores horários. Você só confere.</p></div>' +
+      '<button class="btn btn-primary" id="semana-abrir">Planejar minha semana</button></div>';
+    document.getElementById("semana-abrir").onclick = abrirSemanaPronta;
+  }
+  function creditosRestantes() {
+    if (!emTeste()) return 99;
+    var p = state.profile || {};
+    var porCriacao = Math.max((p.trial_limite || 0) - (p.trial_usado || 0), 0);
+    var porPublicacao = Math.max(limitePublicacoesTeste() - publicadosNoInstagram() - state.carrosseis.filter(function (c) { return c.status === "agendado"; }).length, 0);
+    return Math.min(porCriacao, porPublicacao);
+  }
+  function abrirSemanaPronta() {
+    var maxN = Math.min(7, creditosRestantes());
+    if (maxN <= 0) { avisoFimDoTeste(); return; }
+    var n = Math.min(5, maxN), hora = "19:00", usados = {}, lista = [];
+    function novoAssunto() {
+      var pool = semUsados(state.topicos).filter(function (t) { return !usados[t.id] && t.gancho; });
+      var t = sortear(pool, 1)[0] || null;
+      if (t) usados[t.id] = 1;
+      return t;
+    }
+    function ajustarLista() {
+      while (lista.length < n) { var t = novoAssunto(); if (!t) break; lista.push(t); }
+      while (lista.length > n) { var x = lista.pop(); delete usados[x.id]; }
+    }
+    function dataDo(i) { var d = addDays(i + 1); var hm = hora.split(":"); d.setHours(+hm[0], +hm[1], 0, 0); return d; }
+    var contasSel = null;
+    function desenhar() {
+      ajustarLista();
+      var body = document.getElementById("modal-body");
+      var marcadas = document.getElementById("sp-contas") ? lerContasMarcadas(document.getElementById("sp-contas")) : contasSel;
+      body.innerHTML =
+        '<div class="modal-head"><div><h3 style="font-size:19px;">🗓️ Semana pronta</h3>' +
+        '<div style="font-size:13px;color:var(--ink-muted);margin-top:4px;">Confira os assuntos e toque em criar. Troque o que não gostar.</div></div>' +
+        '<button class="modal-close" id="modal-close">' + ICONS.close + '</button></div>' +
+        '<div class="ag-contas-t" style="margin-top:6px;">Quantos posts</div><div class="ag-chips">' +
+        [3, 5, 7].filter(function (k) { return k <= maxN || k === 3; }).map(function (k) { return '<button type="button" class="cal-slot' + (k === n ? " on top" : "") + '" style="padding:7px 16px;" data-sp-n="' + k + '"' + (k > maxN ? " disabled" : "") + '>' + k + '</button>'; }).join("") +
+        (maxN < 7 ? '<span class="ag-dica">seu plano permite ' + maxN + ' agora</span>' : '') + '</div>' +
+        '<div class="ag-contas-t" style="margin-top:10px;">Horário (todo dia)</div><div class="ag-chips">' +
+        HORARIOS_TOP.map(function (h) { return '<button type="button" class="cal-slot top' + (h === hora ? " on" : "") + '" style="padding:7px 10px;" data-sp-h="' + h + '">' + h + '</button>'; }).join("") +
+        '<span class="ag-dica">horários de mais engajamento</span></div>' +
+        '<div id="sp-contas" style="margin-top:8px;">' + escolhaContasHtml(marcadas || []) + '</div>' +
+        '<div class="ag-contas-t" style="margin-top:10px;">Assuntos</div>' +
+        '<div class="sp-lista">' + lista.map(function (t, i) {
+          var d = dataDo(i);
+          return '<div class="sp-item" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);">' +
+            '<span class="mono" style="font-size:12px;color:var(--accent);min-width:92px;">' + DIAS_CURTOS[d.getDay()] + ' ' + pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1) + ' · ' + hora + '</span>' +
+            '<span style="flex:1;font-size:13.5px;">' + escapeHtml(String(t.gancho).replace(/\*/g, "")) + '</span>' +
+            '<button type="button" class="btn btn-ghost btn-xs" data-sp-trocar="' + i + '">Trocar</button></div>';
+        }).join("") + '</div>' +
+        (lista.length < n ? '<p class="fmt-aviso">Só achei ' + lista.length + ' assunto(s) novo(s) agora. Toque em "Gerar novas sugestões" em Criar carrossel para ter mais.</p>' : '') +
+        '<p class="ag-info dif">A Vitrine cria os ' + lista.length + ' carrosséis com legenda pronta e agenda um por dia, a partir de amanhã. Mantenha esta tela aberta até terminar (cerca de 1 minuto por post).</p>' +
+        '<div id="sp-prog" style="margin-top:10px;"></div>' +
+        '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">' +
+        '<button class="btn btn-ghost btn-sm" id="sp-cancelar">Cancelar</button>' +
+        '<button class="btn btn-primary btn-sm" id="sp-criar"' + (lista.length ? "" : " disabled") + '>✨ Criar e agendar ' + lista.length + ' posts</button></div>';
+      document.getElementById("modal-close").onclick = closeModal;
+      document.getElementById("sp-cancelar").onclick = closeModal;
+      qsa("[data-sp-n]", body).forEach(function (b) { b.onclick = function () { contasSel = lerContasMarcadas(document.getElementById("sp-contas")); n = +b.dataset.spN; desenhar(); }; });
+      qsa("[data-sp-h]", body).forEach(function (b) { b.onclick = function () { contasSel = lerContasMarcadas(document.getElementById("sp-contas")); hora = b.dataset.spH; desenhar(); }; });
+      qsa("[data-sp-trocar]", body).forEach(function (b) {
+        b.onclick = function () { contasSel = lerContasMarcadas(document.getElementById("sp-contas")); var t = novoAssunto(); if (!t) { toast("Não há outros assuntos novos agora."); return; } lista[+b.dataset.spTrocar] = t; desenhar(); };
+      });
+      document.getElementById("sp-criar").onclick = function () { criar(this); };
+    }
+    async function criar(btn) {
+      var contas = lerContasMarcadas(document.getElementById("sp-contas"));
+      if (contasAtivas().length > 1 && !contas.length) { toast("Marque pelo menos um Instagram."); return; }
+      btn.disabled = true;
+      qsa("[data-sp-n],[data-sp-h],[data-sp-trocar],#sp-cancelar", document.getElementById("modal-body")).forEach(function (x) { x.disabled = true; });
+      var prog = document.getElementById("sp-prog"), ok = 0, falhas = [];
+      var tpl = findTemplateBySlug("minimalista");
+      var marca = marcaCfg((state.profile && state.profile.marca_cfg) || null);
+      function linha(i, txt) { var el = document.getElementById("sp-l" + i); if (el) el.textContent = txt; }
+      prog.innerHTML = lista.map(function (t, i) { return '<div style="font-size:12.5px;padding:3px 0;"><b>' + (i + 1) + '.</b> <span id="sp-l' + i + '">na fila</span></div>'; }).join("");
+      for (var i = 0; i < lista.length; i++) {
+        var t = lista[i];
+        btn.textContent = "Criando " + (i + 1) + " de " + lista.length + "…";
+        try {
+          linha(i, "escrevendo o texto com IA…");
+          var resp = await callFunction("gerar-conteudo", { origem: "topico", dados: t });
+          var slides = resp.slides || [];
+          if (slides.length < 2) throw new Error("a IA não devolveu slides");
+          slides = slides.slice(0, 10);
+          linha(i, "buscando fotos…");
+          try { await garantirFotosReais(slides, "mercado imobiliário, " + (t.categoria || ""), false, null); } catch (e) { /* sem foto, o modelo usa o fundo */ }
+          linha(i, "salvando e agendando…");
+          var rows = await DB.insert("carrosseis", {
+            corretor_id: state.profile.id, origem: "topico", template_id: tpl ? tpl.id : null, fonte: comCor("impacto", corDe("impacto")),
+            melhorar_fotos: true, marca_cfg: marca.ativo ? marca : null, direcionamento: null, gancho_idx: null, status: "agendado",
+            propriedade_id: null, topico_id: t.id, assunto_custom: null, categoria: null,
+            data_agendada: dataDo(i).toISOString(), instagram_contas_ids: contas
+          });
+          var car = rows[0];
+          var salvos = await DB.insert("slides", slides.map(function (s, k) {
+            return { carrossel_id: car.id, ordem: k, tag: s.tag, titulo: s.titulo, corpo: s.corpo,
+              imagem_url: isFotoReal(s.imagem_url) ? s.imagem_url : null, imagem_prompt: isFotoReal(s.imagem_url) ? (s.imagem_prompt || null) : null };
+          }));
+          car.slides = salvos.sort(function (a, b) { return a.ordem - b.ordem; });
+          state.carrosseis.unshift(car);
+          try { var leg = legendaPadrao(car); if (leg) { await DB.update("carrosseis", "id=eq." + car.id, { legenda: leg }); car.legenda = leg; } } catch (e) { }
+          linha(i, "preparando as imagens…");
+          await prepararAgendado(car, function (a, b) { linha(i, "preparando as imagens " + a + "/" + b + "…"); });
+          linha(i, "✓ agendado para " + fmtDateTime(car.data_agendada));
+          ok++;
+        } catch (e) {
+          linha(i, "✗ não deu: " + (e.message || "erro"));
+          falhas.push(t);
+        }
+      }
+      if (state.assinatura && state.assinatura.status === "trial") {
+        try { var fp = await DB.select("profiles", "select=trial_usado,trial_limite&id=eq." + state.profile.id); if (fp && fp[0]) { state.profile.trial_usado = fp[0].trial_usado; state.profile.trial_limite = fp[0].trial_limite; } } catch (e) { }
+        updateNavPlanBadge();
+      }
+      renderPainel(); renderInstagram();
+      btn.textContent = "Pronto";
+      var fim = document.getElementById("sp-cancelar"); if (fim) { fim.disabled = false; fim.textContent = "Fechar"; }
+      toast(ok ? ok + " post(s) criado(s) e agendado(s)" + (falhas.length ? ". " + falhas.length + " não deu — tente de novo depois." : ". Sua semana está pronta!") : "Não consegui criar os posts agora. Tente de novo em instantes.");
+    }
+    document.getElementById("overlay").hidden = false;
+    desenhar();
+  }
+
+  // abre "Criar carrossel" já com o tema escrito (usado por "Nova versão" e "Planejar minha semana")
+  function abrirComTema(tema) {
+    resetWizard(); showScreen("novo");
+    var t = document.getElementById("tema-livre-txt");
+    if (t) { t.value = tema || ""; t.dispatchEvent(new Event("input", { bubbles: true })); t.focus(); }
+  }
+  window.Vitrine = Object.assign(window.Vitrine || {}, { abrirComTema: abrirComTema, state: state, DB: DB, toast: toast, escapeHtml: escapeHtml, fmtDate: fmtDate, fmtDateTime: fmtDateTime, contasAtivas: contasAtivas, callFunction: callFunction, fotosDe: fotosDe, fmtBRL: fmtBRL, closeModal: closeModal, remuxMp4: remuxMp4, agendarVideoNovo: agendarVideoNovo });
   bootApp();
 })();

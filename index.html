@@ -45,15 +45,8 @@
   "offers": [
     {
       "@type": "Offer",
-      "name": "Starter",
+      "name": "Vitrine",
       "price": "97",
-      "priceCurrency": "BRL",
-      "url": "https://vitrinecorretores.github.io/#planos"
-    },
-    {
-      "@type": "Offer",
-      "name": "Pro",
-      "price": "197",
       "priceCurrency": "BRL",
       "url": "https://vitrinecorretores.github.io/#planos"
     },
@@ -99,7 +92,7 @@
       "name": "O teste grátis pede cartão de crédito?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Não. Você cria a conta e faz 3 carrosséis completos sem cadastrar cartão."
+        "text": "Não. Você testa a Vitrine completa por 7 dias, sem cadastrar cartão."
       }
     },
     {
@@ -1114,6 +1107,28 @@ input:focus-visible, textarea:focus-visible, select:focus-visible{outline:none; 
 .np-passos i{font-style:normal; width:18px; height:18px; border-radius:50%; display:inline-grid; place-items:center; background:rgba(212,255,63,.18); color:#D4FF3F; font-size:11px; font-weight:700;}
 .np-rapido-acoes{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:8px;} .np-fotos-cont{font-size:12px; color:#86efac;}
 @media (max-width:560px){ .np-rapido-acoes .btn{flex:1 1 auto; justify-content:center;} #np-voz-ok{margin-left:0 !important;} }
+
+/* plano único + oferta imobiliárias + teste sem conta */
+.lp-plans:has(.lp-plan-unico){grid-template-columns:minmax(0,420px);justify-content:center;}
+.lp-imob-oferta{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:14px 0 22px;padding:16px 18px;border-radius:14px;border:1px solid rgba(212,255,63,.35);background:linear-gradient(90deg,rgba(212,255,63,.08),rgba(94,234,212,.04));}
+.lp-imob-oferta div{display:flex;flex-direction:column;gap:4px;} .lp-imob-oferta b{font-size:16px;} .lp-imob-oferta span{font-size:13.5px;color:var(--ink-muted);}
+
+.lp-demo-form{display:flex;gap:10px;max-width:640px;margin:0 auto;flex-wrap:wrap;}
+.lp-demo-form input{flex:1 1 280px;min-width:0;border:1px solid var(--border);border-radius:12px;background:var(--surface,#111113);color:var(--ink);padding:13px 14px;font-size:15px;}
+.lp-demo-chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:12px 0 0;}
+.lp-demo-chips button{border:1px solid var(--border);background:transparent;color:var(--ink-muted);border-radius:999px;padding:6px 12px;font:500 12.5px inherit;cursor:pointer;}
+.lp-demo-chips button:hover{color:#fff;border-color:rgba(212,255,63,.5);}
+.lp-demo-res{margin:22px auto 0;max-width:980px;}
+.lp-demo-strip{display:flex;gap:12px;overflow-x:auto;padding:4px 2px 12px;scroll-snap-type:x mandatory;}
+.lp-demo-slide{flex:0 0 230px;aspect-ratio:4/5;scroll-snap-align:start;border-radius:14px;padding:16px;display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(160deg,#17171b,#0d0d10);border:1px solid #26262b;}
+.lp-demo-slide.capa{background:linear-gradient(160deg,#1d2410,#0d0d10);border-color:rgba(212,255,63,.4);}
+.lp-demo-slide small{font:700 10.5px/1 inherit;letter-spacing:.1em;color:#D4FF3F;}
+.lp-demo-slide b{font-size:20px;line-height:1.15;color:#fff;} .lp-demo-slide b em{font-style:normal;color:#D4FF3F;}
+.lp-demo-slide p{font-size:12.5px;line-height:1.45;color:#c4c4cc;margin:0;}
+.lp-demo-cta{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 16px;border-radius:14px;border:1px solid rgba(212,255,63,.35);background:rgba(212,255,63,.06);margin-top:6px;}
+.lp-demo-cta span{font-size:14px;color:var(--ink-muted);} .lp-demo-cta b{color:var(--ink);}
+
+.adm-wa{display:inline-block;margin-top:5px;font-size:12px;font-weight:600;color:#4ADE80;text-decoration:none;border:1px solid rgba(74,222,128,.4);border-radius:999px;padding:3px 9px;} .adm-wa:hover{background:rgba(74,222,128,.12);}
 </style>
 </head>
 <body>
@@ -1133,9 +1148,9 @@ input:focus-visible, textarea:focus-visible, select:focus-visible{outline:none; 
   <section class="lp-hero" id="topo">
     <div class="lp-hero-txt">
       <span class="lp-kicker"><i></i> Feito para corretores de imóveis</span>
-      <h1>Posts com IA para gerar <span class="lp-grad">conversa, autoridade e visitas</span>.</h1>
-      <p class="lp-sub">A Vitrine cria carrosséis, Reels e Stories para o mercado imobiliário em cerca de 2 minutos, com texto persuasivo, fotos reais em alta resolução e publicação direta no Instagram.</p>
-      <div class="lp-cta-row"><button class="btn btn-primary lp-big" data-cta="signup">Criar 3 carrosséis grátis</button><a class="lp-link" href="#como">Ver como funciona →</a></div>
+      <h1>Seu Instagram postando todo dia, <span class="lp-grad">sozinho</span>. Você só responde os clientes.</h1>
+      <p class="lp-sub">A Vitrine escreve, monta e agenda carrosséis, Reels e Stories de imóveis por você: texto que faz o cliente comentar, fotos reais em alta resolução e publicação direto no Instagram. Você monta a semana inteira em minutos.</p>
+      <div class="lp-cta-row"><button class="btn btn-primary lp-big" data-cta="signup">Testar 7 dias grátis</button><a class="lp-link" href="#testar">Ver um post pronto agora, sem cadastro →</a></div>
       <p class="lp-note">Sem cartão de crédito · Cancele quando quiser</p>
       <div class="lp-hero-promo" data-promo><span>Novo assinante ganha <b>30% off no 1º mês</b> do plano mensal</span></div>
     </div>
@@ -1165,6 +1180,17 @@ input:focus-visible, textarea:focus-visible, select:focus-visible{outline:none; 
   <section class="lp-numeros" id="lp-numeros" hidden>
     <h3>Números reais da Vitrine</h3>
     <div class="lp-numeros-grid" id="lp-numeros-grid"></div>
+  </section>
+
+  <section class="lp-sec lp-demo" id="testar">
+    <h2 class="lp-h2">Veja agora, <span class="lp-grad">sem cadastro</span>.</h2>
+    <p class="lp-lead">Escreva um assunto ou o seu bairro e a Vitrine monta um carrossel na hora, na sua frente.</p>
+    <form class="lp-demo-form" id="demo-form">
+      <input id="demo-assunto" maxlength="120" placeholder="Ex.: erros de quem compra apartamento na Aldeota" required>
+      <button class="btn btn-primary" id="demo-btn" type="submit">Criar meu carrossel</button>
+    </form>
+    <div class="lp-demo-chips"><button type="button" data-demo="Por que morar no Cidade Alpha">Morar no Cidade Alpha</button><button type="button" data-demo="Erros de quem compra o primeiro apartamento">Primeiro apartamento</button><button type="button" data-demo="Alugar ou comprar imóvel hoje">Alugar ou comprar?</button></div>
+    <div id="demo-res" class="lp-demo-res" hidden></div>
   </section>
 
   <section class="lp-sec" id="como">
@@ -1214,7 +1240,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible{outline:none; 
     <h2 class="lp-h2">Mais confiança para <span class="lp-grad">testar sem risco</span></h2>
     <p class="lp-lead">A página deixa claro o que você recebe, como paga e quais seguranças existem antes de assinar.</p>
     <div class="lp-proof-grid">
-      <div class="lp-proof"><b>Teste grátis sem cartão</b><p>Você cria a conta e faz 3 carrosséis completos antes de decidir se quer assinar.</p></div>
+      <div class="lp-proof"><b>Teste grátis sem cartão</b><p>Você usa a Vitrine completa por 7 dias, com a semana de posts já montada, antes de decidir se quer assinar.</p></div>
       <div class="lp-proof"><b>Fotos com licença comercial</b><p>As imagens usadas nos posts vêm de bancos profissionais e podem ser trocadas ou substituídas por fotos suas.</p></div>
       <div class="lp-proof"><b>Pagamento seguro e cancelamento simples</b><p>Os planos usam Stripe e o cancelamento pode ser feito na própria Vitrine, sem multa e sem burocracia.</p></div>
       <div class="lp-proof"><b>Publicação com prévia</b><p>Você confere como o post vai aparecer no Instagram antes de publicar no feed, nos Reels ou nos Stories.</p></div>
@@ -1234,24 +1260,21 @@ input:focus-visible, textarea:focus-visible, select:focus-visible{outline:none; 
 
   <section class="lp-sec" id="planos">
     <h2 class="lp-h2">Comece grátis. <span class="lp-grad">Assine se gostar.</span></h2>
-    <p class="lp-lead">Teste com 3 carrosséis grátis, sem cartão. Se gostar, escolha entre plano mensal com desconto no 1º mês ou anual com 2 meses grátis.</p>
+    <p class="lp-lead">Teste 7 dias com tudo liberado, sem cartão. Se gostar, um plano só, com tudo incluso: mensal com desconto no 1º mês ou anual com 2 meses grátis.</p>
     <div class="lp-billing-switch" aria-label="Alternar preços" role="tablist">
       <button class="lp-billing-btn on" type="button" data-plan-period="monthly" aria-selected="true">Mensal<small>30% off no 1º mês</small></button>
       <button class="lp-billing-btn" type="button" data-plan-period="yearly" aria-selected="false">Anual<small>2 meses grátis</small></button>
     </div>
     <div class="lp-plans">
-      <div class="lp-plan"><h3>Starter</h3><div class="lp-price" data-plan-price data-monthly="R$ 97<span>/mês</span>" data-yearly="R$ 970<span>/ano</span>">R$ 97<span>/mês</span></div><p class="lp-price-sub" data-plan-sub data-monthly="No anual, sai por R$ 80,83/mês com cobrança única de R$ 970 por ano." data-yearly="Equivale a R$ 80,83/mês no plano anual, com 2 meses grátis.">No anual, sai por R$ 80,83/mês com cobrança única de R$ 970 por ano.</p><div class="lp-promo-preco" data-promo data-plan-promo data-monthly="<s>R$ 97</s> <b>R$ 67,90</b> no 1º mês" data-yearly="<b>R$ 970 por ano</b> com 2 meses grátis"> <s>R$ 97</s> <b>R$ 67,90</b> no 1º mês</div>
-        <ul><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"/></svg>Carrosséis ilimitados</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"/></svg>Sugestões de assuntos virais</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"/></svg>Fotos reais em todos os slides</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"/></svg>1 usuário</li></ul>
-        <button class="btn btn-ghost lp-full" data-cta="signup" data-plan-name="Starter">Começar teste grátis</button></div>
-      <div class="lp-plan destaque"><span class="lp-badge">Mais escolhido</span><h3>Pro</h3><div class="lp-price" data-plan-price data-monthly="R$ 197<span>/mês</span>" data-yearly="R$ 1.970<span>/ano</span>">R$ 197<span>/mês</span></div><p class="lp-price-sub" data-plan-sub data-monthly="No anual, sai por R$ 164,17/mês com cobrança única de R$ 1.970 por ano." data-yearly="Equivale a R$ 164,17/mês no plano anual, com 2 meses grátis.">No anual, sai por R$ 164,17/mês com cobrança única de R$ 1.970 por ano.</p><div class="lp-promo-preco" data-promo data-plan-promo data-monthly="<s>R$ 197</s> <b>R$ 137,90</b> no 1º mês" data-yearly="<b>R$ 1.970 por ano</b> com 2 meses grátis"><s>R$ 197</s> <b>R$ 137,90</b> no 1º mês</div>
-        <ul><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"/></svg>Tudo do Starter</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"/></svg>Publicação direta no Instagram</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"/></svg>Feed, Reels e Stories</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"/></svg>1 corretor por conta</li></ul>
-        <button class="btn btn-primary lp-full" data-cta="signup" data-plan-name="Pro">Começar teste grátis</button></div>
+      <div class="lp-plan destaque lp-plan-unico"><span class="lp-badge">Tudo incluso</span><h3>Vitrine</h3><div class="lp-price" data-plan-price data-monthly="R$ 97<span>/mês</span>" data-yearly="R$ 970<span>/ano</span>">R$ 97<span>/mês</span></div><p class="lp-price-sub" data-plan-sub data-monthly="No anual, sai por R$ 80,83/mês" data-yearly="Equivale a R$ 80,83/mês">No anual, sai por R$ 80,83/mês</p><ul><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"/></svg>Carrosséis, Reels e Stories ilimitados</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"/></svg>Agendamento e publicação automática no Instagram</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"/></svg>Semana pronta com um toque</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"/></svg>Página do imóvel com botão de WhatsApp</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"/></svg>Até 3 contas do Instagram</li></ul><button class="btn btn-primary lp-full" data-cta="signup" data-plan-name="Vitrine">Testar 7 dias grátis</button></div>
     </div>
     <p class="lp-note center" data-plan-note data-monthly="Plano anual com 2 meses grátis · Pagamento seguro pelo Stripe" data-yearly="Cobrança anual antecipada com 2 meses grátis · Pagamento seguro pelo Stripe">Plano anual com 2 meses grátis · Pagamento seguro pelo Stripe</p>
     <p class="lp-note center" data-promo data-plan-note-secondary data-monthly="Desconto de 30% no 1º mês válido para a primeira assinatura do plano mensal, aplicado automaticamente no pagamento." data-yearly="No anual, você paga 10 meses e usa 12.">Desconto de 30% no 1º mês válido para a primeira assinatura do plano mensal, aplicado automaticamente no pagamento.</p>
     <div class="lp-imob" id="imobiliarias">
       <h3 class="lp-h3">Para imobiliárias</h3>
-      <p class="lp-lead">Um plano para a equipe inteira: você assina, convida seus corretores por link e cada um usa a própria conta com tudo do Pro.</p>
+      <p class="lp-lead">Um plano para a equipe inteira: você assina, convida seus corretores por link e cada um usa a própria conta com tudo incluso.</p>
+      <div class="lp-imob-oferta"><div><b>14 dias grátis para a sua equipe inteira</b><span>Eu mesmo configuro a Vitrine com você e seus corretores, numa chamada. Sem cartão.</span></div>
+      <a class="btn btn-primary" target="_blank" rel="noopener" href="https://wa.me/5585981665189?text=Oi%20Evandro!%20Tenho%20uma%20imobili%C3%A1ria%20e%20quero%20o%20teste%20de%2014%20dias%20da%20Vitrine%20para%20a%20minha%20equipe.">Quero para minha equipe</a></div>
       <div class="lp-plans lp-plans-4">
         <div class="lp-plan"><h3>Imobiliária 5</h3><div class="lp-price" data-plan-price data-monthly="R$ 447<span>/mês</span>" data-yearly="R$ 4.470<span>/ano</span>">R$ 447<span>/mês</span></div><p class="lp-price-sub" data-plan-sub data-monthly="No anual, sai por R$ 372,50/mês com cobrança única de R$ 4.470 por ano." data-yearly="Equivale a R$ 372,50/mês no plano anual, com 2 meses grátis.">No anual, sai por R$ 372,50/mês com cobrança única de R$ 4.470 por ano.</p><ul><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"/></svg>Até 5 corretores</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"/></svg>Tudo do Pro para cada corretor</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"/></svg>Convite por link</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"/></svg>Painel da equipe</li></ul><button class="btn btn-ghost lp-full" data-cta="signup" data-plan-name="Imobiliária 5">Começar teste grátis</button></div>
         <div class="lp-plan destaque"><span class="lp-badge">Melhor custo</span><h3>Imobiliária 10</h3><div class="lp-price" data-plan-price data-monthly="R$ 797<span>/mês</span>" data-yearly="R$ 7.970<span>/ano</span>">R$ 797<span>/mês</span></div><p class="lp-price-sub" data-plan-sub data-monthly="No anual, sai por R$ 664,17/mês com cobrança única de R$ 7.970 por ano." data-yearly="Equivale a R$ 664,17/mês no plano anual, com 2 meses grátis.">No anual, sai por R$ 664,17/mês com cobrança única de R$ 7.970 por ano.</p><ul><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"/></svg>Até 10 corretores</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"/></svg>Tudo do Pro para cada corretor</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"/></svg>Convite por link</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"/></svg>Painel da equipe</li></ul><button class="btn btn-primary lp-full" data-cta="signup" data-plan-name="Imobiliária 10">Começar teste grátis</button></div>
@@ -1266,7 +1289,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible{outline:none; 
     <h2 class="lp-h2">Dúvidas frequentes</h2>
     <div class="lp-faq">
       <details><summary>Preciso saber design ou mexer no Canva?</summary><p>Não. A Vitrine monta o carrossel inteiro — texto, fotos, fonte e layout. Você só escolhe o assunto e confere a prévia.</p></details>
-      <details><summary>O teste grátis pede cartão de crédito?</summary><p>Não. Você cria a conta e faz 3 carrosséis completos sem cadastrar cartão.</p></details>
+      <details><summary>O teste grátis pede cartão de crédito?</summary><p>Não. Você testa a Vitrine completa por 7 dias, sem cadastrar cartão.</p></details>
       <details><summary>As fotos podem ser usadas nos meus posts?</summary><p>Sim. São fotos de banco de imagens profissional com licença livre para uso comercial. Se preferir, troque por uma foto sua com um clique.</p></details>
       <details><summary>Como funciona a publicação no Instagram?</summary><p>Você conecta sua conta Profissional (Empresa ou Criador) uma vez. Depois, cada carrossel pode ir direto pro feed, Reels ou Stories, sempre com a prévia antes.</p></details>
       <details><summary>Posso cancelar quando quiser?</summary><p>Pode. O cancelamento é feito na própria Vitrine, sem multa e sem burocracia. Os detalhes estão na <a href="politica-de-cancelamento.html">Política de Cancelamento</a>.</p></details>
@@ -1279,7 +1302,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible{outline:none; 
   <section class="lp-final">
     <h2>Seu próximo cliente está rolando o feed <span class="lp-grad">agora</span>.</h2>
     <p>Crie seus primeiros posts imobiliários em poucos minutos e comece a aparecer com mais frequência no Instagram.</p>
-    <button class="btn btn-primary lp-big" data-cta="signup">Criar 3 carrosséis grátis</button>
+    <button class="btn btn-primary lp-big" data-cta="signup">Testar 7 dias grátis</button>
   </section>
 
   <footer class="lp-foot"><span class="lp-brand small"><span class="brand-mark"><svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><defs><linearGradient id="vtg-lp2" x1="6" y1="10" x2="40" y2="44" gradientUnits="userSpaceOnUse"><stop stop-color="#D4FF3F"/><stop offset="1" stop-color="#F4F4F5"/></linearGradient></defs><path d="M7 15 L24 42 L41 15" stroke="url(#vtg-lp2)" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 7.5 H40" stroke="#fff" stroke-width="5.2" stroke-linecap="round"/><path d="M24 7.5 V29" stroke="#fff" stroke-width="5.2" stroke-linecap="round"/><circle cx="24" cy="42" r="3.4" fill="#F4F4F5"/></svg></span><span class="brand-name">Vitrine</span></span><span class="lp-foot-links"><a class="lp-mail" data-suporte href="mailto:vitrinecorretor@gmail.com">vitrinecorretor@gmail.com</a><a href="privacidade.html">Privacidade</a><a href="termos.html">Termos</a><a href="politica-de-cancelamento.html">Cancelamento</a><a href="exclusao-de-dados.html">Exclusão de dados</a><span>Carrosséis para corretores de imóveis · © 2026 Oliveira &amp; Torres Negócios Imobiliários Ltda · CNPJ 66.300.240/0001-10 · Fortaleza-CE</span></span></footer>
@@ -1563,12 +1586,13 @@ input:focus-visible, textarea:focus-visible, select:focus-visible{outline:none; 
 <script src="fotos.js?v=20261023-x"></script>
 <script src="simulacao.js?v=20261023-x"></script>
 <script src="datas.js?v=20261023-x"></script>
-<script src="app.js?v=20261103-egress"></script>
+<script src="app.js?v=20261103-vendas"></script>
 <script src="vitrine-leads.js?v=20261103-menu"></script>
 <script src="video.js?v=20261028-postig"></script>
 <script src="voz.js?v=20261103-menu"></script>
 <script src="resultado.js?v=20261103-menu"></script>
 <script src="crescimento.js?v=20261103-menu"></script>
 <script src="vita.js?v=20261103-menu"></script>
+<script src="demo.js?v=20261103-vendas"></script>
 </body>
 </html>

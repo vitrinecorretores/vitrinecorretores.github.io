@@ -1983,7 +1983,7 @@
         : '<div style="text-align:right;margin:-6px 0 12px;"><button type="button" class="auth-link" id="auth-esqueci">Esqueci minha senha</button></div>') +
       '<button type="submit" class="btn btn-primary auth-submit" id="auth-submit">' + (authMode === "signup" ? "Criar conta grátis" : "Entrar") + "</button>" +
       "</form>" +
-      '<p style="text-align:center;font-size:11.5px;color:var(--ink-faint);margin:14px 0 0;">' + (authMode === "signup" ? "3 carrosséis grátis no teste, sem cartão." : "Ainda não tem conta? Use a aba \"Criar conta\".") + "</p>" +
+      '<p style="text-align:center;font-size:11.5px;color:var(--ink-faint);margin:14px 0 0;">' + (authMode === "signup" ? "7 dias grátis com tudo liberado, sem cartão." : "Ainda não tem conta? Use a aba \"Criar conta\".") + "</p>" +
       "</div></div>";
 
     var back = qs("#auth-back", view); if (back) back.onclick = showLanding;
@@ -2335,6 +2335,16 @@
       return !q || [c.nome, c.email, c.cidade, c.telefone, c.instagram].join(" ").toLowerCase().indexOf(q) >= 0;
     });
   }
+  // atendimento pessoal nos primeiros dias: mensagem pronta pro dono mandar do próprio WhatsApp (ele revisa antes de enviar)
+  function linkBoasVindas(c) {
+    var tel = String(c.telefone || "").replace(/\D/g, ""); if (tel.length < 10) return "";
+    if (!/^55/.test(tel)) tel = "55" + tel;
+    var nome = String(c.nome || "").split(" ")[0];
+    var txt = c.status === "trial"
+      ? "Oi" + (nome ? ", " + nome : "") + "! Aqui é o Evandro, corretor como você e criador da Vitrine. Vi que você criou sua conta e queria te ajudar a deixar seu Instagram postando sozinho. Leva uns 10 minutos numa chamada rápida, eu configuro junto com você. Qual o melhor horário pra você hoje ou amanhã?"
+      : "Oi" + (nome ? ", " + nome : "") + "! Aqui é o Evandro, da Vitrine. Passando pra saber como está sendo usar a plataforma e se posso te ajudar em alguma coisa.";
+    return '<a class="adm-wa" target="_blank" rel="noopener" href="https://wa.me/' + tel + '?text=' + encodeURIComponent(txt) + '">💬 Chamar no WhatsApp</a>';
+  }
   function desenharTabelaAdmin() {
     var linhas = contasFiltradas();
     var pill = function (c) {
@@ -2346,7 +2356,7 @@
       '<thead><tr><th>Corretor</th><th>Contato</th><th>Plano</th><th>Uso</th><th>Instagram</th><th>Cadastro</th><th>Último acesso</th></tr></thead><tbody>' +
       (linhas.length ? linhas.map(function (c) {
         return '<tr><td><b>' + escapeHtml(c.nome || "—") + '</b><div class="sub">' + escapeHtml(c.cidade || "") + (c.creci ? " · CRECI " + escapeHtml(c.creci) : "") + '</div></td>' +
-          '<td>' + escapeHtml(c.email) + (c.email_confirmado ? "" : ' <span class="sub">(e-mail não confirmado)</span>') + '<div class="sub">' + escapeHtml(c.telefone || "") + '</div></td>' +
+          '<td>' + escapeHtml(c.email) + (c.email_confirmado ? "" : ' <span class="sub">(e-mail não confirmado)</span>') + '<div class="sub">' + escapeHtml(c.telefone || "") + '</div>' + linkBoasVindas(c) + '</td>' +
           '<td>' + pill(c) + (c.fim && c.status === "ativa" ? '<div class="sub">renova ' + fmtDate(c.fim) + '</div>' : "") + '</td>' +
           '<td>' + c.carrosseis + ' carrossel' + (c.carrosseis === 1 ? "" : "éis") + '<div class="sub">' + c.publicados + ' publicado' + (c.publicados === 1 ? "" : "s") + (c.status === "trial" ? " · teste " + c.trial_usado + "/" + c.trial_limite : "") + '</div></td>' +
           '<td>' + (c.instagram ? escapeHtml(c.instagram) : '<span class="sub">não conectado</span>') + '</td>' +
@@ -2383,13 +2393,20 @@
     document.getElementById("fim-teste-planos").onclick = function () { closeModal(); showScreen("plano"); };
   }
 
-  function trialBlocked() {
-    return state.assinatura && state.assinatura.status === "trial" && state.profile && state.profile.trial_usado >= state.profile.trial_limite;
+  // teste grátis: 7 dias (profiles.trial_expira_em) com teto de carrosséis pra custo
+  function diasDeTeste() {
+    var e = state.profile && state.profile.trial_expira_em; if (!e) return null;
+    return Math.max(Math.ceil((new Date(e).getTime() - Date.now()) / 864e5), 0);
   }
+  function testeVencido() { var d = diasDeTeste(); return d !== null && new Date(state.profile.trial_expira_em).getTime() < Date.now(); }
+  function trialBlocked() {
+    return state.assinatura && state.assinatura.status === "trial" && state.profile && (testeVencido() || state.profile.trial_usado >= state.profile.trial_limite);
+  }
+  function msgFimTeste() { return testeVencido() ? "Seu teste grátis de 7 dias terminou. Assine pra continuar criando." : "Você usou os carrosséis do teste grátis. Assine pra continuar criando."; }
   function tryStartWizard() {
     if (trialBlocked()) {
       showScreen("plano");
-      toast("Você usou seus " + state.profile.trial_limite + " carrosséis grátis. Assine pra continuar criando.");
+      toast(msgFimTeste());
       return false;
     }
     resetWizard();
@@ -4161,7 +4178,8 @@
     if (!state.assinatura) { badge.hidden = true; return; }
     if (state.assinatura.status === "trial") {
       badge.hidden = false;
-      badge.textContent = Math.max((state.profile.trial_limite || 0) - (state.profile.trial_usado || 0), 0) + "/" + (state.profile.trial_limite || 0);
+      var dd = diasDeTeste();
+      badge.textContent = dd !== null ? (dd > 0 ? dd + (dd === 1 ? " dia" : " dias") : "fim") : Math.max((state.profile.trial_limite || 0) - (state.profile.trial_usado || 0), 0) + "/" + (state.profile.trial_limite || 0);
     } else {
       badge.hidden = false;
       var plano = findPlano(state.assinatura.plano_id);
@@ -4415,10 +4433,13 @@
     var statusEl = document.getElementById("plan-status");
     if (!state.assinatura || state.assinatura.status === "trial") {
       var used = (state.profile.trial_usado || 0), limit = (state.profile.trial_limite || 0), left = Math.max(limit - used, 0);
+      var dt = diasDeTeste(), acabou = trialBlocked();
+      var agend = state.carrosseis.filter(function (c) { return c.status === "agendado"; }).length;
       statusEl.innerHTML = '<div class="plan-banner"><div>' +
-        '<h3 style="font-size:17px;margin-bottom:4px;">Teste grátis</h3>' +
-        '<p style="margin:0;font-size:13px;color:var(--ink-muted);">' + used + ' de ' + limit + ' carrosséis grátis usados' + (left > 0 ? " · restam " + left : " · limite atingido") + '</p>' +
-        '</div><span class="trial-pill' + (left <= 0 ? " full" : "") + '"><span class="dot"></span>' + (left > 0 ? left + " restante" + (left > 1 ? "s" : "") : "sem créditos") + '</span></div>';
+        '<h3 style="font-size:17px;margin-bottom:4px;">Teste grátis' + (dt !== null ? (acabou ? " encerrado" : " · " + (dt <= 1 ? "termina hoje" : "faltam " + dt + " dias")) : "") + '</h3>' +
+        '<p style="margin:0;font-size:13px;color:var(--ink-muted);">' + (acabou ? "Assine pra continuar criando e publicando." : "Tudo liberado durante o teste · " + used + " de " + limit + " carrosséis criados") +
+        (agend ? ' · <b>' + agend + ' post' + (agend > 1 ? "s" : "") + ' agendado' + (agend > 1 ? "s" : "") + '</b> só sai' + (agend > 1 ? "em" : "") + ' se você estiver com o plano ativo' : "") + '</p>' +
+        '</div><span class="trial-pill' + (acabou ? " full" : "") + '"><span class="dot"></span>' + (acabou ? "encerrado" : (dt !== null ? dt + (dt === 1 ? " dia" : " dias") : left + " restantes")) + '</span></div>';
     } else if (state.assinatura.equipe_id) {
       var planoEq = findPlano(state.assinatura.plano_id);
       statusEl.innerHTML = '<div class="plan-banner pro"><div>' +
@@ -4453,7 +4474,7 @@
       '<button data-period="mensal" class="' + (planPeriod === "mensal" ? "active" : "") + '">Mensal</button>' +
       '<button data-period="anual" class="' + (planPeriod === "anual" ? "active" : "") + '">Anual · 2 meses grátis</button>' +
       '</div>' +
-      state.planos.filter(function (p) { return p.tipo !== "equipe"; }).map(function (p) {
+      state.planos.filter(function (p) { return p.tipo === "individual"; }).map(function (p) {
         var preco = planPeriod === "anual" ? p.preco_anual : p.preco_mensal;
         var isCurrent = state.assinatura && state.assinatura.status === "ativa" && state.assinatura.plano_id === p.id;
         return '<div class="plan-card ' + (p.destaque ? "featured" : "") + '">' +
@@ -4776,6 +4797,7 @@
       }
       prepararAssuntos();
       handleReturnParams().catch(function (e) { console.error(e); });
+      oferecerSemanaNoPrimeiroAcesso();
     } catch (err) {
       await Auth.signOut();
       loading.hidden = true;
@@ -4783,6 +4805,29 @@
       authView.hidden = false;
       renderAuthView("Sua sessão expirou. Entre novamente.");
     }
+  }
+
+  // teste grátis sem nenhum carrossel ainda: a Vitrine oferece montar e agendar a semana inteira (o "uau" no 1º acesso)
+  function oferecerSemanaNoPrimeiroAcesso() {
+    // veio do "teste sem cadastro" da página inicial: abre o assunto que ele testou, pronto pra criar de verdade
+    try { var dt = localStorage.getItem("vitrine-demo-tema"); if (dt) { localStorage.removeItem("vitrine-demo-tema"); if (!trialBlocked()) { setTimeout(function () { abrirComTema(dt); toast("Seu assunto já está aqui. É só tocar em criar."); }, 600); return; } } } catch (e) { }
+    try {
+      if (!emTeste() || trialBlocked() || state.carrosseis.length) return;
+      var k = "vitrine-semana-oferecida-" + state.profile.id;
+      if (localStorage.getItem(k)) return; localStorage.setItem(k, "1");
+    } catch (e) { return; }
+    setTimeout(function () {
+      if (!document.getElementById("overlay").hidden) return;
+      var nome = ((state.profile && state.profile.nome) || "").split(" ")[0];
+      document.getElementById("modal-body").innerHTML =
+        '<div class="modal-head"><h3 style="font-size:19px;">Bem-vindo' + (nome ? ", " + escapeHtml(nome) : "") + '! 🎉</h3><button class="modal-close" id="modal-close">' + ICONS.close + '</button></div>' +
+        '<p style="color:var(--ink-muted);font-size:14px;line-height:1.6;margin:6px 0 14px;">Quer começar com a sua <b>semana de posts pronta</b>? A Vitrine escolhe os assuntos, cria os carrosséis e agenda nos melhores horários. Você só confere. Leva uns 2 minutos.</p>' +
+        '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" id="pa-depois">Prefiro criar um post</button><button class="btn btn-primary btn-sm" id="pa-semana">🗓️ Montar minha semana</button></div>';
+      document.getElementById("overlay").hidden = false;
+      document.getElementById("modal-close").onclick = closeModal;
+      document.getElementById("pa-depois").onclick = function () { closeModal(); showScreen("novo"); };
+      document.getElementById("pa-semana").onclick = function () { closeModal(); showScreen("semana"); abrirSemanaPronta(); };
+    }, 900);
   }
 
   /* ---------- SEMANA PRONTA: a Vitrine escolhe os assuntos, cria os carrosséis e agenda (o corretor só confere) ---------- */

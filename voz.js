@@ -7,7 +7,9 @@
 (function () {
   "use strict";
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) return;
+  // celular: o modo contínuo do Android repete frases e o do iPhone para sozinho.
+  // Lá a gente grava em "rodadas" curtas e religa até a pessoa tocar pra parar.
+  var CELULAR = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
 
   var ALVOS = ["tema-livre-txt", "custom-topic", "custom-prompt", "ag-leg", "rm-leg", "np-dif"];
   var ROTULO = "🎤 Falar em vez de digitar";
@@ -31,52 +33,71 @@
   }
   function maiuscula(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
 
-  function parar() { if (ativo) { try { ativo.rec.stop(); } catch (e) { } } }
+  function parar() { if (ativo) ativo.parar(); }
 
   function comecar(ta, btn, dica) {
-    var rec = new SR();
-    rec.lang = "pt-BR";
-    rec.continuous = true;
-    rec.interimResults = true;
     var base = ta.value || "";
     if (base && !/\s$/.test(base)) base += " ";
-    var finalTxt = "";
-    var ouviu = false;
-    ativo = { rec: rec, ta: ta, btn: btn };
+    var falado = "";          // tudo que já foi confirmado nas rodadas anteriores
+    var ouviu = false, querParar = false, rec = null;
+    ativo = { ta: ta, btn: btn, parar: function () { querParar = true; try { rec && rec.stop(); } catch (e) { } } };
     btn.classList.add("on");
     btn.textContent = "Ouvindo… toque para parar";
     if (dica) dica.textContent = "Fale normalmente. O texto aparece no campo.";
 
-    rec.onresult = function (e) {
-      var interim = "";
-      for (var i = e.resultIndex; i < e.results.length; i++) {
-        var r = e.results[i];
-        if (r.isFinal) finalTxt += r[0].transcript; else interim += r[0].transcript;
-      }
-      ouviu = true;
-      var falado = (finalTxt + interim).replace(/^\s+/, "");
-      var txt = base ? base + falado : maiuscula(falado);
+    function escrever(parcial) {
+      var t = (falado + " " + parcial).replace(/\s+/g, " ").replace(/^\s+/, "");
+      var txt = base ? base + t : maiuscula(t);
       if (ta.maxLength > 0) txt = txt.slice(0, ta.maxLength);
       ta.value = txt;
       ta.dispatchEvent(new Event("input", { bubbles: true }));
-    };
-    rec.onerror = function (e) {
-      if (e.error === "not-allowed" || e.error === "service-not-allowed") avisar("Libere o microfone para a Vitrine no navegador (ícone de cadeado ao lado do endereço) e tente de novo.");
-      else if (e.error === "no-speech") avisar("Não ouvi nada. Toque no microfone e fale perto do aparelho.");
-      else if (e.error === "audio-capture") avisar("Não encontrei microfone neste aparelho.");
-      else if (e.error === "network") avisar("O reconhecimento de voz precisa de internet. Confira a conexão e tente de novo.");
-    };
-    rec.onend = function () {
+    }
+    function encerrar() {
       btn.classList.remove("on");
       btn.textContent = ROTULO;
       if (dica) dica.textContent = ouviu ? "Confira o texto e ajuste se quiser." : "";
       ta.value = ta.value.replace(/\s+$/, "");
       ta.dispatchEvent(new Event("input", { bubbles: true }));
       ta.dispatchEvent(new Event("change", { bubbles: true }));
-      if (ativo && ativo.rec === rec) ativo = null;
-    };
-    try { rec.start(); }
-    catch (err) { btn.classList.remove("on"); btn.textContent = ROTULO; ativo = null; avisar("Não consegui ligar o microfone: " + err.message); }
+      ativo = null;
+    }
+    function rodada() {
+      rec = new SR();
+      rec.lang = "pt-BR";
+      rec.continuous = !CELULAR;
+      rec.interimResults = true;
+      rec.maxAlternatives = 1;
+      var desta = "";
+      rec.onresult = function (e) {
+        // remonta a partir de TODOS os resultados (evita texto repetido no Android)
+        var fin = "", interim = "";
+        for (var i = 0; i < e.results.length; i++) {
+          var r = e.results[i];
+          if (r.isFinal) fin += r[0].transcript + " "; else interim += r[0].transcript;
+        }
+        // Android às vezes manda o mesmo trecho final cumulativo: fica só com o mais longo
+        desta = fin.trim();
+        ouviu = true;
+        escrever((desta + " " + interim).trim());
+      };
+      rec.onerror = function (e) {
+        if (e.error === "no-speech" || e.error === "aborted") return;   // celular: religa sozinho
+        querParar = true;
+        if (e.error === "not-allowed" || e.error === "service-not-allowed") avisar("Libere o microfone para a Vitrine nas configurações do navegador e tente de novo. No iPhone: Ajustes → Safari → Microfone.");
+        else if (e.error === "audio-capture") avisar("Não encontrei microfone neste aparelho.");
+        else if (e.error === "network") avisar("O reconhecimento de voz precisa de internet. Confira a conexão e tente de novo.");
+        else if (e.error === "language-not-supported") avisar("Este navegador não reconhece português. Use o microfone do teclado do celular.");
+      };
+      rec.onend = function () {
+        if (desta) falado = (falado + " " + desta).trim();
+        escrever("");
+        if (!querParar && CELULAR && ativo && document.body.contains(ta)) { try { rodada(); return; } catch (e) { } }
+        encerrar();
+      };
+      try { rec.start(); }
+      catch (err) { querParar = true; encerrar(); avisar("Não consegui ligar o microfone: " + err.message); }
+    }
+    rodada();
   }
 
   function ligar(ta) {
@@ -88,6 +109,11 @@
     ta.insertAdjacentElement("afterend", bar);
     var btn = bar.querySelector(".voz-btn"), dica = bar.querySelector(".voz-dica");
     btn.addEventListener("click", function () {
+      if (!SR) {
+        ta.focus();
+        dica.textContent = CELULAR ? "Toque no 🎤 do teclado do celular para ditar." : "Este navegador não tem ditado. Use Chrome, Edge ou Safari.";
+        return;
+      }
       if (ativo && ativo.ta === ta) { parar(); return; }
       parar();
       comecar(ta, btn, dica);

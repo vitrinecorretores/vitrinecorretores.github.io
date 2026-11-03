@@ -131,7 +131,7 @@
   }
 
   V.aoMostrar = function (nome) {
-    if (nome === "painel") renderResumo();
+    if (nome === "resultados") renderResumo();
     if (nome === "instagram") renderLeadsTela();
   };
 })();

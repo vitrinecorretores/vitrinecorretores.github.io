@@ -37,14 +37,14 @@
 
   async function desenharIndique(tela) {
     // Plano: logo abaixo do status do plano · Painel: no topo da tela principal
-    var ancora = tela === "painel" ? document.getElementById("resumo-semana") : document.getElementById("plan-status");
+    var ancora = tela === "indique" ? document.getElementById("indique-ancora") : document.getElementById("plan-status");
     if (!ancora || !V.state || !V.state.profile) return;
     var antigo = document.getElementById("cresc-indique");
     if (antigo && antigo.dataset.tela !== (tela || "plano")) antigo.remove();
     var box = document.getElementById("cresc-indique");
     if (!box) {
       box = document.createElement("div"); box.id = "cresc-indique"; box.className = "cresc-card"; box.dataset.tela = tela || "plano";
-      if (tela === "painel") ancora.parentNode.insertBefore(box, ancora); else ancora.parentNode.insertBefore(box, ancora.nextSibling);
+      if (tela === "indique") ancora.appendChild(box); else ancora.parentNode.insertBefore(box, ancora.nextSibling);
     }
     var cod = V.state.profile.codigo_indicacao;
     if (!cod || !/^[A-Za-z0-9]+$/.test(cod)) { box.hidden = true; return; }
@@ -112,18 +112,16 @@
     } catch (e) { console.error(e); aviso("Não deu para ativar os avisos neste aparelho agora."); }
   }
   async function desenharAvisosCelular() {
-    var ancora = document.getElementById("resumo-semana");
+    var ancora = document.getElementById("avisos-ancora");
     if (!ancora || !V.state || !V.state.profile) return;
     var box = document.getElementById("cresc-push");
-    if (!pushOk) { if (box) box.remove(); return; }
+    if (!pushOk) { ancora.innerHTML = '<div class="cresc-card"><h3>🔔 Avisos no celular</h3><p>Este navegador não aceita avisos. No iPhone, adicione a Vitrine à Tela de Início e abra pelo ícone; no Android, use o Chrome.</p></div>'; return; }
     var sub = await inscricaoAtual();
     var ativo = !!sub && Notification.permission === "granted";
-    if (ativo && lsGet("vitrine-push-ok-visto")) { if (box) box.remove(); return; }   // já ativo: não ocupa espaço no Painel
-    if (!box) { box = document.createElement("div"); box.id = "cresc-push"; box.className = "cresc-card"; ancora.parentNode.insertBefore(box, ancora); }
+    if (!box) { box = document.createElement("div"); box.id = "cresc-push"; box.className = "cresc-card"; ancora.appendChild(box); }
     var ios = /iPad|iPhone|iPod/.test(navigator.userAgent), app = window.matchMedia && window.matchMedia("(display-mode: standalone)").matches;
     if (ativo) {
-      box.innerHTML = '<h3>🔔 Avisos no celular ativados</h3><p>Você recebe aqui quando um post for publicado, se der falha, e 1 hora antes de cada post agendado.</p><button class="btn btn-ghost btn-sm" type="button" id="push-ok">Entendi</button>';
-      document.getElementById("push-ok").onclick = function () { lsSet("vitrine-push-ok-visto", "1"); box.remove(); };
+      box.innerHTML = '<h3>🔔 Avisos no celular ativados</h3><p>Tudo certo neste aparelho. Você recebe aqui quando um post for publicado, se der falha, e 1 hora antes de cada post agendado.</p>';
       return;
     }
     box.innerHTML = '<h3>🔔 Receba avisos no celular</h3><p>Saiba na hora quando seu post for publicado, se algo der errado, e receba um lembrete 1 hora antes de cada post agendado.</p>' +
@@ -136,8 +134,8 @@
   V.aoMostrar = function (nome) {
     if (aoMostrarAnterior) aoMostrarAnterior(nome);
     tentarRegistrarIndicacao();
-    if (nome === "plano" || nome === "painel") desenharIndique(nome);
-    if (nome === "painel") desenharAvisosCelular();
+    if (nome === "plano" || nome === "indique") desenharIndique(nome);
+    if (nome === "avisos") desenharAvisosCelular();
     if (nome === "admin") desenharAdminIndicacoes();
   };
 

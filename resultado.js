@@ -207,7 +207,7 @@
   var anterior = V.aoMostrar;
   V.aoMostrar = function (nome) {
     if (anterior) { try { anterior(nome); } catch (e) { console.error(e); } }
-    if (nome === "painel") renderResultado();
+    if (nome === "resultados") renderResultado();
     setTimeout(talvezGuia, 400);
   };
 })();

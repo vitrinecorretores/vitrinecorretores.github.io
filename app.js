@@ -33,6 +33,7 @@
     plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>',
     wand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l10-10"/><path d="M14 10l6-6"/><path d="M17 3l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/><path d="M6 15l.7 1.5L8 17l-1.3.7L6 19l-.7-1.3L4 17l1.3-.5z"/></svg>',
     ig: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.4" cy="6.6" r="0.7" fill="currentColor" stroke="none"/></svg>',
+    pencil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>',
     eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>',
     trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>',
     check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5 11-11"/></svg>',
@@ -287,7 +288,28 @@
       if (isExpired()) { try { await refresh(); } catch (e) { setSession(null); } }
       return session ? session.access_token : null;
     }
-    return { load: load, get: get, setSession: setSession, signUp: signUp, signIn: signIn, signOut: signOut, refresh: refresh, ensureValidToken: ensureValidToken };
+    // "esqueci minha senha": o Supabase manda um e-mail com link que volta pro site com #...type=recovery
+    async function recover(email) {
+      var volta = location.origin + location.pathname;
+      await authFetch("recover?redirect_to=" + encodeURIComponent(volta), { email: email });
+    }
+    // usa o token do link do e-mail pra gravar a senha nova e já deixa a pessoa logada
+    async function definirSenhaComLink(tokens, novaSenha) {
+      var res = await fetch(SUPABASE_URL + "/auth/v1/user", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", apikey: SUPABASE_KEY, Authorization: "Bearer " + tokens.access_token },
+        body: JSON.stringify({ password: novaSenha })
+      });
+      var user = await res.json().catch(function () { return {}; });
+      if (!res.ok) throw new Error(user.error_description || user.msg || user.error || "Não consegui trocar a senha.");
+      setSession({
+        access_token: tokens.access_token, refresh_token: tokens.refresh_token, token_type: "bearer",
+        expires_at: tokens.expires_at || Math.floor(Date.now() / 1000) + (parseInt(tokens.expires_in, 10) || 3600),
+        user: user
+      });
+      return user;
+    }
+    return { load: load, get: get, setSession: setSession, signUp: signUp, signIn: signIn, signOut: signOut, refresh: refresh, ensureValidToken: ensureValidToken, recover: recover, definirSenhaComLink: definirSenhaComLink };
   })();
 
   /* ============================================================
@@ -1866,7 +1888,77 @@
      AUTH UI
   ============================================================ */
   var authMode = "login";
+  var linkRecuperacao = null;   // tokens vindos do link "redefinir senha" do e-mail
+  function lerLinkRecuperacao() {
+    var h = (location.hash || "").replace(/^#/, "");
+    if (!/type=recovery|error_code=/.test(h)) return null;
+    var p = {}; h.split("&").forEach(function (kv) { var i = kv.indexOf("="); if (i > 0) p[decodeURIComponent(kv.slice(0, i))] = decodeURIComponent(kv.slice(i + 1).replace(/\+/g, " ")); });
+    try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { }
+    return p;
+  }
+  function authCasca(conteudo) {
+    return '<div class="auth-shell"><div class="auth-card">' +
+      '<div class="auth-brand"><div class="brand-mark"><svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M7 15 L24 42 L41 15" stroke="#00E0FF" stroke-width="5.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 7.5 H40" stroke="#fff" stroke-width="5.2" stroke-linecap="round"/><path d="M24 7.5 V29" stroke="#fff" stroke-width="5.2" stroke-linecap="round"/><circle cx="24" cy="42" r="3.4" fill="#00E0FF"/></svg></div>' +
+      '<div><div class="brand-name">Vitrine</div><div class="brand-sub" style="margin-top:0;">carrosséis para corretores</div></div></div>' +
+      conteudo + '</div></div>';
+  }
+  function senhaFraca(p) { return p.length < 8 || !/[a-z]/.test(p) || !/[A-Z]/.test(p) || !/\d/.test(p); }
+  function renderRecuperar(errorMsg, noteMsg, emailIni) {
+    var view = document.getElementById("auth-view");
+    view.innerHTML = authCasca(
+      '<h2 class="auth-titulo">Esqueceu a senha?</h2>' +
+      '<p class="auth-sub">Digite o e-mail da sua conta. Vamos te mandar um link para criar uma senha nova.</p>' +
+      (errorMsg ? '<div class="auth-error">' + escapeHtml(errorMsg) + "</div>" : "") +
+      (noteMsg ? '<div class="auth-note">' + escapeHtml(noteMsg) + "</div>" : "") +
+      '<form id="rec-form"><label class="auth-field">E-mail<input type="email" id="rec-email" autocomplete="email" required value="' + escapeHtml(emailIni || "") + '"></label>' +
+      '<button type="submit" class="btn btn-primary auth-submit" id="rec-btn">Enviar link</button></form>' +
+      '<button type="button" class="auth-link" id="rec-voltar">← Voltar para o login</button>');
+    qs("#rec-voltar", view).onclick = function () { authMode = "login"; renderAuthView(); };
+    qs("#rec-form", view).onsubmit = async function (e) {
+      e.preventDefault();
+      var email = qs("#rec-email", view).value.trim(), btn = qs("#rec-btn", view);
+      btn.disabled = true; btn.innerHTML = '<div class="spin"></div> Enviando…';
+      try {
+        await Auth.recover(email);
+        renderRecuperar(null, "Pronto! Se existir uma conta com " + email + ", o link chega em alguns minutos. Confira também o spam.", email);
+      } catch (err) {
+        var m = err.message || "";
+        if (/rate|seconds|too many/i.test(m)) m = "Muitas tentativas seguidas. Espere 1 minuto e tente de novo.";
+        renderRecuperar(m || "Não consegui enviar agora. Tente de novo.", null, email);
+      }
+    };
+  }
+  function renderNovaSenha(errorMsg) {
+    var view = document.getElementById("auth-view");
+    view.innerHTML = authCasca(
+      '<h2 class="auth-titulo">Crie sua senha nova</h2>' +
+      '<p class="auth-sub">Mínimo de 8 caracteres, com letra maiúscula, letra minúscula e número.</p>' +
+      (errorMsg ? '<div class="auth-error">' + escapeHtml(errorMsg) + "</div>" : "") +
+      '<form id="ns-form"><label class="auth-field">Senha nova<input type="password" id="ns-1" autocomplete="new-password" minlength="8" required></label>' +
+      '<label class="auth-field">Repita a senha<input type="password" id="ns-2" autocomplete="new-password" minlength="8" required></label>' +
+      '<button type="submit" class="btn btn-primary auth-submit" id="ns-btn">Salvar e entrar</button></form>');
+    qs("#ns-form", view).onsubmit = async function (e) {
+      e.preventDefault();
+      var a = qs("#ns-1", view).value, b = qs("#ns-2", view).value, btn = qs("#ns-btn", view);
+      if (a !== b) { renderNovaSenha("As duas senhas não são iguais."); return; }
+      if (senhaFraca(a)) { renderNovaSenha("A senha precisa ter 8 caracteres, com maiúscula, minúscula e número."); return; }
+      btn.disabled = true; btn.innerHTML = '<div class="spin"></div> Salvando…';
+      try {
+        await Auth.definirSenhaComLink(linkRecuperacao, a);
+        linkRecuperacao = null;
+        toast("Senha trocada! Você já está dentro.");
+        await bootApp();
+      } catch (err) {
+        var m = err.message || "";
+        if (/same|different from the old/i.test(m)) m = "A senha nova precisa ser diferente da antiga.";
+        else if (/expired|invalid|jwt/i.test(m)) { linkRecuperacao = null; authMode = "login"; renderRecuperar("Esse link expirou. Peça um novo abaixo."); return; }
+        renderNovaSenha(m || "Não consegui salvar. Tente de novo.");
+      }
+    };
+  }
   function renderAuthView(errorMsg, noteMsg) {
+    if (authMode === "recuperar") { renderRecuperar(errorMsg, noteMsg); return; }
+    if (authMode === "nova-senha") { renderNovaSenha(errorMsg); return; }
     var view = document.getElementById("auth-view");
     view.innerHTML =
       '<div class="auth-shell"><div class="auth-card">' +
@@ -1884,13 +1976,16 @@
         '<label class="auth-field">Celular (WhatsApp)<input type="tel" id="auth-tel" autocomplete="tel" inputmode="tel" placeholder="(85) 99999-9999" required></label>' : "") +
       '<label class="auth-field">E-mail<input type="email" id="auth-email" autocomplete="email" required></label>' +
       '<label class="auth-field">Senha<input type="password" id="auth-pass" autocomplete="' + (authMode === "signup" ? "new-password" : "current-password") + '" minlength="' + (authMode === "signup" ? 8 : 6) + '" required></label>' +
-      (authMode === "signup" ? '<p class="auth-hint" style="margin:-4px 0 10px;font-size:12.5px;color:var(--ink-muted);">Mínimo de 8 caracteres, com letra maiúscula, letra minúscula e número.</p>' : '') +
+      (authMode === "signup" ? '<p class="auth-hint" style="margin:-4px 0 10px;font-size:12.5px;color:var(--ink-muted);">Mínimo de 8 caracteres, com letra maiúscula, letra minúscula e número.</p>'
+        : '<div style="text-align:right;margin:-6px 0 12px;"><button type="button" class="auth-link" id="auth-esqueci">Esqueci minha senha</button></div>') +
       '<button type="submit" class="btn btn-primary auth-submit" id="auth-submit">' + (authMode === "signup" ? "Criar conta grátis" : "Entrar") + "</button>" +
       "</form>" +
       '<p style="text-align:center;font-size:11.5px;color:var(--ink-faint);margin:14px 0 0;">' + (authMode === "signup" ? "3 carrosséis grátis no teste, sem cartão." : "Ainda não tem conta? Use a aba \"Criar conta\".") + "</p>" +
       "</div></div>";
 
     var back = qs("#auth-back", view); if (back) back.onclick = showLanding;
+    var esq = qs("#auth-esqueci", view);
+    if (esq) esq.onclick = function () { var em = qs("#auth-email", view).value.trim(); authMode = "recuperar"; renderRecuperar(null, null, em); };
     qsa("[data-authmode]", view).forEach(function (b) {
       b.addEventListener("click", function () { authMode = b.dataset.authmode; renderAuthView(); });
     });
@@ -1945,7 +2040,12 @@
     marca: ["Minha marca", "Logo, nome, CRECI e cor que podem entrar nos seus posts."],
     plano: ["Plano", "Seu teste grátis e sua assinatura da Vitrine."],
     admin: ["Admin", "Contas cadastradas na plataforma (visível só pra você)."],
-    equipe: ["Equipe", "Os corretores da sua imobiliária na Vitrine."]
+    equipe: ["Equipe", "Os corretores da sua imobiliária na Vitrine."],
+    semana: ["Semana pronta", "A Vitrine monta e agenda sua semana de posts. Você só confere."],
+    resultados: ["Resultados", "Como seus posts e seu Instagram estão indo."],
+    datas: ["Datas especiais", "Datas que viram assunto. Poste com antecedência."],
+    avisos: ["Avisos no celular", "Lembretes e alertas dos seus posts direto no aparelho."],
+    indique: ["Indique e ganhe", "Ganhe 1 mês grátis a cada colega que assinar."]
   };
   // quem vê o menu Admin (o servidor também confere — sem isso ele devolve 403)
   var ADMIN_IDS = ["f13c2703-8848-485a-ae60-97e139a2b0a6"];
@@ -1992,6 +2092,8 @@
     if (name === "marca") renderMarca();
     if (name === "admin") renderAdmin();
     if (name === "equipe") renderEquipe();
+    if (name === "semana") renderSemanaCard();
+    if (name === "datas") renderDatasCard();
     if (name === "novo" && wizard.step === 1) renderWizard();
     navGravar(name, name === "novo" ? wizard.step : null);
     if (window.Vitrine && window.Vitrine.aoMostrar) { try { window.Vitrine.aoMostrar(name); } catch (e) { console.error(e); } }
@@ -2053,7 +2155,7 @@
     var el = document.getElementById("datas-card"); if (!el) return;
     var V = window.VitrineDatas;
     var prox = V ? V.proximas(new Date(), 30, 3) : [];
-    if (!prox.length) { el.innerHTML = ""; return; }
+    if (!prox.length) { el.innerHTML = '<div class="eq-card datas-card"><p style="margin:0;color:var(--ink-muted);">Nenhuma data especial nos próximos 30 dias. Volte aqui mais pra frente.</p></div>'; return; }
     el.innerHTML = '<div class="eq-card datas-card"><h3 style="font-size:16px;margin:0 0 4px;">📅 Próximas datas</h3>' +
       '<p style="margin:0 0 6px;font-size:12.5px;color:var(--ink-muted);">Poste com antecedência: datas viram assunto e engajamento.</p>' +
       prox.map(function (x, i) {
@@ -2422,7 +2524,8 @@
           '<div class="actions">' +
           (c.status === "rascunho" ? '<button class="btn btn-primary btn-sm btn-agendar" data-agendar="' + c.id + '" title="Agendar publicação">📅 Agendar</button>' : "") +
           (c.status === "agendado" ? '<button class="btn btn-ghost btn-sm" data-agendar="' + c.id + '" title="Mudar data e horário">📅</button>' : "") +
-          '<button class="btn btn-ghost btn-sm" data-view="' + c.id + '">' + ICONS.eye + '</button>' +
+          '<button class="btn btn-ghost btn-sm" data-view="' + c.id + '" title="Ver como fica no Instagram" aria-label="Ver como fica">' + ICONS.eye + '</button>' +
+          (c.status !== "publicado" ? '<button class="btn btn-ghost btn-sm" data-edit="' + c.id + '" title="Editar texto, fotos e fonte" aria-label="Editar">' + ICONS.pencil + '</button>' : "") +
           '<button class="btn btn-ghost btn-sm" data-del="' + c.id + '">' + ICONS.trash + '</button>' +
           '</div>' +
           '</div></div>';
@@ -2430,7 +2533,9 @@
       return '<div><div class="kcol-head">' + col.label + ' <span class="n">' + items.length + '</span></div><div class="kcol">' + body + '</div></div>';
     }).join("");
 
-    qsa("[data-view]").forEach(function (b) { b.addEventListener("click", function () { openCarouselModal(b.dataset.view); }); });
+    // olho = prévia na hora (como fica no Instagram) · lápis = edição
+    qsa("[data-view]").forEach(function (b) { b.addEventListener("click", function () { verComoFica(b.dataset.view); }); });
+    qsa("[data-edit]").forEach(function (b) { b.addEventListener("click", function () { openCarouselModal(b.dataset.edit); }); });
     qsa("[data-agendar]").forEach(function (b) { b.addEventListener("click", function () { abrirAgendarRascunho(b.dataset.agendar); }); });
     qsa("[data-del]").forEach(function (b) {
       b.addEventListener("click", async function () {
@@ -2445,6 +2550,13 @@
     });
   }
 
+  async function verComoFica(id) {
+    var c = state.carrosseis.find(function (x) { return x.id === id; });
+    if (!c) return;
+    if (ehReels(c)) { openReelsModal(c); return; }
+    document.getElementById("overlay").hidden = false;
+    await previewCarousel(c);
+  }
   function openCarouselModal(id) {
     var c = state.carrosseis.find(function (x) { return x.id === id; });
     if (!c) return;
@@ -2460,7 +2572,7 @@
         (c.status === "agendado" ? '<button class="btn btn-ghost btn-sm" id="mark-published">' + ICONS.check + ' Marcar como publicado</button>' : "") +
         '<button class="btn btn-primary btn-sm" id="publish-ig">📲 Postar no Instagram</button></div>';
     document.getElementById("modal-body").innerHTML =
-      '<div class="modal-head"><div><h3 style="font-size:19px;">' + escapeHtml(meta.titulo) + '</h3>' +
+      '<div class="modal-head"><div><div style="font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:3px;">' + (c.status === "publicado" ? "Detalhes" : "✏️ Editar") + '</div><h3 style="font-size:19px;">' + escapeHtml(meta.titulo) + '</h3>' +
       '<span class="pill ' + pillCls + '" style="margin-top:6px;">' + escapeHtml(c.status) + '</span></div>' +
       '<button class="modal-close" id="modal-close">' + ICONS.close + '</button></div>' +
       '<div class="carousel-strip">' + slideStrip(c.slides, tpl && tpl.slug, false, meta.art, c.fonte, c.melhorar_fotos) + '</div>' +
@@ -2782,10 +2894,12 @@
     document.getElementById("modal-body").innerHTML =
       '<div class="modal-head"><h3 style="font-size:19px;">Novo imóvel</h3><button class="modal-close" id="modal-close">' + ICONS.close + '</button></div>' +
       // descrever falando: o microfone (voz.js) escreve, e a IA preenche os campos só com o que foi dito
-      '<div class="card np-voz-card" style="padding:12px;margin-bottom:12px;"><div style="font-size:13px;font-weight:600;margin-bottom:4px;">🎤 Descreva o imóvel falando</div>' +
-      '<div style="font-size:12px;opacity:.75;margin-bottom:8px;">Ex.: "Casa no Cidade Alpha, 4 quartos, 280 metros, 2 vagas, piscina e área gourmet, venda por 2 milhões e 100." A Vitrine preenche o cadastro sozinha.</div>' +
-      '<textarea id="np-voz" data-voz-auto rows="2" placeholder="Toque no microfone e fale, ou escreva aqui como você descreveria o imóvel"></textarea>' +
-      '<div style="display:flex;justify-content:flex-end;margin-top:6px;"><button class="btn btn-ghost btn-sm" type="button" id="np-voz-ok">✨ Preencher com a descrição</button></div>' +
+      '<div class="card np-voz-card np-rapido"><div class="np-rapido-h"><span class="np-rapido-tag">Cadastro rápido</span><b>Fale sobre o imóvel e mande as fotos</b></div>' +
+      '<div class="np-passos"><span><i>1</i>Toque no microfone e descreva</span><span><i>2</i>Adicione as fotos</span><span><i>3</i>Confira e salve</span></div>' +
+      '<div style="font-size:12px;opacity:.75;margin-bottom:8px;">Ex.: "Casa no Cidade Alpha, 4 quartos, 280 metros, 2 vagas, piscina e área gourmet, venda por 2 milhões e 100." A Vitrine preenche o cadastro sozinha, só com o que você falou.</div>' +
+      '<textarea id="np-voz" data-voz-auto rows="3" placeholder="Toque no microfone e fale, ou escreva aqui como você descreveria o imóvel"></textarea>' +
+      '<div class="np-rapido-acoes"><button class="btn btn-ghost btn-sm" type="button" id="np-fotos-rapido">📷 Adicionar fotos</button><span id="np-fotos-cont" class="np-fotos-cont"></span>' +
+      '<button class="btn btn-primary btn-sm" type="button" id="np-voz-ok" style="margin-left:auto;">✨ Preencher o cadastro</button></div>' +
       '<div id="np-voz-msg" style="font-size:12px;margin-top:4px;opacity:.85;"></div></div>' +
       '<div class="card" style="padding:12px;margin-bottom:14px;"><div style="font-size:13px;font-weight:600;margin-bottom:6px;">Importar por link</div>' +
       '<div style="display:flex;gap:8px;"><input type="url" id="np-link" placeholder="Cole o link do anúncio (ZAP, VivaReal, OLX, QuintoAndar...)" style="flex:1;min-width:0;">' +
@@ -2901,6 +3015,13 @@
       finally { vozBtn.disabled = false; }
     }
     vozBtn.addEventListener("click", function () { vozUltimo = ""; preencherPorDescricao(); });
+    // fotos direto do cadastro rápido (usa o mesmo campo de fotos do formulário)
+    var fotosInp = document.getElementById("np-fotos"), fotosCont = document.getElementById("np-fotos-cont");
+    document.getElementById("np-fotos-rapido").addEventListener("click", function () { fotosInp.click(); });
+    fotosInp.addEventListener("change", function () {
+      var n = fotosInp.files ? fotosInp.files.length : 0;
+      fotosCont.textContent = n ? "✔ " + n + " foto" + (n === 1 ? "" : "s") + " escolhida" + (n === 1 ? "" : "s") : "";
+    });
     vozTxt.addEventListener("change", function () { if (vozTxt.value.trim().length >= 25) preencherPorDescricao(); });
     document.getElementById("np-importar").addEventListener("click", async function () {
       var inp = document.getElementById("np-link"), msg = document.getElementById("np-imp-msg"), b = this;
@@ -4603,6 +4724,13 @@
     loading.hidden = false; authView.hidden = true; appView.hidden = true;
 
     var temConvite = guardarConviteDaUrl();
+    var rec = lerLinkRecuperacao();
+    if (rec) {
+      loading.hidden = true; authView.hidden = false;
+      if (rec.access_token && rec.type === "recovery") { linkRecuperacao = rec; authMode = "nova-senha"; renderNovaSenha(); }
+      else { authMode = "recuperar"; renderRecuperar("Esse link de redefinição expirou ou já foi usado. Peça um novo."); }
+      return;
+    }
     var session = Auth.load();
     if (!session) {
       loading.hidden = true;
@@ -4789,6 +4917,6 @@
     var t = document.getElementById("tema-livre-txt");
     if (t) { t.value = tema || ""; t.dispatchEvent(new Event("input", { bubbles: true })); t.focus(); }
   }
-  window.Vitrine = Object.assign(window.Vitrine || {}, { abrirComTema: abrirComTema, state: state, DB: DB, toast: toast, escapeHtml: escapeHtml, fmtDate: fmtDate, fmtDateTime: fmtDateTime, contasAtivas: contasAtivas, callFunction: callFunction, fotosDe: fotosDe, fmtBRL: fmtBRL, closeModal: closeModal, remuxMp4: remuxMp4, agendarVideoNovo: agendarVideoNovo });
+  window.Vitrine = Object.assign(window.Vitrine || {}, { abrirComTema: abrirComTema, state: state, DB: DB, toast: toast, escapeHtml: escapeHtml, fmtDate: fmtDate, fmtDateTime: fmtDateTime, contasAtivas: contasAtivas, callFunction: callFunction, fotosDe: fotosDe, fmtBRL: fmtBRL, closeModal: closeModal, remuxMp4: remuxMp4, agendarVideoNovo: agendarVideoNovo, showScreen: showScreen });
   bootApp();
 })();

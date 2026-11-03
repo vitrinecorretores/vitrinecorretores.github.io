@@ -1304,9 +1304,12 @@
   var PASTA_PUBLICA = SUPABASE_URL + "/storage/v1/object/public/slides-render/";
   function ehReels(c) { return !!(c && c.formato === "reels"); }
   function videoDe(c) { var u = (c && c.video_url) || ""; return ehReels(c) && u.indexOf(PASTA_PUBLICA) === 0 ? u : ""; }
+  // miniatura do Reels SEM baixar o vídeo: o Painel redesenha toda hora e cada <video> puxava MBs do Storage
+  // (estourou a cota de tráfego do Supabase). O vídeo só carrega quando a pessoa abre o Reels.
   function thumbReels(c) {
-    var v = videoDe(c);
-    return '<div class="reels-mini">' + (v ? '<video src="' + escapeHtml(v) + '#t=0.8" muted playsinline preload="metadata"></video>' : "") + '<span aria-hidden="true">▶</span></div>';
+    var s0 = (c && c.slides && c.slides[0]) || null;
+    var fundo = s0 ? slideTile(s0, null, true, 1, 1, null, c.fonte) : "";
+    return '<div class="reels-mini">' + fundo + '<span aria-hidden="true">▶</span></div>';
   }
   function tagReels() { return '<span class="pill pill-reels">▶ Reels</span>'; }
   /* MP4 fragmentado (o que o MediaRecorder do Chrome grava) → MP4 normal, com o índice (moov) no começo.

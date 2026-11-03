@@ -256,8 +256,9 @@
       if (!res.ok) throw new Error(data.error_description || data.msg || data.error || "Falha na autenticação.");
       return data;
     }
-    async function signUp(email, password, nome, telefone) {
-      var data = await authFetch("signup", { email: email, password: password, data: { nome: nome, telefone: telefone || "" } });
+    async function signUp(email, password, nome, telefone, conta) {
+      var meta = { nome: nome, telefone: telefone || "" }; if (conta) meta.conta = conta;
+      var data = await authFetch("signup", { email: email, password: password, data: meta });
       if (data.access_token) setSession(data);
       return data;
     }
@@ -1891,6 +1892,10 @@
      AUTH UI
   ============================================================ */
   var authMode = "login";
+  // link das mensagens pra imobiliárias: ?imobiliaria=1 (ou #imobiliaria) já marca "sou gestor" no cadastro
+  function ehLinkImobiliaria() {
+    try { if (/imobiliaria/.test(location.search + location.hash)) sessionStorage.setItem("vitrine-imob", "1"); return sessionStorage.getItem("vitrine-imob") === "1"; } catch (e) { return /imobiliaria/.test(location.search + location.hash); }
+  }
   var linkRecuperacao = null;   // tokens vindos do link "redefinir senha" do e-mail
   function lerLinkRecuperacao() {
     var h = (location.hash || "").replace(/^#/, "");
@@ -1976,7 +1981,8 @@
       (noteMsg ? '<div class="auth-note">' + escapeHtml(noteMsg) + "</div>" : "") +
       '<form id="auth-form">' +
       (authMode === "signup" ? '<label class="auth-field">Nome<input type="text" id="auth-nome" autocomplete="name" required></label>' +
-        '<label class="auth-field">Celular (WhatsApp)<input type="tel" id="auth-tel" autocomplete="tel" inputmode="tel" placeholder="(85) 99999-9999" required></label>' : "") +
+        '<label class="auth-field">Celular (WhatsApp)<input type="tel" id="auth-tel" autocomplete="tel" inputmode="tel" placeholder="(85) 99999-9999" required></label>' +
+        '<label class="auth-imob"><input type="checkbox" id="auth-imob"' + (ehLinkImobiliaria() ? " checked" : "") + '><span><b>Sou gestor(a) de imobiliária</b><small>Teste de 14 dias para a equipe inteira (até 10 corretores), sem cartão</small></span></label>' : "") +
       '<label class="auth-field">E-mail<input type="email" id="auth-email" autocomplete="email" required></label>' +
       '<label class="auth-field">Senha<input type="password" id="auth-pass" autocomplete="' + (authMode === "signup" ? "new-password" : "current-password") + '" minlength="' + (authMode === "signup" ? 8 : 6) + '" required></label>' +
       (authMode === "signup" ? '<p class="auth-hint" style="margin:-4px 0 10px;font-size:12.5px;color:var(--ink-muted);">Mínimo de 8 caracteres, com letra maiúscula, letra minúscula e número.</p>'
@@ -2011,9 +2017,12 @@
       btn.innerHTML = '<div class="spin"></div> ' + (authMode === "signup" ? "Criando conta…" : "Entrando…");
       try {
         if (authMode === "signup") {
-          var data = await Auth.signUp(email, pass, nome || email.split("@")[0], tel);
+          var imob = qs("#auth-imob", view) && qs("#auth-imob", view).checked;
+          var data = await Auth.signUp(email, pass, nome || email.split("@")[0], tel, imob ? "imobiliaria" : null);
           if (!data.access_token) {
-            renderAuthView(null, "Conta criada! Verifique seu e-mail (" + email + ") para confirmar o cadastro e depois faça login.");
+            renderAuthView(null, imob
+              ? "Conta criada! Confirme pelo link que enviamos para " + email + " e entre: o teste de 14 dias da sua equipe já está liberado. Depois, é só nos avisar no WhatsApp qual e-mail você usou."
+              : "Conta criada! Verifique seu e-mail (" + email + ") para confirmar o cadastro e depois faça login.");
             authMode = "login";
             return;
           }

@@ -4659,7 +4659,11 @@
     var cbox = document.getElementById("checkout-box");
     cbox.hidden = false;
     cbox.innerHTML = '<p style="font-size:12px;color:var(--ink-muted);text-align:center;margin:14px 0 0;">🔒 Ao tocar em Assinar você vai para o checkout seguro do Stripe e paga com cartão de crédito. A Vitrine não vê nem guarda os dados do seu cartão.' +
-      (bfAtiva() ? ' Black Friday: o desconto já entra sozinho no pagamento.' : "") + '</p>';
+      (bfAtiva() ? ' Black Friday: o desconto já entra sozinho no pagamento.' : "") + '</p>' +
+      // Apple Pay / Google Pay mostram o preço recorrente cheio da assinatura, não o total com desconto
+      (bfAtiva() || promoAtiva() ? '<p style="font-size:12px;color:var(--ink-muted);text-align:center;margin:8px auto 0;max-width:520px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;">' +
+        '<b style="color:var(--ink);">Pagando com Apple Pay ou Google Pay?</b> A janela do celular pode mostrar o valor cheio do plano, que é o preço normal da assinatura. ' +
+        'A cobrança de hoje já sai com o desconto: confira o <b style="color:var(--ink);">total</b> na página do Stripe, antes de confirmar.</p>' : "");
     // veio da página inicial com um plano escolhido: rola até o botão dele e deixa em destaque
     if (planPending) {
       var alvo = qs('[data-subscribe="' + planPending + '"]');

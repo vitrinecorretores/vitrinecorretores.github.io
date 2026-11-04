@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST", signal: AbortSignal.timeout(40000),
       headers: { "content-type": "application/json", "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: "claude-haiku-4-5", max_tokens: 1300, system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }], messages: [{ role: "user", content: `Assunto: "${assunto}"` + (publico ? `\nPúblico do post: ${publico}. Fale direto com esse público desde a capa.` : "") }] }),
+      body: JSON.stringify({ model: "claude-haiku-4-5", max_tokens: 1800, system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }], messages: [{ role: "user", content: `Assunto: "${assunto}"` + (publico ? `\nPúblico do post: ${publico}. Fale direto com esse público desde a capa.` : "") }] }),
     });
     // deno-lint-ignore no-explicit-any
     const j: any = await r.json().catch(() => ({}));
@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
       corpo: String(s?.corpo ?? "").split(/(?<=[.!?…])\s+/).filter((f) => !/\d{2,}|%|R\$/.test(f)).join(" ").slice(0, 260),
       foto: String(s?.foto ?? "").toLowerCase().trim(),
     })).filter((s) => s.titulo);
-    if (!slides.length) return json({ error: "Não consegui criar agora. Tente de novo." }, 502);
+    if (!slides.length) { console.error("demo-carrossel: sem slides", j?.stop_reason, txt.slice(0, 400)); return json({ error: "Não consegui criar agora. Tente de novo." }, 502); }
 
     try {
       const fotos = await fotosDosSlides(db, assunto, slides);

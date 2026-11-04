@@ -289,6 +289,21 @@
       if (isExpired()) { try { await refresh(); } catch (e) { setSession(null); } }
       return session ? session.access_token : null;
     }
+    // "Entrar com Google": vai pro Google e volta pro site com #access_token=... (fluxo implícito do Supabase)
+    function urlGoogle() {
+      return SUPABASE_URL + "/auth/v1/authorize?provider=google&redirect_to=" + encodeURIComponent(location.origin + location.pathname);
+    }
+    async function sessaoDoLink(p) {
+      var res = await fetch(SUPABASE_URL + "/auth/v1/user", { headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + p.access_token } });
+      var user = await res.json().catch(function () { return {}; });
+      if (!res.ok) throw new Error("Não consegui entrar com o Google. Tente de novo.");
+      setSession({
+        access_token: p.access_token, refresh_token: p.refresh_token, token_type: "bearer",
+        expires_at: parseInt(p.expires_at, 10) || Math.floor(Date.now() / 1000) + (parseInt(p.expires_in, 10) || 3600),
+        user: user
+      });
+      return user;
+    }
     // "esqueci minha senha": o Supabase manda um e-mail com link que volta pro site com #...type=recovery
     async function recover(email) {
       var volta = location.origin + location.pathname;
@@ -310,7 +325,7 @@
       });
       return user;
     }
-    return { load: load, get: get, setSession: setSession, signUp: signUp, signIn: signIn, signOut: signOut, refresh: refresh, ensureValidToken: ensureValidToken, recover: recover, definirSenhaComLink: definirSenhaComLink };
+    return { load: load, get: get, setSession: setSession, signUp: signUp, signIn: signIn, signOut: signOut, refresh: refresh, ensureValidToken: ensureValidToken, recover: recover, definirSenhaComLink: definirSenhaComLink, urlGoogle: urlGoogle, sessaoDoLink: sessaoDoLink };
   })();
 
   /* ============================================================
@@ -1899,7 +1914,7 @@
   var linkRecuperacao = null;   // tokens vindos do link "redefinir senha" do e-mail
   function lerLinkRecuperacao() {
     var h = (location.hash || "").replace(/^#/, "");
-    if (!/type=recovery|error_code=/.test(h)) return null;
+    if (!/type=recovery|error_code=|access_token=/.test(h)) return null;
     var p = {}; h.split("&").forEach(function (kv) { var i = kv.indexOf("="); if (i > 0) p[decodeURIComponent(kv.slice(0, i))] = decodeURIComponent(kv.slice(i + 1).replace(/\+/g, " ")); });
     try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { }
     return p;
@@ -1979,6 +1994,8 @@
       "</div>" +
       (errorMsg ? '<div class="auth-error">' + escapeHtml(errorMsg) + "</div>" : "") +
       (noteMsg ? '<div class="auth-note">' + escapeHtml(noteMsg) + "</div>" : "") +
+      '<button type="button" class="btn auth-google" id="auth-google"><svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>' + (authMode === "signup" ? "Criar conta com Google" : "Entrar com Google") + '</button>' +
+      '<div class="auth-ou"><span>ou com e-mail</span></div>' +
       '<form id="auth-form">' +
       (authMode === "signup" ? '<label class="auth-field">Nome<input type="text" id="auth-nome" autocomplete="name" required></label>' +
         '<label class="auth-field">Celular (WhatsApp)<input type="tel" id="auth-tel" autocomplete="tel" inputmode="tel" placeholder="(85) 99999-9999" required></label>' +
@@ -1993,6 +2010,12 @@
       "</div></div>";
 
     var back = qs("#auth-back", view); if (back) back.onclick = showLanding;
+    var gbtn = qs("#auth-google", view);
+    if (gbtn) gbtn.onclick = function () {
+      var im = qs("#auth-imob", view);
+      try { sessionStorage.setItem("vitrine-google", "1"); if (authMode === "signup" && im && im.checked) localStorage.setItem("vitrine-google-imob", "1"); else localStorage.removeItem("vitrine-google-imob"); } catch (e) { }
+      location.href = Auth.urlGoogle();
+    };
     var esq = qs("#auth-esqueci", view);
     if (esq) esq.onclick = function () { var em = qs("#auth-email", view).value.trim(); authMode = "recuperar"; renderRecuperar(null, null, em); };
     qsa("[data-authmode]", view).forEach(function (b) {
@@ -4758,6 +4781,16 @@
 
     var temConvite = guardarConviteDaUrl();
     var rec = lerLinkRecuperacao();
+    if (rec && rec.access_token && rec.type !== "recovery") {
+      try {
+        await Auth.sessaoDoLink(rec);
+        var querEquipe = false; try { querEquipe = localStorage.getItem("vitrine-google-imob") === "1"; localStorage.removeItem("vitrine-google-imob"); } catch (e) { }
+        if (querEquipe) { try { await rpc("ativar_teste_equipe", {}); } catch (e) { } }
+        return bootApp();
+      } catch (e) { loading.hidden = true; authView.hidden = false; authMode = "login"; renderAuthView(e.message); return; }
+    }
+    var veioDoGoogle = false; try { veioDoGoogle = sessionStorage.getItem("vitrine-google") === "1"; sessionStorage.removeItem("vitrine-google"); } catch (e) { }
+    if (rec && veioDoGoogle) { loading.hidden = true; authView.hidden = false; authMode = "login"; renderAuthView("Não deu pra entrar com o Google (" + (rec.error_description || "acesso cancelado") + "). Tente de novo ou use e-mail e senha."); return; }
     if (rec) {
       loading.hidden = true; authView.hidden = false;
       if (rec.access_token && rec.type === "recovery") { linkRecuperacao = rec; authMode = "nova-senha"; renderNovaSenha(); }

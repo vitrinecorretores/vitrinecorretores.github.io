@@ -2530,6 +2530,7 @@
     document.getElementById("modal-body").innerHTML =
       '<div class="modal-head"><h3 style="font-size:18px;">Seu teste grátis terminou</h3><button class="modal-close" id="modal-close">' + ICONS.close + '</button></div>' +
       '<p style="color:var(--ink-muted);font-size:14px;line-height:1.6;margin:6px 0 16px;">Você já publicou os ' + limitePublicacoesTeste() + ' carrosséis do teste grátis no Instagram. Pra continuar publicando — e sem a marca da Vitrine nas imagens — assine um plano.</p>' +
+      (bfAtiva() ? '<div class="promo-plano" style="margin:0 0 16px;"><b>Black Friday:</b> assine por <b>' + fmtBRL2(bfPreco("pro", "mensal")) + '/mês</b>, com o preço travado por 12 meses. Até 30/11, só para os 50 primeiros.</div>' : "") +
       '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" id="fim-teste-fechar">Agora não</button><button class="btn btn-primary btn-sm" id="fim-teste-planos">Ver planos</button></div>';
     document.getElementById("overlay").hidden = false;
     document.getElementById("modal-close").onclick = closeModal;
@@ -5137,6 +5138,6 @@
     var t = document.getElementById("tema-livre-txt");
     if (t) { t.value = tema || ""; t.dispatchEvent(new Event("input", { bubbles: true })); t.focus(); }
   }
-  window.Vitrine = Object.assign(window.Vitrine || {}, { abrirComTema: abrirComTema, state: state, DB: DB, toast: toast, escapeHtml: escapeHtml, fmtDate: fmtDate, fmtDateTime: fmtDateTime, contasAtivas: contasAtivas, callFunction: callFunction, fotosDe: fotosDe, fmtBRL: fmtBRL, closeModal: closeModal, remuxMp4: remuxMp4, agendarVideoNovo: agendarVideoNovo, showScreen: showScreen });
+  window.Vitrine = Object.assign(window.Vitrine || {}, { abrirComTema: abrirComTema, state: state, DB: DB, toast: toast, escapeHtml: escapeHtml, fmtDate: fmtDate, fmtDateTime: fmtDateTime, contasAtivas: contasAtivas, callFunction: callFunction, fotosDe: fotosDe, fmtBRL: fmtBRL, fmtBRL2: fmtBRL2, bfAtiva: bfAtiva, bfPreco: bfPreco, bfVagas: function () { return bfVagasRestantes; }, closeModal: closeModal, remuxMp4: remuxMp4, agendarVideoNovo: agendarVideoNovo, showScreen: showScreen });
   bootApp();
 })();

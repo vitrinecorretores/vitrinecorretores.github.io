@@ -1,4 +1,4 @@
-/* demo.js — "Veja agora, sem cadastro" na página inicial: gera um carrossel de amostra (só texto) pela função
+/* demo.js — "Veja agora, sem cadastro" na página inicial: gera um carrossel de amostra (texto + fotos reais do banco da Vitrine) pela função
    demo-carrossel (sem login, com limite por aparelho/IP no servidor). Pra publicar, a pessoa cria a conta e o
    assunto já abre pronto no app (localStorage vitrine-demo-tema, lido no app.js). */
 (function () {
@@ -18,10 +18,16 @@
       var r = await fetch(URL_FN, { method: "POST", headers: { "Content-Type": "application/json", apikey: KEY, Authorization: "Bearer " + KEY }, body: JSON.stringify({ assunto: assunto }) });
       var j = await r.json().catch(function () { return {}; });
       if (!r.ok || !j.slides) throw new Error(j.error || "Não consegui criar agora. Tente de novo em instantes.");
+      var total = j.slides.length;
       res.innerHTML = '<div class="lp-demo-strip">' + j.slides.map(function (s, i) {
-        return '<div class="lp-demo-slide' + (i === 0 ? " capa" : "") + '"><small>' + esc(s.tag) + '</small><b>' + destaque(s.titulo) + '</b><p>' + esc(s.corpo) + '</p></div>';
+        var foto = s.imagem && /^https:\/\/images\.(unsplash|pexels)\.com\//.test(s.imagem) ? s.imagem : "";
+        return '<div class="lp-demo-slide' + (i === 0 ? " capa" : "") + (foto ? " com-foto" : "") + '"' +
+          (foto ? ' style="background-image:linear-gradient(180deg,rgba(8,10,16,.25) 0%,rgba(8,10,16,.55) 45%,rgba(8,10,16,.92) 100%),url(&quot;' + esc(foto) + '&quot;)"' : "") + '>' +
+          '<div class="lp-demo-top"><small>' + esc(s.tag) + '</small><i>' + (i + 1) + '/' + total + '</i></div>' +
+          '<div class="lp-demo-txt"><b>' + destaque(s.titulo) + '</b><p>' + esc(s.corpo) + '</p></div>' +
+          (foto && s.credito ? '<span class="lp-demo-cred">' + esc(s.credito) + '</span>' : "") + '</div>';
       }).join("") + '</div>' +
-        '<div class="lp-demo-cta"><span><b>Gostou?</b> Na Vitrine ele ganha fotos reais, sua marca e vai direto pro seu Instagram.</span>' +
+        '<div class="lp-demo-cta"><span><b>Gostou?</b> Na Vitrine você troca qualquer foto, coloca sua marca e publica direto no seu Instagram.</span>' +
         '<button class="btn btn-primary" id="demo-publicar" type="button">Quero publicar este post · 7 dias grátis</button></div>';
       document.getElementById("demo-publicar").onclick = function () {
         try { localStorage.setItem("vitrine-demo-tema", assuntoAtual); } catch (e) { }

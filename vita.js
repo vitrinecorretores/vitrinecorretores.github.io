@@ -22,6 +22,21 @@
 
   var TELAS = { novo: "Criar carrossel", painel: "Painel", imoveis: "Meus imóveis", instagram: "Instagram", marca: "Minha marca", semana: "Semana pronta", resultados: "Resultados", datas: "Datas especiais", avisos: "Avisos no celular", indique: "Indique e ganhe", plano: "Plano" };
 
+  // preço: sempre da tabela planos (state.planos) + promoção em vigor do app.js — nunca número inventado
+  function respostaPreco() {
+    var planos = (V.state && V.state.planos) || [];
+    var pro = planos.filter(function (p) { return p.slug === "pro"; })[0];
+    if (!pro) return "Você tem **7 dias grátis** pra testar tudo. Os valores dos planos estão na tela **Plano**.";
+    var cheioM = V.fmtBRL(pro.preco_mensal), cheioA = V.fmtBRL(pro.preco_anual);
+    var bfM = V.bfPreco && V.bfPreco("pro", "mensal"), bfA = V.bfPreco && V.bfPreco("pro", "anual");
+    if (V.bfAtiva && V.bfAtiva() && bfM) {
+      var vagas = V.bfVagas && V.bfVagas();
+      return "É **Black Friday**! 🖤 A Vitrine sai de " + cheioM + " por **" + V.fmtBRL2(bfM) + "/mês**, com o preço travado por 12 meses, ou **" + V.fmtBRL2(bfA) + " no 1º ano** do plano anual. " +
+        "Vale até 30/11 e só para os 50 primeiros" + (typeof vagas === "number" ? " (restam " + vagas + " vagas)" : "") + ". O desconto entra sozinho no pagamento, e antes disso você ainda tem 7 dias grátis.";
+    }
+    return "O plano Vitrine custa **" + cheioM + "/mês** ou " + cheioA + "/ano (2 meses grátis). Na primeira assinatura do mensal você ganha 30% de desconto no 1º mês, e antes de assinar tem 7 dias grátis.";
+  }
+
   // dúvidas comuns: resposta pronta (grátis, instantânea)
   var FAQ = [
     { q: "Como crio um carrossel?", a: "É rapidinho! Toque em **Criar carrossel**, escolha um dos 3 caminhos (sugestão da Vitrine, um imóvel seu ou um assunto próprio) e a IA monta os slides. Antes de publicar você vê a prévia e pode trocar as fotos.", ir: "novo" },
@@ -29,6 +44,7 @@
     { q: "Como cadastro um imóvel falando?", a: "Em **Meus imóveis**, toque em adicionar. No topo tem o **Cadastro rápido**: toque no microfone, descreva o imóvel, adicione as fotos e toque em **Preencher o cadastro**. Depois é só conferir e salvar.", ir: "imoveis" },
     { q: "Como posto no Instagram?", a: "Abra o carrossel e toque em **📲 Postar no Instagram**. A Vitrine baixa as imagens, copia a legenda e abre o Instagram pra você só colar e publicar. A publicação automática chega em breve.", ir: "painel" },
     { q: "O microfone não funciona", a: "No celular, use o Chrome (Android) ou o Safari (iPhone) e permita o microfone quando o navegador pedir. Se mesmo assim não der, toque no campo e use o **🎤 do próprio teclado** do celular: funciona igual." },
+    { q: "Quanto custa?", a: respostaPreco, ir: "plano" },
     { q: "Como recebo avisos no celular?", a: "Abra **Avisos no celular** e toque em ativar. No iPhone, antes, toque em Compartilhar → **Adicionar à Tela de Início** e abra a Vitrine pelo ícone.", ir: "avisos" }
   ];
 
@@ -91,7 +107,7 @@
   function chips() {
     chipsEl.innerHTML = FAQ.map(function (f, i) { return '<button type="button" class="vita-chip" data-faq="' + i + '">' + V.escapeHtml(f.q) + '</button>'; }).join("");
     chipsEl.querySelectorAll("[data-faq]").forEach(function (b) {
-      b.onclick = function () { var f = FAQ[+b.dataset.faq]; add("eu", f.q); add("vita", f.a, f.ir); };
+      b.onclick = function () { var f = FAQ[+b.dataset.faq]; add("eu", f.q); add("vita", typeof f.a === "function" ? f.a() : f.a, f.ir); };
     });
   }
   function abrir() {

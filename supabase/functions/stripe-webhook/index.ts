@@ -26,9 +26,18 @@ Deno.serve(async (req) => {
     switch (event.type) {
       case "checkout.session.completed": {
         const s = event.data.object as Stripe.Checkout.Session;
+        if (s.mode === "payment") { if (s.payment_status === "paid") await ativarPix(db, s); break; }   // Pix: costuma chegar "unpaid" e confirmar no async
         if (s.mode !== "subscription" || s.payment_status !== "paid") break;
         const sub = await stripe.subscriptions.retrieve(s.subscription as string);
         await ativar(db, sub, s.id);
+        break;
+      }
+      case "checkout.session.async_payment_succeeded": {   // Pix pago (confirmação assíncrona)
+        const s = event.data.object as Stripe.Checkout.Session;
+        if (s.mode === "payment") await ativarPix(db, s);
+        break;
+      }
+      case "checkout.session.async_payment_failed": {      // Pix expirou sem pagamento: nada a fazer, só fica no log
         break;
       }
       case "customer.subscription.updated": {
@@ -102,6 +111,37 @@ async function ativar(db: any, sub: Stripe.Subscription, sessionId?: string) {
     if (error) throw error;
   }
   await sincronizarEquipe(db, corretor_id, plano_id, periodo, fimDoPeriodo(sub));
+}
+
+// Pix: 1 mês avulso (pagamento único). Soma os dias ao acesso atual (se ainda tiver Pix vigente) ou começa agora.
+// Idempotente pelo id da sessão do Checkout. O acesso termina sozinho pela função SQL expirar_pix() (pg_cron).
+// deno-lint-ignore no-explicit-any
+async function ativarPix(db: any, s: Stripe.Checkout.Session) {
+  const m = (s.metadata ?? {}) as Record<string, string>;
+  if (m.forma !== "pix" || !m.corretor_id) return;
+  const { data: ja } = await db.from("assinaturas").select("id").eq("stripe_checkout_session_id", s.id).maybeSingle();
+  if (ja) return;
+  const dias = Number(m.dias) || 30;
+  const { data: atual } = await db.from("assinaturas").select("id, status, data_fim, stripe_subscription_id")
+    .eq("corretor_id", m.corretor_id).in("status", ["trial", "ativa", "inadimplente"])
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  const agora = Date.now();
+  const fimAtual = atual?.status === "ativa" && !atual.stripe_subscription_id && atual.data_fim ? new Date(atual.data_fim).getTime() : 0;
+  const dataFim = new Date(Math.max(agora, fimAtual) + dias * 86_400_000).toISOString();
+  const campos: Record<string, unknown> = {
+    corretor_id: m.corretor_id, plano_id: m.plano_id, periodo: "mensal", status: "ativa",
+    stripe_customer_id: typeof s.customer === "string" ? s.customer : null,
+    stripe_subscription_id: null, stripe_checkout_session_id: s.id, data_fim: dataFim, promo: m.promo || "PIX", equipe_id: null,
+  };
+  if (atual) {
+    if (atual.status === "trial") campos.data_inicio = new Date().toISOString();
+    const { error } = await db.from("assinaturas").update(campos).eq("id", atual.id);
+    if (error) throw error;
+  } else {
+    const { error } = await db.from("assinaturas").insert({ ...campos, data_inicio: new Date().toISOString() });
+    if (error) throw error;
+  }
+  await sincronizarEquipe(db, m.corretor_id, m.plano_id, "mensal", dataFim);
 }
 
 // Planos de imobiliária: cria/atualiza a equipe do dono e estende o acesso dos corretores convidados

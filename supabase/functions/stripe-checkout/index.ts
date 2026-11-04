@@ -1,4 +1,7 @@
-// POST { plano_id, periodo: "mensal" | "anual" } → { url }
+// POST { plano_id, periodo: "mensal" | "anual", forma?: "pix" } → { url }
+// forma "pix" (04/11/2026): pagamento ÚNICO de 1 mês (30 dias de acesso), sem renovação automática, só plano individual.
+//   Black Friday: R$ 49,90; fora dela: preço mensal cheio da tabela planos. O webhook soma 30 dias ao acesso
+//   e a função SQL expirar_pix() (pg_cron, de hora em hora) encerra o acesso quando os 30 dias acabam.
 // Cria uma Checkout Session (assinatura recorrente em BRL) e devolve a URL hospedada do Stripe.
 // O preço vem da tabela `planos` no servidor — o cliente nunca manda valor.
 import Stripe from "npm:stripe@17";
@@ -64,6 +67,8 @@ const BF_INICIO = Date.parse("2026-11-04T00:00:00-03:00");
 const BF_FIM = Date.parse("2026-12-01T00:00:00-03:00");
 const BF_VAGAS = 50;
 const BF_PREFIXO = "BF26";
+const PIX_BF = 49.90;               // R$ 49,90 — 1 mês avulso no Pix durante a Black Friday (decisão do dono)
+const PIX_DIAS = 30;
 // preço promocional por plano (slug) — mensal / anual
 const BF_PRECOS: Record<string, { mensal: number; anual: number }> = {
   "pro": { mensal: 29.90, anual: 299 },
@@ -105,7 +110,8 @@ Deno.serve(handle(async (req) => {
     return json({ ativa: naBlackFriday(Date.now()) && usadas < BF_VAGAS, vagas_restantes: Math.max(0, BF_VAGAS - usadas), fim: new Date(BF_FIM).toISOString() });
   }
 
-  const { plano_id, periodo } = body;
+  const { plano_id, forma } = body;
+  const periodo = forma === "pix" ? "mensal" : body.periodo;
   if (!["mensal", "anual"].includes(periodo)) throw new HttpError(400, "Período inválido.");
 
   const { data: plano } = await db.from("planos").select("*").eq("id", plano_id).single();
@@ -126,6 +132,39 @@ Deno.serve(handle(async (req) => {
     const c = await stripe.customers.create({ email: perfil.email, name: perfil.nome ?? undefined, metadata: { corretor_id: uid } });
     customer = c.id;
     await db.from("profiles").update({ stripe_customer_id: customer }).eq("id", uid);
+  }
+
+  // ---- Pix: 1 mês avulso (pagamento único) ----
+  if (forma === "pix") {
+    if (plano.tipo !== "individual") throw new HttpError(400, "O Pix de 1 mês vale só para o plano Vitrine individual.");
+    const bf = naBlackFriday(Date.now());
+    const valorPix = bf ? PIX_BF : Number(plano.preco_mensal);
+    const metaPix: Record<string, string> = { corretor_id: uid, plano_id: String(plano.id), periodo: "mensal", forma: "pix", dias: String(PIX_DIAS), promo: bf ? "PIX_BF26" : "PIX" };
+    const base = /^vitrine\b/i.test(String(plano.nome)) ? String(plano.nome) : `Vitrine ${plano.nome}`;
+    const sPix = await stripe.checkout.sessions.create({
+      mode: "payment",
+      customer,
+      locale: "pt-BR",
+      payment_method_types: ["pix"],
+      payment_method_options: { pix: { expires_after_seconds: 3600 } },   // QR Code vale 1 hora
+      line_items: [{
+        quantity: 1,
+        price_data: {
+          currency: "brl",
+          unit_amount: Math.round(valorPix * 100),
+          product_data: {
+            name: `${base} · 1 mês no Pix${bf ? " (Black Friday)" : ""}`,
+            description: "Acesso completo por 30 dias. Pagamento único, sem renovação automática.",
+          },
+        },
+      }],
+      metadata: metaPix,
+      payment_intent_data: { metadata: metaPix },
+      client_reference_id: uid,
+      success_url: `${APP_URL}?checkout=sucesso&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${APP_URL}?checkout=cancelado`,
+    });
+    return json({ url: sPix.url });
   }
 
   const valor = Number(periodo === "anual" ? plano.preco_anual : plano.preco_mensal);

@@ -481,6 +481,7 @@
     inicio: new Date("2026-11-04T00:00:00-03:00"),
     fim: new Date("2026-12-01T00:00:00-03:00"),
     vagas: 50,
+    pix: 49.90,   // 1 mês avulso no Pix (pagamento único, sem renovação) — mesmo valor do stripe-checkout (PIX_BF)
     precos: { "pro": [29.90, 299], "starter": [29.90, 299], "imob-5": [137.90, 1379], "imob-10": [245.90, 2459], "imob-30": [615.90, 6159] },
     porNome: { "Vitrine": "pro", "Imobiliária 5": "imob-5", "Imobiliária 10": "imob-10", "Imobiliária 30": "imob-30" }
   };
@@ -522,6 +523,9 @@
     qsa("#landing-view [data-plan-note-secondary]").forEach(function (el) {
       el.dataset.monthly = "Black Friday até 30/11, só para os 50 primeiros: desconto nas 12 primeiras mensalidades, aplicado automaticamente no pagamento. Depois volta ao preço normal.";
       el.dataset.yearly = "Black Friday até 30/11, só para os 50 primeiros: desconto no 1º ano, aplicado automaticamente no pagamento.";
+    });
+    qsa("#landing-view [data-pix-note]").forEach(function (el) {
+      el.innerHTML = '💠 Prefere não assinar? <b>1 mês no Pix por ' + fmtBRL2(BLACK_FRIDAY.pix) + '</b> (Black Friday), pagamento único e sem renovação.';
     });
     qsa("#landing-view [data-plan-price], #landing-view [data-plan-sub], #landing-view [data-plan-note-secondary]").forEach(function (el) {
       var v = el.dataset.monthly; if (!v) return;
@@ -4596,6 +4600,12 @@
         '<p style="margin:0;font-size:13px;color:var(--ink-muted);">' + (planoEq ? escapeHtml(planoEq.nome) + " · " : "") + 'carrosséis ilimitados, pago pela sua imobiliária</p>' +
         '</div><button class="btn btn-ghost btn-sm" id="ir-equipe">Ver equipe</button></div>';
       document.getElementById("ir-equipe").addEventListener("click", function () { showScreen("equipe"); });
+    } else if (ehPix()) {
+      var planoPix = findPlano(state.assinatura.plano_id);
+      statusEl.innerHTML = '<div class="plan-banner pro"><div>' +
+        '<h3 style="font-size:17px;margin-bottom:4px;">Vitrine ' + (planoPix ? escapeHtml(planoPix.nome) : "") + ' ativo · pago no Pix</h3>' +
+        '<p style="margin:0;font-size:13px;color:var(--ink-muted);">Seu acesso vai até <b>' + fmtDate(state.assinatura.data_fim) + '</b>. Pagamento único, sem renovação automática: pra continuar depois, pague mais 1 mês no Pix ou assine no cartão.</p>' +
+        '</div></div>';
     } else {
       var plano = findPlano(state.assinatura.plano_id);
       statusEl.innerHTML = '<div class="plan-banner pro"><div>' +
@@ -4627,7 +4637,7 @@
       '</div>' +
       state.planos.filter(function (p) { return p.tipo === "individual"; }).map(function (p) {
         var preco = planPeriod === "anual" ? p.preco_anual : p.preco_mensal;
-        var isCurrent = state.assinatura && state.assinatura.status === "ativa" && state.assinatura.plano_id === p.id;
+        var isCurrent = state.assinatura && state.assinatura.status === "ativa" && state.assinatura.plano_id === p.id && !ehPix();
         return '<div class="plan-card ' + (p.destaque ? "featured" : "") + '">' +
           (p.destaque ? '<span class="badge">Mais escolhido</span>' : "") +
           '<h3>' + escapeHtml(p.nome) + '</h3>' +
@@ -4635,7 +4645,7 @@
           '<ul class="plan-feats">' + (p.recursos || []).map(function (f) { return '<li>' + ICONS.check + escapeHtml(f) + '</li>'; }).join("") + '</ul>' +
           '<button class="btn ' + (p.destaque ? "btn-primary" : "btn-2") + '" style="width:100%;justify-content:center;" data-subscribe="' + p.id + '" ' + (isCurrent ? "disabled" : "") + '>' +
           (isCurrent ? "Plano atual" : "Assinar " + escapeHtml(p.nome)) + '</button></div>';
-      }).join("");
+      }).join("") + pixCardHtml();
 
     var equipes = state.planos.filter(function (p) { return p.tipo === "equipe"; });
     document.getElementById("plan-grid-equipe").innerHTML = equipes.length ? '<h3 class="plan-sec-title">Planos para imobiliárias</h3><p class="plan-sec-sub">Você assina e convida seus corretores por link — cada um usa a própria conta com tudo do Pro. Você conta como 1 corretor.</p>' +
@@ -4656,6 +4666,7 @@
     qsa("[data-period]").forEach(function (b) { b.addEventListener("click", function () { planPeriod = b.dataset.period; renderPlano(); }); });
     // "Assinar" já abre o checkout do Stripe (antes abria uma caixa de confirmação no fim da página, fora da tela no celular)
     qsa("[data-subscribe]").forEach(function (b) { b.addEventListener("click", function () { irParaPagamento(b.dataset.subscribe, b); }); });
+    qsa("[data-pix]").forEach(function (b) { b.addEventListener("click", function () { irParaPagamento(b.dataset.pix, b, "pix"); }); });
     var cbox = document.getElementById("checkout-box");
     cbox.hidden = false;
     cbox.innerHTML = '<p style="font-size:12px;color:var(--ink-muted);text-align:center;margin:14px 0 0;">🔒 Ao tocar em Assinar você vai para o checkout seguro do Stripe e paga com cartão de crédito. A Vitrine não vê nem guarda os dados do seu cartão.' +
@@ -4675,22 +4686,44 @@
     }
   }
 
-  async function irParaPagamento(planoId, btn) {
+  async function irParaPagamento(planoId, btn, forma) {
     var plano = findPlano(planoId);
     if (!plano || btn.disabled) return;
     var textoOriginal = btn.innerHTML;
-    qsa("[data-subscribe]").forEach(function (x) { x.disabled = true; });
+    qsa("[data-subscribe],[data-pix]").forEach(function (x) { x.disabled = true; });
     btn.innerHTML = '<div class="spin" style="border-top-color:#fff; border-color:rgba(255,255,255,0.35);"></div> Abrindo pagamento…';
     try {
       // a ativação do plano acontece só no servidor, pelo webhook do Stripe, depois do pagamento confirmado
-      var resp = await callFunction("stripe-checkout", { plano_id: plano.id, periodo: planPeriod });
+      var resp = await callFunction("stripe-checkout", forma === "pix" ? { plano_id: plano.id, forma: "pix" } : { plano_id: plano.id, periodo: planPeriod });
       irPara(resp.url, ["checkout.stripe.com"]);
     } catch (err) {
       toast("Erro: " + err.message);
       btn.innerHTML = textoOriginal;
-      qsa("[data-subscribe]").forEach(function (x) { x.disabled = false; });
+      qsa("[data-subscribe],[data-pix]").forEach(function (x) { x.disabled = false; });
       renderPlano();
     }
+  }
+
+  // Pix: 1 mês avulso (pagamento único). Linha da assinatura com promo PIX* e sem assinatura recorrente no cartão.
+  function ehPix() {
+    var a = state.assinatura;
+    return !!(a && a.status === "ativa" && !a.stripe_subscription_id && !a.equipe_id && /^PIX/.test(a.promo || ""));
+  }
+  function pixCardHtml() {
+    var a = state.assinatura;
+    if (a && a.status === "ativa" && (a.stripe_subscription_id || a.equipe_id)) return "";   // já paga no cartão ou pela equipe
+    var pro = state.planos.filter(function (p) { return p.tipo === "individual" && p.slug === "pro"; })[0] || state.planos.filter(function (p) { return p.tipo === "individual"; })[0];
+    if (!pro) return "";
+    var bf = bfAtiva() || Date.now() < BLACK_FRIDAY.fim.getTime() && Date.now() >= BLACK_FRIDAY.inicio.getTime();
+    var valor = bf ? BLACK_FRIDAY.pix : Number(pro.preco_mensal);
+    return '<div class="plan-card" style="border-style:dashed;">' +
+      (bf ? '<span class="badge">Black Friday</span>' : "") +
+      '<h3>💠 1 mês no Pix</h3>' +
+      '<div class="plan-price mono">' + (bf ? '<s style="opacity:.5;font-size:.6em;margin-right:6px;">' + fmtBRL(pro.preco_mensal) + '</s>' : "") + fmtBRL2(valor) + ' <span>/30 dias</span></div>' +
+      '<ul class="plan-feats"><li>' + ICONS.check + 'Tudo do plano ' + escapeHtml(pro.nome) + ' por 30 dias</li><li>' + ICONS.check + 'Pagamento único, sem renovação automática</li><li>' + ICONS.check + 'Paga com QR Code ou Pix copia e cola</li></ul>' +
+      '<button class="btn btn-2" style="width:100%;justify-content:center;" data-pix="' + escapeHtml(pro.id) + '">' + (ehPix() ? "Pagar mais 1 mês no Pix" : "Pagar 1 mês no Pix") + '</button>' +
+      (bf ? '<div style="font-size:11.5px;color:var(--ink-muted);margin-top:8px;">Preço de Black Friday até 30/11. A assinatura no cartão sai mais barata por mês.</div>' : "") +
+      '</div>';
   }
 
   function precoHtml(p, preco) {
@@ -5172,6 +5205,6 @@
     var t = document.getElementById("tema-livre-txt");
     if (t) { t.value = tema || ""; t.dispatchEvent(new Event("input", { bubbles: true })); t.focus(); }
   }
-  window.Vitrine = Object.assign(window.Vitrine || {}, { abrirComTema: abrirComTema, state: state, DB: DB, toast: toast, escapeHtml: escapeHtml, fmtDate: fmtDate, fmtDateTime: fmtDateTime, contasAtivas: contasAtivas, callFunction: callFunction, fotosDe: fotosDe, fmtBRL: fmtBRL, fmtBRL2: fmtBRL2, bfAtiva: bfAtiva, bfPreco: bfPreco, bfVagas: function () { return bfVagasRestantes; }, closeModal: closeModal, remuxMp4: remuxMp4, agendarVideoNovo: agendarVideoNovo, showScreen: showScreen });
+  window.Vitrine = Object.assign(window.Vitrine || {}, { abrirComTema: abrirComTema, state: state, DB: DB, toast: toast, escapeHtml: escapeHtml, fmtDate: fmtDate, fmtDateTime: fmtDateTime, contasAtivas: contasAtivas, callFunction: callFunction, fotosDe: fotosDe, fmtBRL: fmtBRL, fmtBRL2: fmtBRL2, bfAtiva: bfAtiva, bfPreco: bfPreco, bfVagas: function () { return bfVagasRestantes; }, bfPix: BLACK_FRIDAY.pix, closeModal: closeModal, remuxMp4: remuxMp4, agendarVideoNovo: agendarVideoNovo, showScreen: showScreen });
   bootApp();
 })();

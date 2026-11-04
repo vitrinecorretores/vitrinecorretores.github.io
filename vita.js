@@ -32,9 +32,10 @@
     if (V.bfAtiva && V.bfAtiva() && bfM) {
       var vagas = V.bfVagas && V.bfVagas();
       return "É **Black Friday**! 🖤 A Vitrine sai de " + cheioM + " por **" + V.fmtBRL2(bfM) + "/mês**, com o preço travado por 12 meses, ou **" + V.fmtBRL2(bfA) + " no 1º ano** do plano anual. " +
-        "Vale até 30/11 e só para os 50 primeiros" + (typeof vagas === "number" ? " (restam " + vagas + " vagas)" : "") + ". O desconto entra sozinho no pagamento, e antes disso você ainda tem 7 dias grátis.";
+        "Vale até 30/11 e só para os 50 primeiros" + (typeof vagas === "number" ? " (restam " + vagas + " vagas)" : "") + ". O desconto entra sozinho no pagamento, e antes disso você ainda tem 7 dias grátis." +
+        (V.bfPix ? " Prefere não assinar? Também dá pra pagar **1 mês no Pix por " + V.fmtBRL2(V.bfPix) + "**, sem renovação automática." : "");
     }
-    return "O plano Vitrine custa **" + cheioM + "/mês** ou " + cheioA + "/ano (2 meses grátis). Na primeira assinatura do mensal você ganha 30% de desconto no 1º mês, e antes de assinar tem 7 dias grátis.";
+    return "O plano Vitrine custa **" + cheioM + "/mês** ou " + cheioA + "/ano (2 meses grátis). Na primeira assinatura do mensal você ganha 30% de desconto no 1º mês, e antes de assinar tem 7 dias grátis. Se preferir não assinar, dá pra pagar 1 mês no Pix por " + cheioM + ", sem renovação automática.";
   }
 
   // dúvidas comuns: resposta pronta (grátis, instantânea)

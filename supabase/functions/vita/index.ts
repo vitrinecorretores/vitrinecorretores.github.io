@@ -13,6 +13,7 @@ const LIMITE_DIA = 30;
 const BF_INICIO = Date.parse("2026-11-04T00:00:00-03:00");
 const BF_FIM = Date.parse("2026-12-01T00:00:00-03:00");
 const BF_VAGAS = 50;
+const PIX_BF = 49.90;   // 1 mês avulso no Pix na Black Friday — igual ao stripe-checkout
 const BF_PRECOS: Record<string, [number, number]> = { "pro": [29.90, 299], "imob-5": [137.90, 1379], "imob-10": [245.90, 2459], "imob-30": [615.90, 6159] };
 const brl = (v: number) => "R$ " + (Number.isInteger(v) ? v.toLocaleString("pt-BR") : v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 
@@ -34,7 +35,7 @@ O QUE A VITRINE FAZ (menu lateral):
 - Datas especiais (datas): datas que viram assunto, para postar com antecedência.
 - Avisos no celular (avisos): lembrete 1 hora antes de cada post agendado e alerta de publicado ou falha. No iPhone precisa adicionar a Vitrine à Tela de Início e abrir pelo ícone.
 - Indique e ganhe (indique): link de indicação; quando o colega assina, quem indicou ganha 1 mês grátis.
-- Plano (plano): teste grátis de 7 dias e assinatura (pagamento pelo Stripe, cartão não passa pela Vitrine). Cancelamento na própria Vitrine, sem multa.
+- Plano (plano): teste grátis de 7 dias e assinatura no cartão com renovação automática todo mês (pagamento pelo Stripe, cartão não passa pela Vitrine). Cancelamento na própria Vitrine, sem multa. Também dá pra pagar 1 mês avulso no Pix (QR Code ou copia e cola): pagamento único, 30 dias de acesso, sem renovação automática; pra continuar, paga mais 1 mês no Pix ou assina no cartão.
 DICAS: microfone no celular — se o botão de falar não funcionar, use o microfone do próprio teclado. Esqueceu a senha — na tela de login, toque em "Esqueci minha senha".`;
 
 function textoPromocao(planos: { slug: string; nome: string; preco_mensal: number; preco_anual: number }[], vagasUsadas: number): string {
@@ -44,9 +45,9 @@ function textoPromocao(planos: { slug: string; nome: string; preco_mensal: numbe
       const [m, a] = BF_PRECOS[p.slug];
       return `- ${p.nome}: de ${brl(Number(p.preco_mensal))} por ${brl(m)}/mês (12 primeiras mensalidades) ou ${brl(a)} no 1º ano do anual (normal ${brl(Number(p.preco_anual))}).`;
     }).join("\n");
-    return `\n\nPROMOÇÃO EM VIGOR — BLACK FRIDAY (até 30/11 às 23:59, só para as ${BF_VAGAS} primeiras assinaturas; restam ${BF_VAGAS - vagasUsadas} vagas):\n${linhas}\nO desconto é aplicado automaticamente no pagamento (tela Plano). Depois dos 12 meses (ou do 1º ano no anual) a cobrança volta ao preço normal. Quando perguntarem de preço, diga primeiro o preço da Black Friday e o prazo.`;
+    return `\n\nPROMOÇÃO EM VIGOR — BLACK FRIDAY (até 30/11 às 23:59, só para as ${BF_VAGAS} primeiras assinaturas; restam ${BF_VAGAS - vagasUsadas} vagas):\n${linhas}\nO desconto é aplicado automaticamente no pagamento (tela Plano). Depois dos 12 meses (ou do 1º ano no anual) a cobrança volta ao preço normal. Quando perguntarem de preço, diga primeiro o preço da Black Friday e o prazo.\nPIX DE 1 MÊS NA BLACK FRIDAY (até 30/11, não conta nas vagas): ${brl(PIX_BF)} por 30 dias de acesso, pagamento único, sem renovação. Depois de 30/11 o mês no Pix volta ao preço mensal normal.`;
   }
-  return `\n\nPROMOÇÃO EM VIGOR: 30% de desconto no 1º mês do plano mensal, só na primeira assinatura, aplicado automaticamente no pagamento.`;
+  return `\n\nPROMOÇÃO EM VIGOR: 30% de desconto no 1º mês do plano mensal, só na primeira assinatura, aplicado automaticamente no pagamento.\nPIX DE 1 MÊS: preço mensal normal do plano, por 30 dias de acesso, pagamento único, sem renovação.`;
 }
 
 Deno.serve(async (req) => {

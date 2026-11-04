@@ -4584,7 +4584,7 @@
       }
       updateNavPlanBadge();
       showScreen("plano");
-      toast(state.assinatura && state.assinatura.status === "ativa" ? "Plano ativado. Bem-vindo à Vitrine Pro!" : "Pagamento em processamento — o plano aparece em instantes.");
+      toast(state.assinatura && state.assinatura.status === "ativa" ? "Plano ativado! Agora é postar todo dia sem esforço. 🚀" : "Pagamento em processamento — o plano aparece em instantes.");
     }
     var igMsgs = { conectado: "Instagram conectado!", negado: "Conexão com o Instagram cancelada.", expirado: "O link de conexão expirou — tente de novo.", limite: "Seu plano não permite conectar mais contas de Instagram. Desconecte uma ou mude de plano.", ja_conectada: "Essa conta já estava conectada. Para conectar outra, entre com o outro usuário na tela de login do Instagram (ou saia do Instagram neste navegador antes).", erro: "Não foi possível conectar o Instagram. Verifique se a conta é Profissional (Empresa ou Criador)." };
     if (ig) {
@@ -4862,9 +4862,11 @@
       if (!document.getElementById("overlay").hidden) return;
       var nome = ((state.profile && state.profile.nome) || "").split(" ")[0];
       document.getElementById("modal-body").innerHTML =
-        '<div class="modal-head"><h3 style="font-size:19px;">Bem-vindo' + (nome ? ", " + escapeHtml(nome) : "") + '! 🎉</h3><button class="modal-close" id="modal-close">' + ICONS.close + '</button></div>' +
-        '<p style="color:var(--ink-muted);font-size:14px;line-height:1.6;margin:6px 0 14px;">Quer começar com a sua <b>semana de posts pronta</b>? A Vitrine escolhe os assuntos, cria os carrosséis e agenda nos melhores horários. Você só confere. Leva uns 2 minutos.</p>' +
-        '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" id="pa-depois">Prefiro criar um post</button><button class="btn btn-primary btn-sm" id="pa-semana">🗓️ Montar minha semana</button></div>';
+        '<div class="modal-head"><h3 style="font-size:21px;line-height:1.25;">Bora fazer seu Instagram vender' + (nome ? ", " + escapeHtml(nome) : "") + '? 🚀</h3><button class="modal-close" id="modal-close">' + ICONS.close + '</button></div>' +
+        '<p style="font-size:15px;line-height:1.55;margin:8px 0 10px;"><b>Corretor que aparece todo dia é o corretor que o cliente lembra na hora de comprar.</b> E a partir de hoje, aparecer todo dia é problema da Vitrine, não seu.</p>' +
+        '<p style="color:var(--ink-muted);font-size:14px;line-height:1.6;margin:0 0 14px;">Em uns 2 minutos eu monto a sua <b>semana inteira de posts</b>: escolho os assuntos que o seu cliente procura, crio os carrosséis com a sua marca e agendo nos melhores horários. Você só confere e aprova.</p>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 18px;font-size:12.5px;"><span class="np-rapido" style="padding:5px 10px;border-radius:999px;background:rgba(212,255,63,.12);color:var(--accent,#D4FF3F);font-weight:600;">✓ ' + (diasDeTeste() > 0 ? diasDeTeste() + " dias com tudo liberado" : "Tudo liberado") + '</span><span style="padding:5px 10px;border-radius:999px;background:rgba(212,255,63,.12);color:var(--accent,#D4FF3F);font-weight:600;">✓ Sem cartão</span><span style="padding:5px 10px;border-radius:999px;background:rgba(212,255,63,.12);color:var(--accent,#D4FF3F);font-weight:600;">✓ Sem designer</span></div>' +
+        '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" id="pa-depois">Quero criar um post primeiro</button><button class="btn btn-primary" id="pa-semana">🗓️ Montar minha semana agora</button></div>';
       document.getElementById("overlay").hidden = false;
       document.getElementById("modal-close").onclick = closeModal;
       document.getElementById("pa-depois").onclick = function () { closeModal(); showScreen("novo"); };

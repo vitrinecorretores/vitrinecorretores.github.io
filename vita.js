@@ -25,9 +25,9 @@
   // dúvidas comuns: resposta pronta (grátis, instantânea)
   var FAQ = [
     { q: "Como crio um carrossel?", a: "É rapidinho! Toque em **Criar carrossel**, escolha um dos 3 caminhos (sugestão da Vitrine, um imóvel seu ou um assunto próprio) e a IA monta os slides. Antes de publicar você vê a prévia e pode trocar as fotos.", ir: "novo" },
-    { q: "Como agendo um post?", a: "No **Painel**, toque em **📅 Agendar** no carrossel. Escolha dia, horário e a conta do Instagram. Na hora marcada a Vitrine publica sozinha, mesmo com o app fechado.", ir: "painel" },
+    { q: "Como agendo um post?", a: "No **Painel**, toque em **📅 Agendar** no carrossel. Escolha dia e horário. Na hora marcada a Vitrine te avisa no celular e no e-mail, e você posta em um toque com a legenda já copiada.", ir: "painel" },
     { q: "Como cadastro um imóvel falando?", a: "Em **Meus imóveis**, toque em adicionar. No topo tem o **Cadastro rápido**: toque no microfone, descreva o imóvel, adicione as fotos e toque em **Preencher o cadastro**. Depois é só conferir e salvar.", ir: "imoveis" },
-    { q: "Como conecto meu Instagram?", a: "Vá em **Instagram** e toque em conectar. Sua conta precisa ser **profissional** (comercial ou criador de conteúdo). Depois de conectar, os posts agendados saem sozinhos.", ir: "instagram" },
+    { q: "Como posto no Instagram?", a: "Abra o carrossel e toque em **📲 Postar no Instagram**. A Vitrine baixa as imagens, copia a legenda e abre o Instagram pra você só colar e publicar. A publicação automática chega em breve.", ir: "painel" },
     { q: "O microfone não funciona", a: "No celular, use o Chrome (Android) ou o Safari (iPhone) e permita o microfone quando o navegador pedir. Se mesmo assim não der, toque no campo e use o **🎤 do próprio teclado** do celular: funciona igual." },
     { q: "Como recebo avisos no celular?", a: "Abra **Avisos no celular** e toque em ativar. No iPhone, antes, toque em Compartilhar → **Adicionar à Tela de Início** e abra a Vitrine pelo ícone.", ir: "avisos" }
   ];

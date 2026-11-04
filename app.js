@@ -5,6 +5,9 @@
      CONFIG
   ============================================================ */
   var SUPABASE_URL = "https://qbfmozumntequvecttfs.supabase.co";
+  // enquanto a Meta não aprova a publicação automática, quem não tem Instagram conectado só usa "postar pelo app" (troque pra true quando aprovar)
+  var IG_API_LIBERADA = false;
+  var GOOGLE_CLIENT_ID = "808533432764-ptcigd0vdfrl02v49qvm94iii44gvorn.apps.googleusercontent.com";
   var SUPABASE_KEY = "sb_publishable_xXZFK2Pzq7MHsMv2f_iISw_yriYjMvv";
   var FN_URL = SUPABASE_URL + "/functions/v1/gerar-conteudo";
 
@@ -305,6 +308,12 @@
       return user;
     }
     // "esqueci minha senha": o Supabase manda um e-mail com link que volta pro site com #...type=recovery
+    // login pelo botão do Google no próprio site: o Google devolve um id_token e o Supabase troca por sessão
+    async function entrarComIdTokenGoogle(idToken, nonce) {
+      var data = await authFetch("token?grant_type=id_token", { provider: "google", id_token: idToken, nonce: nonce });
+      setSession(data);
+      return data;
+    }
     async function recover(email) {
       var volta = location.origin + location.pathname;
       await authFetch("recover?redirect_to=" + encodeURIComponent(volta), { email: email });
@@ -325,7 +334,7 @@
       });
       return user;
     }
-    return { load: load, get: get, setSession: setSession, signUp: signUp, signIn: signIn, signOut: signOut, refresh: refresh, ensureValidToken: ensureValidToken, recover: recover, definirSenhaComLink: definirSenhaComLink, urlGoogle: urlGoogle, sessaoDoLink: sessaoDoLink };
+    return { load: load, get: get, setSession: setSession, signUp: signUp, signIn: signIn, signOut: signOut, refresh: refresh, ensureValidToken: ensureValidToken, recover: recover, definirSenhaComLink: definirSenhaComLink, urlGoogle: urlGoogle, sessaoDoLink: sessaoDoLink, entrarComIdTokenGoogle: entrarComIdTokenGoogle };
   })();
 
   /* ============================================================
@@ -1469,6 +1478,7 @@
   }
   // "Como publicar": automático pela Vitrine ou pelo app (para escolher a música da biblioteca do Instagram)
   function comoPublicarHtml(manual) {
+    if (!IG_API_LIBERADA && !contasAtivas().length) return '<p class="ag-fmt-dica">📲 Na hora marcada a Vitrine te avisa no celular e no e-mail. Você abre, toca em <b>Poste no Instagram</b> e publica em segundos, com a legenda já copiada.</p>';
     return '<div class="ag-formato"><div class="ag-contas-t">Como publicar</div><div class="ag-fmt">' +
       '<button type="button" class="ag-fmt-b' + (manual ? "" : " on") + '" data-ag-modo="auto"><b>Automático</b><span>a Vitrine publica sozinha na hora</span></button>' +
       '<button type="button" class="ag-fmt-b' + (manual ? " on" : "") + '" data-ag-modo="app"><b>🎵 Eu posto pelo app</b><span>para escolher a música do Instagram</span></button></div>' +
@@ -1663,7 +1673,7 @@
       '<label class="reels-leg-lb" for="ag-leg">Legenda</label>' +
       '<textarea id="ag-leg" class="reels-leg" maxlength="2200" placeholder="Escreva a legenda do Reels">' + escapeHtml(legIni) + '</textarea>' +
       (igOn ? '<p class="ag-info dif">Na hora marcada, a Vitrine publica sozinha no seu Instagram — mesmo com o app fechado.</p>'
-            : '<p class="ag-info ag-warn">⚠ Seu Instagram ainda não está conectado. Conecte na aba Instagram até o horário, senão o Reels não sai sozinho.</p>') +
+            : (IG_API_LIBERADA ? '<p class="ag-info ag-warn">⚠ Seu Instagram ainda não está conectado. Conecte na aba Instagram até o horário, senão o Reels não sai sozinho.</p>' : '<p class="ag-info">📲 Na hora marcada você recebe um aviso no celular e no e-mail para postar em um toque.</p>')) +
       '</div></div>' +
       '<div class="reels-botoes"><button class="btn btn-ghost btn-sm" id="ag-cancelar">Cancelar</button>' +
       '<button class="btn btn-ghost btn-sm" id="ag-previa">' + ICONS.eye + ' Ver como fica</button>' +
@@ -1709,7 +1719,7 @@
         sair(); renderPainel(); renderInstagram();
         if (novo.status === "aguardando_aprovacao") toast("Reels enviado para aprovação do gestor.");
         else if (novo.publicar_manual) toast("Reels agendado para " + fmtDateTime(novo.data_agendada) + " — na hora a Vitrine te avisa para postar pelo app e escolher a música.");
-        else toast("Reels agendado para " + fmtDateTime(novo.data_agendada) + (igOn ? " — vai ser publicado sozinho no Instagram." : ". Conecte o Instagram até lá pra publicar sozinho."));
+        else toast("Reels agendado para " + fmtDateTime(novo.data_agendada) + (igOn ? " — vai ser publicado sozinho no Instagram." : (IG_API_LIBERADA ? ". Conecte o Instagram até lá pra publicar sozinho." : " — na hora a Vitrine te avisa pra postar em um toque.")));
       } catch (err) { toast("Não consegui agendar: " + err.message); btn.disabled = false; btn.textContent = orig; }
     };
   }
@@ -1979,6 +1989,44 @@
       }
     };
   }
+  var gsiPromessa = null;
+  function carregarGsi() {
+    if (window.google && google.accounts && google.accounts.id) return Promise.resolve();
+    if (gsiPromessa) return gsiPromessa;
+    gsiPromessa = new Promise(function (ok, falha) {
+      var sc = document.createElement("script"); sc.src = "https://accounts.google.com/gsi/client"; sc.async = true;
+      sc.onload = ok; sc.onerror = function () { gsiPromessa = null; falha(); }; document.head.appendChild(sc);
+    });
+    return gsiPromessa;
+  }
+  async function sha256hex(t) {
+    var b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t));
+    return Array.from(new Uint8Array(b)).map(function (x) { return x.toString(16).padStart(2, "0"); }).join("");
+  }
+  // troca o nosso botão pelo botão oficial do Google (janela pequena, mostra "Vitrine" e o nosso site). Se não carregar, fica o nosso botão (redireciona).
+  async function montarBotaoGoogle(view, antes) {
+    var gbtn = qs("#auth-google", view); if (!gbtn || !window.crypto || !crypto.subtle) return;
+    try {
+      await carregarGsi();
+      var bruto = Array.from(crypto.getRandomValues(new Uint8Array(16))).map(function (x) { return x.toString(16).padStart(2, "0"); }).join("");
+      var hash = await sha256hex(bruto);
+      google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID, nonce: hash, ux_mode: "popup", itp_support: true, context: authMode === "signup" ? "signup" : "signin",
+        callback: async function (resp) {
+          antes();
+          try {
+            await Auth.entrarComIdTokenGoogle(resp.credential, bruto);
+            var querEquipe = false; try { querEquipe = localStorage.getItem("vitrine-google-imob") === "1"; localStorage.removeItem("vitrine-google-imob"); } catch (e) { }
+            if (querEquipe) { try { await rpc("ativar_teste_equipe", {}); } catch (e) { } }
+            await bootApp();
+          } catch (e) { renderAuthView("Não deu pra entrar com o Google agora. Tente de novo ou use e-mail e senha."); }
+        }
+      });
+      var box = document.createElement("div"); box.className = "auth-google-gsi";
+      gbtn.replaceWith(box);
+      google.accounts.id.renderButton(box, { type: "standard", theme: "outline", size: "large", shape: "pill", text: authMode === "signup" ? "signup_with" : "signin_with", locale: "pt-BR", width: Math.min(box.offsetWidth || 320, 400) });
+    } catch (e) { /* sem o script do Google: continua o botão normal */ }
+  }
   function renderAuthView(errorMsg, noteMsg) {
     if (authMode === "recuperar") { renderRecuperar(errorMsg, noteMsg); return; }
     if (authMode === "nova-senha") { renderNovaSenha(errorMsg); return; }
@@ -2011,11 +2059,12 @@
 
     var back = qs("#auth-back", view); if (back) back.onclick = showLanding;
     var gbtn = qs("#auth-google", view);
-    if (gbtn) gbtn.onclick = function () {
+    function marcarImob() {
       var im = qs("#auth-imob", view);
-      try { sessionStorage.setItem("vitrine-google", "1"); if (authMode === "signup" && im && im.checked) localStorage.setItem("vitrine-google-imob", "1"); else localStorage.removeItem("vitrine-google-imob"); } catch (e) { }
-      location.href = Auth.urlGoogle();
-    };
+      try { if (authMode === "signup" && im && im.checked) localStorage.setItem("vitrine-google-imob", "1"); else localStorage.removeItem("vitrine-google-imob"); } catch (e) { }
+    }
+    if (gbtn) gbtn.onclick = function () { marcarImob(); try { sessionStorage.setItem("vitrine-google", "1"); } catch (e) { } location.href = Auth.urlGoogle(); };
+    montarBotaoGoogle(view, marcarImob);
     var esq = qs("#auth-esqueci", view);
     if (esq) esq.onclick = function () { var em = qs("#auth-email", view).value.trim(); authMode = "recuperar"; renderRecuperar(null, null, em); };
     qsa("[data-authmode]", view).forEach(function (b) {
@@ -2463,6 +2512,9 @@
   function atualizarPillIg() {
     var el = document.getElementById("ig-pill"); if (!el) return;
     var ct = contaSelecionada();
+    var semApi = !IG_API_LIBERADA && !ct;
+    var nav = document.querySelector('.navitem[data-screen="instagram"]'); if (nav) nav.hidden = semApi;
+    if (semApi) { el.hidden = true; return; }
     el.hidden = !state.profile;
     el.classList.toggle("off", !ct);
     el.innerHTML = ICONS.ig + '<span>' + (ct ? 'Postando em <b>@' + escapeHtml(ct.username) + '</b>' : 'Instagram não conectado') + '</span>';
@@ -2505,6 +2557,7 @@
     var b = ev.target.closest && ev.target.closest("[data-ir-instagram]");
     if (!b) return;
     ev.preventDefault();
+    if (!IG_API_LIBERADA && !contasAtivas().length) return;
     if (typeof closeModal === "function") closeModal();
     showScreen("instagram");
   });
@@ -2716,7 +2769,7 @@
       '<label class="reels-leg-lb" for="ag-leg">Legenda <span style="font-weight:500;opacity:.7;">(pronta — ajuste se quiser)</span></label>' +
       '<textarea id="ag-leg" class="reels-leg" style="min-height:110px;" maxlength="2200">' + escapeHtml(c.legenda || legendaPadrao(c)) + '</textarea>' +
       (igOn ? '<p class="ag-info dif">Na hora marcada, a Vitrine publica sozinha no seu Instagram — mesmo com o app fechado.</p>'
-            : '<p class="ag-info ag-warn">⚠ Seu Instagram ainda não está conectado. Conecte na aba Instagram até o horário, senão o post não sai sozinho.</p>') +
+            : (IG_API_LIBERADA ? '<p class="ag-info ag-warn">⚠ Seu Instagram ainda não está conectado. Conecte na aba Instagram até o horário, senão o post não sai sozinho.</p>' : '<p class="ag-info">📲 Na hora marcada você recebe um aviso no celular e no e-mail para postar em um toque.</p>')) +
       '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">' +
       '<button class="btn btn-ghost btn-sm" id="ag-cancelar">Cancelar</button>' +
       '<button class="btn btn-primary btn-sm" id="ag-confirmar">📅 Confirmar agendamento</button></div>';
@@ -2783,7 +2836,7 @@
         closeModal(); renderPainel(); renderInstagram();
         if (stFinal === "aguardando_aprovacao") toast("Enviado para aprovação do gestor.");
         else if (c.publicar_manual) toast("Agendado para " + fmtDateTime(iso) + " — na hora a Vitrine te avisa para postar pelo app e escolher a música.");
-        else toast("Agendado para " + fmtDateTime(iso) + (igOn ? " — vai ser publicado sozinho no Instagram." : ". Conecte o Instagram (aba Instagram) até lá pra publicar sozinho."));
+        else toast("Agendado para " + fmtDateTime(iso) + (igOn ? " — vai ser publicado sozinho no Instagram." : (IG_API_LIBERADA ? ". Conecte o Instagram (aba Instagram) até lá pra publicar sozinho." : " — na hora a Vitrine te avisa pra postar em um toque.")));
       } catch (err) { toast("Erro ao agendar: " + err.message); btn.disabled = false; btn.textContent = orig; }
     };
   }
@@ -4048,7 +4101,7 @@
       }
       if (wizard.dest === "rascunho") toast("Rascunho salvo.");
       else if (wizard.dest === "agendado" && carrossel.status === "aguardando_aprovacao") toast("Enviado para aprovação do gestor. Depois de aprovado, ele é agendado para " + fmtDateTime(payload.data_agendada) + ".");
-      else if (wizard.dest === "agendado") toast("Agendado para " + fmtDateTime(payload.data_agendada) + (state.igConta && state.igConta.status === "ativo" ? " — vai ser publicado sozinho no Instagram." : ". Conecte o Instagram (aba Instagram) até lá pra publicar sozinho."));
+      else if (wizard.dest === "agendado") toast("Agendado para " + fmtDateTime(payload.data_agendada) + (state.igConta && state.igConta.status === "ativo" ? " — vai ser publicado sozinho no Instagram." : (IG_API_LIBERADA ? ". Conecte o Instagram (aba Instagram) até lá pra publicar sozinho." : " — na hora a Vitrine te avisa pra postar em um toque.")));
 
       resetWizard(); showScreen("painel");
     } catch (err) {

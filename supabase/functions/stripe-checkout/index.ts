@@ -152,6 +152,16 @@ Deno.serve(handle(async (req) => {
     meta.promo = promo.id;   // gravado em assinaturas.promo pelo webhook (conta as vagas)
   }
 
+  // nome que aparece no Stripe e no Apple Pay/Google Pay (sem "Vitrine Vitrine"); na Black Friday explica o preço
+  // promocional logo acima da linha "R$ 97,00 por mês a partir de..." que o Apple Pay mostra por obrigação
+  const base = /^vitrine\b/i.test(String(plano.nome)) ? String(plano.nome) : `Vitrine ${plano.nome}`;
+  const ehBF = !!promo && promo.id.startsWith(BF_PREFIXO);
+  const nomeProduto = ehBF ? `${base} · ${promo!.name}` : `${base} (${periodo})`;
+  const descricao = ehBF
+    ? (periodo === "anual" ? "Preço promocional no 1º ano. Depois segue o valor normal do plano. Cancele quando quiser."
+                           : "Preço promocional nas 12 primeiras mensalidades. Depois segue o valor normal do plano. Cancele quando quiser.")
+    : "Cancele quando quiser, direto na Vitrine.";
+
   const session = await stripe.checkout.sessions.create({
     ...(discounts ? { discounts } : {}),
     mode: "subscription",
@@ -164,7 +174,7 @@ Deno.serve(handle(async (req) => {
         currency: "brl",
         unit_amount: Math.round(valor * 100),
         recurring: { interval: periodo === "anual" ? "year" : "month" },
-        product_data: { name: `Vitrine ${plano.nome} (${periodo})` },
+        product_data: { name: nomeProduto, description: descricao },
       },
     }],
     metadata: meta,

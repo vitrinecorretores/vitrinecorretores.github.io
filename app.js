@@ -4654,9 +4654,39 @@
       '<ul class="plan-feats"><li>' + ICONS.check + 'Rede ou imobiliária grande</li><li>' + ICONS.check + 'Tudo do Pro para cada corretor</li><li>' + ICONS.check + 'Condição sob medida</li></ul>' +
       '<a class="btn btn-2" style="width:100%;justify-content:center;text-decoration:none;" href="mailto:' + SUPORTE_EMAIL + '?subject=' + encodeURIComponent("Plano 50+ corretores") + '">Falar com a Vitrine</a></div>' : "";
     qsa("[data-period]").forEach(function (b) { b.addEventListener("click", function () { planPeriod = b.dataset.period; renderPlano(); }); });
-    qsa("[data-subscribe]").forEach(function (b) { b.addEventListener("click", function () { planPending = b.dataset.subscribe; renderCheckout(); }); });
-    document.getElementById("checkout-box").hidden = !planPending;
-    if (planPending) renderCheckout();
+    // "Assinar" já abre o checkout do Stripe (antes abria uma caixa de confirmação no fim da página, fora da tela no celular)
+    qsa("[data-subscribe]").forEach(function (b) { b.addEventListener("click", function () { irParaPagamento(b.dataset.subscribe, b); }); });
+    var cbox = document.getElementById("checkout-box");
+    cbox.hidden = false;
+    cbox.innerHTML = '<p style="font-size:12px;color:var(--ink-muted);text-align:center;margin:14px 0 0;">🔒 Ao tocar em Assinar você vai para o checkout seguro do Stripe e paga com cartão de crédito. A Vitrine não vê nem guarda os dados do seu cartão.' +
+      (bfAtiva() ? ' Black Friday: o desconto já entra sozinho no pagamento.' : "") + '</p>';
+    // veio da página inicial com um plano escolhido: rola até o botão dele e deixa em destaque
+    if (planPending) {
+      var alvo = qs('[data-subscribe="' + planPending + '"]');
+      planPending = null;
+      if (alvo && !alvo.disabled) {
+        alvo.style.boxShadow = "0 0 0 3px #D4FF3F"; alvo.textContent = "👉 " + alvo.textContent;
+        setTimeout(function () { try { alvo.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (e) { } }, 200);
+      }
+    }
+  }
+
+  async function irParaPagamento(planoId, btn) {
+    var plano = findPlano(planoId);
+    if (!plano || btn.disabled) return;
+    var textoOriginal = btn.innerHTML;
+    qsa("[data-subscribe]").forEach(function (x) { x.disabled = true; });
+    btn.innerHTML = '<div class="spin" style="border-top-color:#fff; border-color:rgba(255,255,255,0.35);"></div> Abrindo pagamento…';
+    try {
+      // a ativação do plano acontece só no servidor, pelo webhook do Stripe, depois do pagamento confirmado
+      var resp = await callFunction("stripe-checkout", { plano_id: plano.id, periodo: planPeriod });
+      irPara(resp.url, ["checkout.stripe.com"]);
+    } catch (err) {
+      toast("Erro: " + err.message);
+      btn.innerHTML = textoOriginal;
+      qsa("[data-subscribe]").forEach(function (x) { x.disabled = false; });
+      renderPlano();
+    }
   }
 
   function precoHtml(p, preco) {

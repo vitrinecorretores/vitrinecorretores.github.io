@@ -85,6 +85,7 @@ async function ativar(db: any, sub: Stripe.Subscription, sessionId?: string) {
     data_fim: fimDoPeriodo(sub),
   };
   if (sessionId) campos.stripe_checkout_session_id = sessionId;
+  if (sub.metadata?.promo) campos.promo = sub.metadata.promo;   // Black Friday: conta as vagas
 
   // reaproveita a linha atual do corretor (trial ou ativa); se não houver, cria
   const { data: atual } = await db.from("assinaturas").select("id, status, data_inicio")

@@ -474,6 +474,69 @@
   qsa("[data-suporte]").forEach(function (a) { a.href = "mailto:" + SUPORTE_EMAIL; if (!a.textContent.trim()) a.textContent = SUPORTE_EMAIL; });
   iniciarContadoresPromo();
 
+  /* ---------------- Black Friday 2026 ---------------- */
+  // Mesmas datas e preços do stripe-checkout (BF_INICIO/BF_FIM/BF_PRECOS). O desconto real é aplicado lá.
+  // Preço cerca de 69% menor, travado por 12 meses; limitada aos 50 primeiros assinantes.
+  var BLACK_FRIDAY = {
+    inicio: new Date("2026-11-04T00:00:00-03:00"),
+    fim: new Date("2026-12-01T00:00:00-03:00"),
+    vagas: 50,
+    precos: { "pro": [29.90, 299], "starter": [29.90, 299], "imob-5": [137.90, 1379], "imob-10": [245.90, 2459], "imob-30": [615.90, 6159] },
+    porNome: { "Vitrine": "pro", "Imobiliária 5": "imob-5", "Imobiliária 10": "imob-10", "Imobiliária 30": "imob-30" }
+  };
+  var bfVagasRestantes = null;   // preenchido pelo servidor (stripe-checkout, acao status_promo) quando logado
+  function bfAtiva() { var t = Date.now(); return t >= BLACK_FRIDAY.inicio.getTime() && t < BLACK_FRIDAY.fim.getTime() && bfVagasRestantes !== 0; }
+  function bfPreco(slug, periodo) { var p = BLACK_FRIDAY.precos[slug]; return p ? (periodo === "anual" ? p[1] : p[0]) : null; }
+  function fmtBRL2(v) {   // com centavos quando houver (R$ 29,90 / R$ 1.379)
+    v = Number(v) || 0;
+    var inteiro = Math.floor(v), cent = Math.round((v - inteiro) * 100);
+    var txt = "R$ " + inteiro.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return cent ? txt + "," + (cent < 10 ? "0" : "") + cent : txt;
+  }
+  function aplicarBlackFridayLanding() {
+    if (!bfAtiva()) return;
+    var bar = document.querySelector(".promo-bar");
+    if (bar) bar.innerHTML = '<span class="promo-tag">Black Friday</span><span><b>Vitrine por R$ 29,90/mês</b>, travado por 12 meses · só os 50 primeiros, até 30/11</span><button class="promo-btn" data-cta="signup">Garantir minha vaga →</button>';
+    var hero = document.querySelector(".lp-hero-promo");
+    if (hero) hero.innerHTML = '<span>Black Friday: de <s>R$ 97</s> por <b>R$ 29,90/mês</b> por 12 meses · vagas limitadas</span>';
+    qsa('#landing-view [data-plan-period="monthly"] small').forEach(function (el) { el.textContent = "R$ 29,90 na Black Friday"; });
+    qsa('#landing-view [data-plan-period="yearly"] small').forEach(function (el) { el.textContent = "R$ 299 no 1º ano"; });
+    qsa("#landing-view .lp-plan").forEach(function (card) {
+      var h3 = card.querySelector("h3"); if (!h3) return;
+      var nome = h3.textContent.trim(), slug = BLACK_FRIDAY.porNome[nome];
+      var price = card.querySelector("[data-plan-price]"), sub = card.querySelector("[data-plan-sub]");
+      if (slug && price) {
+        var p = BLACK_FRIDAY.precos[slug];
+        var cheioM = (price.dataset.monthly || "").split("<")[0].trim(), cheioA = (price.dataset.yearly || "").split("<")[0].trim();
+        price.dataset.monthly = '<s style="opacity:.55;font-size:.55em;margin-right:6px;">' + cheioM + '</s>' + fmtBRL2(p[0]) + '<span>/mês</span>';
+        price.dataset.yearly = '<s style="opacity:.55;font-size:.55em;margin-right:6px;">' + cheioA + '</s>' + fmtBRL2(p[1]) + '<span>/1º ano</span>';
+        if (sub) {
+          sub.dataset.monthly = "Black Friday: preço travado por 12 meses, depois " + cheioM + "/mês.";
+          sub.dataset.yearly = "Black Friday: " + fmtBRL2(p[1]) + " no 1º ano, depois " + cheioA + "/ano.";
+        }
+      } else if (nome === "50+ corretores" && price) {
+        price.dataset.monthly = '<s style="opacity:.55;font-size:.55em;margin-right:6px;">R$ 59,90</s>R$ 18,90<span>/corretor</span>';
+        if (sub) sub.dataset.monthly = "Black Friday: por corretor, travado por 12 meses.";
+      }
+    });
+    qsa("#landing-view [data-plan-note-secondary]").forEach(function (el) {
+      el.dataset.monthly = "Black Friday até 30/11, só para os 50 primeiros: desconto nas 12 primeiras mensalidades, aplicado automaticamente no pagamento. Depois volta ao preço normal.";
+      el.dataset.yearly = "Black Friday até 30/11, só para os 50 primeiros: desconto no 1º ano, aplicado automaticamente no pagamento.";
+    });
+    qsa("#landing-view [data-plan-price], #landing-view [data-plan-sub], #landing-view [data-plan-note-secondary]").forEach(function (el) {
+      var v = el.dataset.monthly; if (!v) return;
+      if (el.hasAttribute("data-plan-price")) el.innerHTML = v; else el.textContent = v;
+    });
+  }
+  aplicarBlackFridayLanding();
+  async function carregarVagasBlackFriday() {
+    if (Date.now() >= BLACK_FRIDAY.fim.getTime()) return;
+    try {
+      var r = await callFunction("stripe-checkout", { acao: "status_promo" });
+      bfVagasRestantes = r && typeof r.vagas_restantes === "number" ? r.vagas_restantes : null;
+    } catch (e) { /* sem rede: mantém a oferta visível; o servidor decide no checkout */ }
+  }
+
   /* ---------------- fontes das postagens ---------------- */
   // cada carrossel guarda a fonte escolhida (coluna carrosseis.fonte); o mesmo par vale pra prévia, JPEG e vídeo
   var FONTES = {
@@ -4553,7 +4616,9 @@
       });
     }
 
-    var promoHtml = promoAtiva() ? '<div class="promo-plano" style="grid-column:1/-1;"><b>Oferta para novos assinantes:</b> 30% off no 1º mês do plano mensal, aplicado automaticamente no pagamento.</div>' : "";
+    var promoHtml = bfAtiva()
+      ? '<div class="promo-plano" style="grid-column:1/-1;"><b>Black Friday:</b> preço travado por 12 meses, aplicado automaticamente no pagamento. Até 30/11' + (bfVagasRestantes != null ? ' · restam <b>' + bfVagasRestantes + ' vagas</b>' : ' · só os 50 primeiros') + '.</div>'
+      : (promoAtiva() && Date.now() >= BLACK_FRIDAY.fim.getTime() ? '<div class="promo-plano" style="grid-column:1/-1;"><b>Oferta para novos assinantes:</b> 30% off no 1º mês do plano mensal, aplicado automaticamente no pagamento.</div>' : "");
     document.getElementById("plan-grid").innerHTML = promoHtml +
       '<div class="toggle-period" style="grid-column:1/-1;">' +
       '<button data-period="mensal" class="' + (planPeriod === "mensal" ? "active" : "") + '">Mensal</button>' +
@@ -4565,7 +4630,7 @@
         return '<div class="plan-card ' + (p.destaque ? "featured" : "") + '">' +
           (p.destaque ? '<span class="badge">Mais escolhido</span>' : "") +
           '<h3>' + escapeHtml(p.nome) + '</h3>' +
-          '<div class="plan-price mono">' + fmtBRL(preco) + ' <span>/' + (planPeriod === "anual" ? "ano" : "mês") + '</span></div>' +
+          '<div class="plan-price mono">' + precoHtml(p, preco) + ' <span>/' + (planPeriod === "anual" ? "ano" : "mês") + '</span></div>' +
           '<ul class="plan-feats">' + (p.recursos || []).map(function (f) { return '<li>' + ICONS.check + escapeHtml(f) + '</li>'; }).join("") + '</ul>' +
           '<button class="btn ' + (p.destaque ? "btn-primary" : "btn-2") + '" style="width:100%;justify-content:center;" data-subscribe="' + p.id + '" ' + (isCurrent ? "disabled" : "") + '>' +
           (isCurrent ? "Plano atual" : "Assinar " + escapeHtml(p.nome)) + '</button></div>';
@@ -4579,18 +4644,23 @@
         var porCorretor = Number(p.preco_mensal) / (p.max_corretores || 1);
         return '<div class="plan-card ' + (p.destaque ? "featured" : "") + '">' + (p.destaque ? '<span class="badge">Melhor custo</span>' : "") +
           '<h3>' + escapeHtml(p.nome) + '</h3>' +
-          '<div class="plan-price mono">' + fmtBRL(preco) + ' <span>/' + (planPeriod === "anual" ? "ano" : "mês") + '</span></div>' +
+          '<div class="plan-price mono">' + precoHtml(p, preco) + ' <span>/' + (planPeriod === "anual" ? "ano" : "mês") + '</span></div>' +
           '<div style="font-size:12px;color:var(--ink-muted);margin:-4px 0 10px;">≈ R$ ' + porCorretor.toFixed(2).replace(".", ",") + ' por corretor/mês</div>' +
           '<ul class="plan-feats">' + (p.recursos || []).map(function (f) { return '<li>' + ICONS.check + escapeHtml(f) + '</li>'; }).join("") + '</ul>' +
           '<button class="btn ' + (p.destaque ? "btn-primary" : "btn-2") + '" style="width:100%;justify-content:center;" data-subscribe="' + escapeHtml(p.id) + '" ' + (isCurrent ? "disabled" : "") + '>' + (isCurrent ? "Plano atual" : "Assinar " + escapeHtml(p.nome)) + '</button></div>';
       }).join("") +
-      '<div class="plan-card"><h3>50+ corretores</h3><div class="plan-price mono">R$ 59,90 <span>/corretor</span></div>' +
+      '<div class="plan-card"><h3>50+ corretores</h3><div class="plan-price mono">' + (bfAtiva() ? '<s style="opacity:.5;font-size:.6em;margin-right:6px;">R$ 59,90</s>R$ 18,90' : "R$ 59,90") + ' <span>/corretor</span></div>' +
       '<ul class="plan-feats"><li>' + ICONS.check + 'Rede ou imobiliária grande</li><li>' + ICONS.check + 'Tudo do Pro para cada corretor</li><li>' + ICONS.check + 'Condição sob medida</li></ul>' +
       '<a class="btn btn-2" style="width:100%;justify-content:center;text-decoration:none;" href="mailto:' + SUPORTE_EMAIL + '?subject=' + encodeURIComponent("Plano 50+ corretores") + '">Falar com a Vitrine</a></div>' : "";
     qsa("[data-period]").forEach(function (b) { b.addEventListener("click", function () { planPeriod = b.dataset.period; renderPlano(); }); });
     qsa("[data-subscribe]").forEach(function (b) { b.addEventListener("click", function () { planPending = b.dataset.subscribe; renderCheckout(); }); });
     document.getElementById("checkout-box").hidden = !planPending;
     if (planPending) renderCheckout();
+  }
+
+  function precoHtml(p, preco) {
+    var bf = bfAtiva() ? bfPreco(p.slug, planPeriod) : null;
+    return bf ? '<s style="opacity:.5;font-size:.6em;margin-right:6px;">' + fmtBRL(preco) + '</s>' + fmtBRL2(bf) : fmtBRL(preco);
   }
 
   function renderCheckout() {
@@ -4601,7 +4671,8 @@
     box.hidden = false;
     box.innerHTML = '<div class="checkout-card">' +
       '<h3 style="font-size:16px;margin-bottom:14px;">Assinar Vitrine ' + escapeHtml(plano.nome) + '</h3>' +
-      '<div class="checkout-summary"><span>' + escapeHtml(plano.nome) + ' · ' + (planPeriod === "anual" ? "anual" : "mensal") + '</span><span class="mono">' + fmtBRL(preco) + '</span></div>' +
+      '<div class="checkout-summary"><span>' + escapeHtml(plano.nome) + ' · ' + (planPeriod === "anual" ? "anual" : "mensal") + '</span><span class="mono">' + precoHtml(plano, preco) + '</span></div>' +
+      (bfAtiva() && bfPreco(plano.slug, planPeriod) ? '<p style="font-size:12px;color:var(--ink-muted);margin:0 0 10px;">Black Friday: ' + (planPeriod === "anual" ? "desconto no 1º ano" : "desconto nas 12 primeiras mensalidades") + ', depois volta para ' + fmtBRL(preco) + (planPeriod === "anual" ? "/ano" : "/mês") + '.</p>' : "") +
       '<p style="font-size:12px;color:var(--ink-muted);margin:0 0 12px;">Você será levado ao checkout seguro do Stripe para pagar com cartão de crédito. A Vitrine não vê nem guarda os dados do seu cartão.</p>' +
       '<button class="btn btn-primary" id="confirm-sub" style="width:100%;justify-content:center;">Ir para o pagamento</button>' +
       '<button class="btn btn-ghost btn-sm" id="cancel-checkout" style="width:100%;justify-content:center;margin-top:8px;">Cancelar</button></div>';
@@ -4687,6 +4758,10 @@
       DB.select("carrosseis", "select=*,slides(*)&corretor_id=eq." + uid + "&order=created_at.desc")
     ]);
     state.planos = results[0] || [];
+    carregarVagasBlackFriday().then(function () {   // atualiza "restam X vagas" na tela de planos
+      var tela = document.getElementById("plan-grid");
+      if (tela && tela.offsetParent !== null) renderPlano();
+    });
     state.topicos = results[1] || [];
     state.templates = results[2] || [];
     state.propriedades = results[3] || [];

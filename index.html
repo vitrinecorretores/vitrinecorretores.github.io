@@ -1140,6 +1140,37 @@ input:focus-visible, textarea:focus-visible, select:focus-visible{outline:none; 
 .lp-demo-slide.com-foto.capa b{font-size:25px;}
 .lp-demo-slide.com-foto p{color:#e4e4e7;margin-top:8px;text-shadow:0 1px 6px rgba(0,0,0,.6);}
 .lp-demo-cred{font-size:8.5px;color:rgba(255,255,255,.55);margin-top:8px;}
+.lp-demo-publico{display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap;margin:12px 0 0;font-size:12.5px;color:var(--ink-muted);}
+.lp-demo-publico button,.lp-demo-grupo button{border:1px solid var(--border);background:transparent;color:var(--ink-muted);border-radius:999px;padding:6px 12px;font:600 12.5px inherit;cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+.lp-demo-publico button:hover,.lp-demo-grupo button:hover{color:#fff;border-color:rgba(212,255,63,.5);}
+.lp-demo-publico button.on,.lp-demo-grupo button.on{background:rgba(212,255,63,.16);border-color:#D4FF3F;color:#fff;box-shadow:inset 0 0 0 1px #D4FF3F;}
+.lp-demo-grupo button.fixo{cursor:default;opacity:1;}
+.lp-demo-opcoes{display:flex;flex-wrap:wrap;gap:10px 18px;justify-content:center;margin:0 0 14px;}
+.lp-demo-grupo{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.lp-demo-grupo>span{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint,#8a8a93);margin-right:2px;}
+.lp-demo-grupo button i{width:12px;height:12px;border-radius:50%;display:inline-block;}
+.lp-demo-strip .lp-demo-slide b{font-family:var(--demo-fonte,inherit);font-weight:var(--demo-peso,700);}
+.lp-demo-strip .lp-demo-slide b em{color:var(--demo-hl,#D4FF3F);}
+.lp-demo-slide.mc b{text-transform:uppercase;letter-spacing:.01em;}
+.lp-demo-slide.mc.com-foto small{background:#E10600;color:#fff;}
+.lp-demo-slide.ps{background:#E6EAEE;border-color:#d5dbe0;padding:10px;justify-content:flex-start;}
+.ps-card{background:#fff;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:7px;flex:1;min-height:0;box-shadow:0 6px 16px -10px rgba(0,0,0,.35);}
+.ps-head{display:flex;align-items:center;gap:8px;}
+.ps-av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#8B5CFF,var(--demo-hl,#FFD60A));color:#fff;font:800 13px/28px inherit;text-align:center;flex:0 0 28px;}
+.lp-demo-slide.ps .ps-user{font:800 12px/1.2 inherit !important;color:#0F1419;display:block;text-transform:none;}
+.ps-ok{display:inline-block;width:13px;height:13px;border-radius:50%;background:#1D9BF0;color:#fff;font-size:9px;line-height:13px;text-align:center;}
+.lp-demo-slide.ps .ps-head small{background:none;padding:0;color:#536471;font:500 11px/1.2 inherit;letter-spacing:0;}
+.lp-demo-slide.ps .ps-tit{font-size:19px;line-height:1.15;color:#0F1419;}
+.lp-demo-slide.ps .ps-tit em{color:#111 !important;background:var(--demo-hl,#FFD60A);padding:0 4px;border-radius:5px;}
+.lp-demo-slide.ps.capa .ps-tit{font-size:21px;}
+.lp-demo-slide.ps p{color:#536471;font-size:11.5px;line-height:1.4;margin:0;}
+.ps-foto{flex:1;min-height:52px;border-radius:9px;background-size:cover;background-position:center;border:1px solid #CFD9DE;}
+.ps-acoes{display:flex;justify-content:space-between;font-size:10px;color:#536471;font-weight:600;}
+.ps-acoes i{font-style:normal;}
+.lp-demo-slide.ps .lp-demo-cred{color:#6b7680;margin-top:5px;}
+.lp-demo-mais{margin:6px 0 12px;padding:14px 16px;border-radius:14px;border:1px dashed rgba(212,255,63,.45);font-size:13.5px;color:var(--ink-muted);line-height:1.6;}
+.lp-demo-mais b{color:var(--ink);}
+.lp-demo-mais span{display:inline-block;margin:6px 6px 0 0;padding:3px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--ink);font-size:12px;}
 .lp-demo-cta{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 16px;border-radius:14px;border:1px solid rgba(212,255,63,.35);background:rgba(212,255,63,.06);margin-top:6px;}
 .lp-demo-cta span{font-size:14px;color:var(--ink-muted);} .lp-demo-cta b{color:var(--ink);}
 
@@ -1207,6 +1238,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible{outline:none; 
       <button class="btn btn-primary" id="demo-btn" type="submit">Criar meu carrossel</button>
     </form>
     <div class="lp-demo-chips"><button type="button" data-demo="Por que morar no Cidade Alpha">Morar no Cidade Alpha</button><button type="button" data-demo="Erros de quem compra o primeiro apartamento">Primeiro apartamento</button><button type="button" data-demo="Alugar ou comprar imóvel hoje">Alugar ou comprar?</button></div>
+    <div class="lp-demo-publico" role="group" aria-label="Público do carrossel"><span>Pra quem é o post?</span><button type="button" data-publico="primeira-compra" aria-pressed="false">Primeira compra</button><button type="button" data-publico="investidor" aria-pressed="false">Investidores</button></div>
     <div id="demo-res" class="lp-demo-res" hidden></div>
   </section>
 
@@ -1610,6 +1642,6 @@ input:focus-visible, textarea:focus-visible, select:focus-visible{outline:none; 
 <script src="resultado.js?v=20261103-menu"></script>
 <script src="crescimento.js?v=20261103-menu"></script>
 <script src="vita.js?v=20261104-bf3"></script>
-<script src="demo.js?v=20261104-bf3"></script>
+<script src="demo.js?v=20261104-opcoes"></script>
 </body>
 </html>

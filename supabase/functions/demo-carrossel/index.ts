@@ -4,6 +4,7 @@
 // Nunca inventa número (mesma regra do gerar-conteudo).
 // 04/11/2026: cada slide ganha uma FOTO REAL do banco próprio (banco_fotos, Unsplash), escolhida pela
 // categoria que combina com o texto do slide — sem IA extra e sem chamar API de fotos (custo zero).
+// 04/11/2026: aceita "publico" (primeira-compra | investidor) para direcionar o texto — mesma chamada, sem custo extra.
 // A categoria vem da própria resposta da IA que escreve o texto (campo "foto"); a regra por palavras fica de reserva.
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
 
@@ -11,6 +12,11 @@ const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "*";
 const CORS = { "Access-Control-Allow-Origin": ALLOWED_ORIGIN, "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...CORS, "Content-Type": "application/json" } });
 const POR_IP = 3, POR_DIA = 150;
+// público escolhido no exemplo (só estes valores; o texto vem daqui, nunca do visitante)
+const PUBLICOS: Record<string, string> = {
+  "primeira-compra": "quem vai comprar o primeiro imóvel (linguagem simples, medos e dúvidas de quem nunca comprou)",
+  "investidor": "investidores que compram imóvel para renda de aluguel ou valorização (foco em retorno, liquidez e localização)",
+};
 
 const SYSTEM = `Você escreve carrosséis virais de Instagram para corretores de imóveis no Brasil.
 Gere 6 slides: capa, 3 pontos, resumo e chamada final. Regras:
@@ -87,6 +93,7 @@ Deno.serve(async (req) => {
     const assunto = String(body?.assunto ?? "").replace(/\s+/g, " ").trim().slice(0, 120);
     if (assunto.length < 4) return json({ error: "Escreva um assunto com pelo menos 4 letras." }, 400);
 
+    const publico = PUBLICOS[String(body?.publico ?? "")] ?? "";
     const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "sem-ip";
     const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
     const desde = new Date(Date.now() - 86400000).toISOString();
@@ -100,7 +107,7 @@ Deno.serve(async (req) => {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST", signal: AbortSignal.timeout(40000),
       headers: { "content-type": "application/json", "x-api-key": Deno.env.get("ANTHROPIC_API_KEY")!, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: "claude-haiku-4-5", max_tokens: 1300, system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }], messages: [{ role: "user", content: `Assunto: "${assunto}"` }] }),
+      body: JSON.stringify({ model: "claude-haiku-4-5", max_tokens: 1300, system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }], messages: [{ role: "user", content: `Assunto: "${assunto}"` + (publico ? `\nPúblico do post: ${publico}. Fale direto com esse público desde a capa.` : "") }] }),
     });
     // deno-lint-ignore no-explicit-any
     const j: any = await r.json().catch(() => ({}));

@@ -500,8 +500,8 @@
     if (bar) bar.innerHTML = '<span class="promo-tag">Black Friday</span><span><b>Vitrine por R$ 29,90/mês</b>, travado por 12 meses · só os 50 primeiros, até 30/11</span><button class="promo-btn" data-cta="signup">Garantir minha vaga →</button>';
     var hero = document.querySelector(".lp-hero-promo");
     if (hero) hero.innerHTML = '<span>Black Friday: de <s>R$ 97</s> por <b>R$ 29,90/mês</b> por 12 meses · vagas limitadas</span>';
-    qsa('#landing-view [data-plan-period="monthly"] small').forEach(function (el) { el.textContent = "R$ 29,90 na Black Friday"; });
-    qsa('#landing-view [data-plan-period="yearly"] small').forEach(function (el) { el.textContent = "R$ 299 no 1º ano"; });
+    qsa('#landing-view [data-plan-period="monthly"] small').forEach(function (el) { el.textContent = "R$ 29,90/mês no cartão"; });
+    qsa('#landing-view [data-plan-period="yearly"] small').forEach(function (el) { el.textContent = "R$ 299 de uma vez"; });
     qsa("#landing-view .lp-plan").forEach(function (card) {
       var h3 = card.querySelector("h3"); if (!h3) return;
       var nome = h3.textContent.trim(), slug = BLACK_FRIDAY.porNome[nome];
@@ -510,10 +510,10 @@
         var p = BLACK_FRIDAY.precos[slug];
         var cheioM = (price.dataset.monthly || "").split("<")[0].trim(), cheioA = (price.dataset.yearly || "").split("<")[0].trim();
         price.dataset.monthly = '<s style="opacity:.55;font-size:.55em;margin-right:6px;">' + cheioM + '</s>' + fmtBRL2(p[0]) + '<span>/mês</span>';
-        price.dataset.yearly = '<s style="opacity:.55;font-size:.55em;margin-right:6px;">' + cheioA + '</s>' + fmtBRL2(p[1]) + '<span>/1º ano</span>';
+        price.dataset.yearly = '<s style="opacity:.55;font-size:.55em;margin-right:6px;">' + cheioA + '</s>' + fmtBRL2(p[1]) + '<span>/ano</span>';
         if (sub) {
-          sub.dataset.monthly = "Black Friday: preço travado por 12 meses, depois " + cheioM + "/mês.";
-          sub.dataset.yearly = "Black Friday: " + fmtBRL2(p[1]) + " no 1º ano, depois " + cheioA + "/ano.";
+          sub.dataset.monthly = "Assinatura cobrada automaticamente todo mês no cartão. Black Friday: " + fmtBRL2(p[0]) + " nas 12 primeiras mensalidades, depois " + cheioM + "/mês. Cancele quando quiser.";
+          sub.dataset.yearly = "Uma única cobrança de " + fmtBRL2(p[1]) + " no cartão, que vale 12 meses (sai " + fmtBRL2(Math.round(p[1] / 12 * 100) / 100) + "/mês). Depois renova por " + cheioA + "/ano.";
         }
       } else if (nome === "50+ corretores" && price) {
         price.dataset.monthly = '<s style="opacity:.55;font-size:.55em;margin-right:6px;">R$ 59,90</s>R$ 18,90<span>/corretor</span>';
@@ -525,7 +525,7 @@
       el.dataset.yearly = "Black Friday até 30/11, só para os 50 primeiros: desconto no 1º ano, aplicado automaticamente no pagamento.";
     });
     qsa("#landing-view [data-pix-note]").forEach(function (el) {
-      el.innerHTML = '💠 Prefere não assinar? <b>1 mês no Pix por ' + fmtBRL2(BLACK_FRIDAY.pix) + '</b> (Black Friday), pagamento único e sem renovação.';
+      el.innerHTML = '💠 Não quer assinatura? <b>1 mês avulso no Pix por ' + fmtBRL2(BLACK_FRIDAY.pix) + '</b> (Black Friday): paga uma vez, sem cobrança automática.';
     });
     qsa("#landing-view [data-plan-price], #landing-view [data-plan-sub], #landing-view [data-plan-note-secondary]").forEach(function (el) {
       var v = el.dataset.monthly; if (!v) return;
@@ -4632,8 +4632,8 @@
       : (promoAtiva() && Date.now() >= BLACK_FRIDAY.fim.getTime() ? '<div class="promo-plano" style="grid-column:1/-1;"><b>Oferta para novos assinantes:</b> 30% off no 1º mês do plano mensal, aplicado automaticamente no pagamento.</div>' : "");
     document.getElementById("plan-grid").innerHTML = promoHtml +
       '<div class="toggle-period" style="grid-column:1/-1;">' +
-      '<button data-period="mensal" class="' + (planPeriod === "mensal" ? "active" : "") + '">Mensal</button>' +
-      '<button data-period="anual" class="' + (planPeriod === "anual" ? "active" : "") + '">Anual · 2 meses grátis</button>' +
+      '<button data-period="mensal" class="' + (planPeriod === "mensal" ? "active" : "") + '">Assinatura mensal</button>' +
+      '<button data-period="anual" class="' + (planPeriod === "anual" ? "active" : "") + '">Assinatura anual · 2 meses grátis</button>' +
       '</div>' +
       state.planos.filter(function (p) { return p.tipo === "individual"; }).map(function (p) {
         var preco = planPeriod === "anual" ? p.preco_anual : p.preco_mensal;
@@ -4642,9 +4642,10 @@
           (p.destaque ? '<span class="badge">Mais escolhido</span>' : "") +
           '<h3>' + escapeHtml(p.nome) + '</h3>' +
           '<div class="plan-price mono">' + precoHtml(p, preco) + ' <span>/' + (planPeriod === "anual" ? "ano" : "mês") + '</span></div>' +
+          cobrancaHtml(p) +
           '<ul class="plan-feats">' + (p.recursos || []).map(function (f) { return '<li>' + ICONS.check + escapeHtml(f) + '</li>'; }).join("") + '</ul>' +
           '<button class="btn ' + (p.destaque ? "btn-primary" : "btn-2") + '" style="width:100%;justify-content:center;" data-subscribe="' + p.id + '" ' + (isCurrent ? "disabled" : "") + '>' +
-          (isCurrent ? "Plano atual" : "Assinar " + escapeHtml(p.nome)) + '</button></div>';
+          (isCurrent ? "Plano atual" : "Assinar no cartão") + '</button></div>';
       }).join("") + pixCardHtml();
 
     var equipes = state.planos.filter(function (p) { return p.tipo === "equipe"; });
@@ -4657,6 +4658,7 @@
           '<h3>' + escapeHtml(p.nome) + '</h3>' +
           '<div class="plan-price mono">' + precoHtml(p, preco) + ' <span>/' + (planPeriod === "anual" ? "ano" : "mês") + '</span></div>' +
           '<div style="font-size:12px;color:var(--ink-muted);margin:-4px 0 10px;">≈ R$ ' + porCorretor.toFixed(2).replace(".", ",") + ' por corretor/mês</div>' +
+          cobrancaHtml(p) +
           '<ul class="plan-feats">' + (p.recursos || []).map(function (f) { return '<li>' + ICONS.check + escapeHtml(f) + '</li>'; }).join("") + '</ul>' +
           '<button class="btn ' + (p.destaque ? "btn-primary" : "btn-2") + '" style="width:100%;justify-content:center;" data-subscribe="' + escapeHtml(p.id) + '" ' + (isCurrent ? "disabled" : "") + '>' + (isCurrent ? "Plano atual" : "Assinar " + escapeHtml(p.nome)) + '</button></div>';
       }).join("") +
@@ -4718,12 +4720,30 @@
     var valor = bf ? BLACK_FRIDAY.pix : Number(pro.preco_mensal);
     return '<div class="plan-card" style="border-style:dashed;">' +
       (bf ? '<span class="badge">Black Friday</span>' : "") +
-      '<h3>💠 1 mês no Pix</h3>' +
+      '<h3>💠 Sem assinatura: 1 mês no Pix</h3>' +
       '<div class="plan-price mono">' + (bf ? '<s style="opacity:.5;font-size:.6em;margin-right:6px;">' + fmtBRL(pro.preco_mensal) + '</s>' : "") + fmtBRL2(valor) + ' <span>/30 dias</span></div>' +
+      '<div style="font-size:12px;line-height:1.45;color:var(--ink-muted);margin:-2px 0 12px;">💠 Paga uma vez e usa por 30 dias. Nada fica cobrando no seu cartão.</div>' +
       '<ul class="plan-feats"><li>' + ICONS.check + 'Tudo do plano ' + escapeHtml(pro.nome) + ' por 30 dias</li><li>' + ICONS.check + 'Pagamento único, sem renovação automática</li><li>' + ICONS.check + 'Paga com QR Code ou Pix copia e cola</li></ul>' +
       '<button class="btn btn-2" style="width:100%;justify-content:center;" data-pix="' + escapeHtml(pro.id) + '">' + (ehPix() ? "Pagar mais 1 mês no Pix" : "Pagar 1 mês no Pix") + '</button>' +
-      (bf ? '<div style="font-size:11.5px;color:var(--ink-muted);margin-top:8px;">Preço de Black Friday até 30/11. A assinatura no cartão sai mais barata por mês.</div>' : "") +
+      (bf ? '<div style="font-size:11.5px;color:var(--ink-muted);margin-top:8px;">Preço de Black Friday até 30/11. Quem assina no cartão paga menos por mês.</div>' : "") +
       '</div>';
+  }
+
+  // explica em uma linha como a assinatura é cobrada (mensal recorrente x anual de uma vez), sem ambiguidade com o Pix avulso
+  function cobrancaHtml(p) {
+    var anual = planPeriod === "anual";
+    var cheio = Number(anual ? p.preco_anual : p.preco_mensal);
+    var bf = bfAtiva() ? bfPreco(p.slug, planPeriod) : null;
+    var txt;
+    if (anual) {
+      var valor = bf || cheio;
+      txt = "💳 Uma única cobrança de " + fmtBRL2(valor) + " no cartão, que vale 12 meses (sai " + fmtBRL2(Math.round(valor / 12 * 100) / 100) + "/mês)." +
+        (bf ? " Renova por " + fmtBRL(cheio) + "/ano." : " Renova uma vez por ano.") + " Cancele quando quiser.";
+    } else {
+      txt = "💳 Assinatura: cobrada automaticamente todo mês no cartão." +
+        (bf ? " " + fmtBRL2(bf) + " nas 12 primeiras mensalidades, depois " + fmtBRL(cheio) + "/mês." : "") + " Cancele quando quiser.";
+    }
+    return '<div style="font-size:12px;line-height:1.45;color:var(--ink-muted);margin:-2px 0 12px;">' + txt + '</div>';
   }
 
   function precoHtml(p, preco) {

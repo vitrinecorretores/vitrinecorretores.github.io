@@ -2505,13 +2505,29 @@
       (linhas.length ? linhas.map(function (c) {
         return '<tr><td><b>' + escapeHtml(c.nome || "—") + '</b><div class="sub">' + escapeHtml(c.cidade || "") + (c.creci ? " · CRECI " + escapeHtml(c.creci) : "") + '</div></td>' +
           '<td>' + escapeHtml(c.email) + (c.email_confirmado ? "" : ' <span class="sub">(e-mail não confirmado)</span>') + '<div class="sub">' + escapeHtml(c.telefone || "") + '</div>' + linkBoasVindas(c) + '</td>' +
-          '<td>' + pill(c) + (c.fim && c.status === "ativa" ? '<div class="sub">renova ' + fmtDate(c.fim) + '</div>' : "") + '</td>' +
+          '<td>' + pill(c) + (c.fim && c.status === "ativa" ? '<div class="sub">renova ' + fmtDate(c.fim) + '</div>' : "") +
+          '<div style="margin-top:6px;"><button type="button" class="adm-wa adm-equipe" data-adm-equipe="' + escapeHtml(c.email || "") + '" style="background:none;border:0;cursor:pointer;padding:0;">🏢 Liberar teste de equipe</button></div></td>' +
           '<td>' + c.carrosseis + ' carrossel' + (c.carrosseis === 1 ? "" : "éis") + '<div class="sub">' + c.publicados + ' publicado' + (c.publicados === 1 ? "" : "s") + (c.status === "trial" ? " · teste " + c.trial_usado + "/" + c.trial_limite : "") + '</div></td>' +
           '<td>' + (c.instagram ? escapeHtml(c.instagram) : '<span class="sub">não conectado</span>') + '</td>' +
           '<td>' + fmtDate(c.cadastrado_em) + '</td>' +
           '<td>' + (c.ultimo_login ? fmtDateTime(c.ultimo_login) : '<span class="sub">nunca</span>') + '</td></tr>';
       }).join("") : '<tr><td colspan="7" style="padding:24px;color:var(--ink-muted);">Nenhuma conta encontrada.</td></tr>') + '</tbody>';
   }
+  // imobiliária grande topou: libera o teste de equipe no plano escolhido (padrão: 30 corretores, 14 dias)
+  document.addEventListener("click", async function (ev) {
+    var b = ev.target.closest && ev.target.closest("[data-adm-equipe]"); if (!b) return;
+    var email = b.getAttribute("data-adm-equipe");
+    var qtd = prompt("Teste de equipe para " + email + "\n\nQuantos corretores? (5, 10 ou 30)", "30");
+    if (qtd === null) return;
+    var slug = { "5": "imob-5", "10": "imob-10", "30": "imob-30" }[String(qtd).trim()];
+    if (!slug) { toast("Escolha 5, 10 ou 30 corretores."); return; }
+    var dias = prompt("Quantos dias de teste?", "14"); if (dias === null) return;
+    dias = parseInt(dias, 10); if (!(dias >= 1 && dias <= 60)) { toast("Dias entre 1 e 60."); return; }
+    b.disabled = true;
+    try { var r = await rpc("admin_liberar_teste_equipe", { p_email: email, p_slug: slug, p_dias: dias }); toast("Liberado: " + (typeof r === "string" ? r : "ok")); renderAdmin(true); }
+    catch (e) { toast("Não consegui liberar: " + e.message); }
+    finally { b.disabled = false; }
+  });
   function baixarCsvAdmin() {
     var cols = ["nome", "email", "telefone", "cidade", "creci", "status", "plano", "periodo", "carrosseis", "publicados", "instagram", "cadastrado_em", "ultimo_login"];
     var esc = function (v) { v = v == null ? "" : String(v); if (/^[=+\-@]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };

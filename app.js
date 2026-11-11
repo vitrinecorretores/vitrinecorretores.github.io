@@ -4836,6 +4836,13 @@
         showScreen(b.dataset.screen);
       });
     });
+    // celular: gaveta do menu completo (botão "Menu" da barra inferior)
+    function gaveta(abrir) { document.body.classList.toggle("nav-aberta", !!abrir); }
+    var mm = document.getElementById("mbar-menu"); if (mm) mm.addEventListener("click", function () { gaveta(true); });
+    var mf = document.getElementById("mnav-fechar"); if (mf) mf.addEventListener("click", function () { gaveta(false); });
+    var mfu = document.getElementById("mnav-fundo"); if (mfu) mfu.addEventListener("click", function () { gaveta(false); });
+    qsa(".sidebar .navitem, .sidebar .sidebar-suporte").forEach(function (b) { b.addEventListener("click", function () { gaveta(false); }); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") gaveta(false); });
     document.getElementById("overlay").addEventListener("click", function (e) { if (e.target.id === "overlay") closeModal(); });
     document.getElementById("logout-btn").addEventListener("click", async function () {
       if (!window.confirm("Sair da sua conta na Vitrine?")) return;

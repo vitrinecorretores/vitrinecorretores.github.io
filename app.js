@@ -755,7 +755,7 @@
   function nomeAutor() {
     var p = (typeof state !== "undefined" && state.profile) || {};
     var sel = (typeof state !== "undefined" && state.igContas && state.igContas[0]) || null;
-    var ig = AUTOR_IG || (sel && sel.username) || (typeof state !== "undefined" && state.igConta && state.igConta.status === "ativo" && state.igConta.username) || "";
+    var ig = AUTOR_IG || (sel && sel.username) || (typeof state !== "undefined" && state.igConta && state.igConta.status === "ativo" && state.igConta.username) || p.instagram_usuario || "";
     var nome = p.nome || "Seu Nome";
     return { nome: nome, user: ig || nome.toLowerCase().replace(/[^a-z0-9]+/g, "") || "seuperfil" };
   }
@@ -5098,11 +5098,19 @@
         '<p style="font-size:15px;line-height:1.55;margin:8px 0 10px;"><b>Corretor que aparece todo dia é o corretor que o cliente lembra na hora de comprar.</b> E a partir de hoje, aparecer todo dia é problema da Vitrine, não seu.</p>' +
         '<p style="color:var(--ink-muted);font-size:14px;line-height:1.6;margin:0 0 14px;">Em uns 2 minutos eu monto a sua <b>semana inteira de posts</b>: escolho os assuntos que o seu cliente procura, crio os carrosséis com a sua marca e agendo nos melhores horários. Você só confere e aprova.</p>' +
         '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 18px;font-size:12.5px;"><span class="np-rapido" style="padding:5px 10px;border-radius:999px;background:rgba(212,255,63,.12);color:var(--accent,#D4FF3F);font-weight:600;">✓ ' + (diasDeTeste() > 0 ? diasDeTeste() + " dias com tudo liberado" : "Tudo liberado") + '</span><span style="padding:5px 10px;border-radius:999px;background:rgba(212,255,63,.12);color:var(--accent,#D4FF3F);font-weight:600;">✓ Sem cartão</span><span style="padding:5px 10px;border-radius:999px;background:rgba(212,255,63,.12);color:var(--accent,#D4FF3F);font-weight:600;">✓ Sem designer</span></div>' +
+        (state.profile && !state.profile.instagram_usuario ? '<label style="display:block;font-size:13px;color:var(--ink-muted);margin:0 0 14px;">Qual o @ do seu Instagram? <span style="opacity:.7">(opcional, vai no rodapé dos posts)</span><input id="pa-ig" type="text" inputmode="text" autocomplete="off" placeholder="@seuperfil" style="display:block;width:100%;margin-top:6px;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.04);color:inherit;font-size:15px;"></label>' : '') +
         '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" id="pa-depois">Quero criar um post primeiro</button><button class="btn btn-primary" id="pa-semana">🗓️ Montar minha semana agora</button></div>';
       document.getElementById("overlay").hidden = false;
       document.getElementById("modal-close").onclick = closeModal;
-      document.getElementById("pa-depois").onclick = function () { closeModal(); showScreen("novo"); };
-      document.getElementById("pa-semana").onclick = function () { closeModal(); showScreen("semana"); abrirSemanaPronta(); };
+      function salvarIg() {
+        var el = document.getElementById("pa-ig"); if (!el) return;
+        var v = el.value.trim().toLowerCase().replace(/^@+/, "").replace(/^https?:\/\/(www\.)?instagram\.com\//, "").replace(/[/?#].*$/, "");
+        if (!/^[a-z0-9._]{1,30}$/.test(v)) return;
+        state.profile.instagram_usuario = v;
+        DB.update("profiles", "id=eq." + state.profile.id, { instagram_usuario: v }).catch(function () { });
+      }
+      document.getElementById("pa-depois").onclick = function () { salvarIg(); closeModal(); showScreen("novo"); };
+      document.getElementById("pa-semana").onclick = function () { salvarIg(); closeModal(); showScreen("semana"); abrirSemanaPronta(); };
     }, 900);
   }
 
